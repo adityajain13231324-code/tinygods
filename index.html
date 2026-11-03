@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tiny Gods</title>
+    <meta name="description" content="Secretly nudge a peaceful town into war, then argue about whose fault it was." />
+    <meta name="theme-color" content="#1c3320" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='17' r='12' fill='%23e5533d' stroke='%238f2a1a' stroke-width='3'/%3E%3Ccircle cx='12' cy='15' r='2' fill='%232b2622'/%3E%3Ccircle cx='20' cy='15' r='2' fill='%232b2622'/%3E%3Cpath d='M11 21q5 4 10 0' fill='none' stroke='%232b2622' stroke-width='2'/%3E%3C/svg%3E" />
+    <style>
+      html, body { margin: 0; height: 100%; background: #20301f; overflow: hidden; font-family: system-ui, sans-serif; }
+      #game { position: fixed; inset: 0; }
+      #flash { position: fixed; inset: 0; background: #fff6d8; opacity: 0; pointer-events: none; z-index: 5; }
+      #fps {
+        position: fixed; left: 8px; bottom: 6px; color: rgba(246, 241, 224, 0.6);
+        font-size: 11px; pointer-events: none; user-select: none;
+      }
+    </style>
+  </head>
+  <body>
+    <noscript>Tiny Gods needs JavaScript. Please enable it.</noscript>
+    <div id="game"></div>
+    <div id="flash"></div>
+    <div id="ui"></div>
+    <div id="fps"></div>
+    <script type="module" src="/src/entry.js"></script>
+  </body>
+</html>
