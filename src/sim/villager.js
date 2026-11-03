@@ -81,6 +81,8 @@ export function createVillager(rng, { id, name, shape, faction, x, y, count = 60
     peaceCooldown: 0, // a peacemaker who just separated people waits before trying again
     heard: new Set(), // rumor ids already heard
     believed: [], // rumors this villager believes (and repeats)
+    brewId: -1, // who I am glaring at before I start a fight with them (-1: nobody)
+    brewUntil: 0, // sim time at which the glare turns into a punch
     scuffleChecked: false, // has this fist fight already had its one chance to break off?
     activity: null, // what they are doing at a place: 'dance' | 'rest' | 'shop' | 'pray' | 'train' | 'fish' | 'garden' | 'eat'
     partnerId: -1, // the villager they are bonded with, or -1

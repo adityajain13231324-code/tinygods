@@ -9,13 +9,15 @@ import { TENSION } from '../config/tunables.js';
 export function updateTension(world, dt) {
   let attackers = 0;
   let fleeing = 0;
+  let glaring = 0;
   for (const v of world.villagers) {
     if (!v.alive) continue;
     if (v.state === 'attack') attackers++;
     else if (v.state === 'flee') fleeing++;
+    else if (v.brewId >= 0) glaring++;
   }
   world.drama *= Math.exp(-dt / TENSION.dramaFadeSeconds);
-  const target = Math.min(100, attackers * TENSION.perFighter + fleeing * TENSION.perFleer + world.drama + world.baseTension);
+  const target = Math.min(100, attackers * TENSION.perFighter + fleeing * TENSION.perFleer + glaring * TENSION.perGlarer + world.drama + world.baseTension);
   world.tension += (target - world.tension) * Math.min(1, dt * TENSION.easeRate);
 }
 

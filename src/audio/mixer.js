@@ -73,6 +73,7 @@ export class Mixer {
       setInterval(() => this.chirp(), 2400),
       setInterval(() => this.nextChord(), 7000),
       setInterval(() => this.heartbeat(), 800),
+      setInterval(() => this.crowdShout(), 1700),
     ];
     this.nextChord();
   }
@@ -164,6 +165,7 @@ export class Mixer {
     talkBand.type = 'bandpass';
     talkBand.frequency.value = 520;
     talkBand.Q.value = 0.8;
+    this.talkBand = talkBand;
     const talkSwell = c.createOscillator();
     talkSwell.frequency.value = 0.37;
     const swellDepth = c.createGain();
@@ -239,8 +241,10 @@ export class Mixer {
 
   updateMurmur() {
     if (!this.ctx) return;
-    const quiet = 1 - clamp01((this.lastTension - 30) / 50) * 0.7;
-    this.murmur.gain.setTargetAtTime(0.045 * this.crowd * quiet, this.ctx.currentTime, 1.2);
+    const angry = clamp01((this.lastTension - 30) / 50);
+    // a calm crowd chatters; an angry one is louder and lower, a muttering roar
+    this.murmur.gain.setTargetAtTime(0.045 * this.crowd * (1 + angry * 0.9) * (1 - angry * 0.3), this.ctx.currentTime, 1.2);
+    this.talkBand.frequency.setTargetAtTime(520 - angry * 230, this.ctx.currentTime, 1.2);
   }
 
   nextChord() {
@@ -296,6 +300,13 @@ export class Mixer {
       this.tone(base * 1.5, base * 0.8, 0.16, 'sine', 0.03);
     }
     this.dest = save;
+  }
+
+  /** When the town is angry, villagers shout in the distance. */
+  crowdShout() {
+    if (!this.ctx || this.ctx.state !== 'running' || this.lastTension < 38) return;
+    if (Math.random() < 0.75 - (this.lastTension - 38) / 100) return;
+    this.play(Math.random() < 0.6 ? 'shout' : 'growl', rand(0, WORLD_WIDTH));
   }
 
   /** A low heartbeat that creeps in when the town is close to chaos. */
@@ -446,55 +457,141 @@ export class Mixer {
 
 const pitchJitter = () => rand(0.92, 1.08); // so repeated hits never sound identical
 
+// Hits are built the way real impacts sound: a low body thump (the mass), a short filtered
+// noise "slap" (skin, cloth, wood or steel meeting), and a quiet high crack for the attack.
 const SOUNDS = {
   squeak: { gap: 120, play: (m) => { const f = rand(800, 1300); m.tone(f, f * 1.6, 0.09, 'sine', 0.05); } },
   pop: { gap: 150, play: (m) => { m.tone(420, 140, 0.1, 'sine', 0.12); m.bell(1200, 0.2, 0.02); } },
+  // fist or open hand on a body: dull thump, soft flesh noise, a little grunt of breath
   slap: {
     play: (m) => {
       const p = pitchJitter();
-      m.burst(0.08, 'bandpass', 1500 * p, 600, 0.3, 0, 0.8);
-      m.tone(190 * p, 60, 0.11, 'sine', 0.32);
-      m.burst(0.02, 'highpass', 4000, 3000, 0.1);
+      m.tone(120 * p, 45, 0.16, 'sine', 0.42);
+      m.burst(0.07, 'lowpass', 1800 * p, 350, 0.34);
+      m.burst(0.025, 'bandpass', 2600, 1800, 0.12, 0, 1.4);
+      m.burst(0.16, 'bandpass', 700 * p, 400, 0.05, 0.03, 1.2);
     },
   },
-  thwack: { play: (m) => { const p = pitchJitter(); m.burst(0.12, 'lowpass', 1300 * p, 200, 0.28); m.tone(140 * p, 50, 0.18, 'sine', 0.3); m.tone(520 * p, 300, 0.06, 'triangle', 0.1); } },
+  // a bat: woody crack over a heavy thump
+  thwack: {
+    play: (m) => {
+      const p = pitchJitter();
+      m.tone(900 * p, 260, 0.05, 'triangle', 0.16);
+      m.burst(0.05, 'highpass', 2200, 1200, 0.22);
+      m.tone(105 * p, 40, 0.22, 'sine', 0.45);
+      m.burst(0.12, 'lowpass', 900 * p, 160, 0.3, 0.01);
+    },
+  },
+  // a frying pan: a flat metal "bonk" with a short ring
   clang: {
     wet: 0.3,
     play: (m) => {
       const p = pitchJitter();
-      [640, 1010, 1630, 2230].forEach((f, i) => m.tone(f * p, f * p * 0.995, 0.5 - i * 0.07, 'square', 0.04 / (i + 1)));
-      m.burst(0.03, 'highpass', 5000, 3500, 0.15);
+      [430, 817, 1290, 1860, 2610].forEach((f, i) => m.tone(f * p, f * p * 0.99, 0.55 - i * 0.08, 'sine', 0.1 / (i + 1)));
+      m.tone(110, 60, 0.12, 'sine', 0.3);
+      m.burst(0.02, 'highpass', 4500, 3500, 0.16);
     },
   },
-  stab: { play: (m) => { const p = pitchJitter(); m.burst(0.09, 'highpass', 3500, 1500, 0.16); m.tone(2400 * p, 3300, 0.12, 'sine', 0.025); m.tone(160, 60, 0.1, 'sine', 0.16); } },
-  gunshot: {
-    gap: 100, wet: 0.45,
+  // a knife: a wet slice (noise sweeping up) and a dull thud
+  stab: {
     play: (m) => {
-      m.burst(0.07, 'highpass', 1800, 800, 0.55);
-      m.burst(0.4, 'lowpass', 1100, 120, 0.5);
-      m.tone(125, 35, 0.35, 'sine', 0.45);
+      const p = pitchJitter();
+      m.burst(0.12, 'bandpass', 900 * p, 3200, 0.2, 0, 2);
+      m.burst(0.05, 'lowpass', 1200, 300, 0.22, 0.04);
+      m.tone(140 * p, 55, 0.12, 'sine', 0.26, 0.03);
+    },
+  },
+  // pistol: a sharp crack, a boom, and a long reverberant tail from the town's walls
+  gunshot: {
+    gap: 100, wet: 0.55,
+    play: (m) => {
+      m.burst(0.012, 'highpass', 3000, 2500, 0.8);
+      m.burst(0.05, 'bandpass', 2400, 900, 0.55, 0, 0.7);
+      m.tone(150, 42, 0.28, 'sine', 0.5);
+      m.burst(0.5, 'lowpass', 1400, 90, 0.38, 0.01);
+      m.burst(0.6, 'bandpass', 500, 250, 0.1, 0.06, 0.5);
     },
   },
   shotgun: {
-    gap: 150, wet: 0.6,
+    gap: 150, wet: 0.7,
     play: (m) => {
-      m.burst(0.09, 'highpass', 1400, 500, 0.7);
-      m.burst(0.55, 'lowpass', 1500, 70, 0.75);
-      m.tone(95, 28, 0.5, 'sine', 0.6);
-      m.burst(0.02, 'highpass', 3500, 3000, 0.25, 0.5); // pump action
-      m.burst(0.02, 'highpass', 3000, 2500, 0.2, 0.58);
+      m.burst(0.02, 'highpass', 2500, 2000, 0.9);
+      m.burst(0.1, 'bandpass', 1800, 500, 0.7, 0, 0.6);
+      m.tone(100, 28, 0.55, 'sine', 0.7);
+      m.burst(0.7, 'lowpass', 1600, 70, 0.7, 0.01);
+      m.burst(0.02, 'highpass', 3500, 3000, 0.25, 0.55); // pump action: clack-clack
+      m.tone(900, 700, 0.02, 'square', 0.05, 0.55);
+      m.burst(0.02, 'highpass', 3000, 2500, 0.2, 0.64);
+      m.tone(700, 500, 0.02, 'square', 0.05, 0.64);
     },
   },
-  swing: { gap: 90, play: (m) => m.burst(0.13, 'bandpass', 350, 1400, 0.07, 0, 0.7) },
+  // a big blast: a deep boom, a crackling debris rumble and a long shockwave tail
+  explosion: {
+    gap: 150, wet: 0.7,
+    play: (m) => {
+      m.tone(80, 22, 0.9, 'sine', 0.9);
+      m.burst(0.12, 'lowpass', 4000, 400, 0.9);
+      m.burst(1.4, 'lowpass', 1100, 60, 0.7, 0.02);
+      m.burst(0.9, 'bandpass', 2600, 500, 0.12, 0.1, 0.6);
+      for (let i = 0; i < 6; i++) m.burst(0.04, 'highpass', 3000 + i * 200, 1500, 0.1, 0.25 + i * 0.12 + Math.random() * 0.05); // falling debris
+    },
+  },
+  swing: { gap: 90, play: (m) => m.burst(0.16, 'bandpass', 350, 1500, 0.08, 0, 0.9) },
+  // a scream with breath: a rising voice, a cracked second note, and a noisy edge
   scream: {
     gap: 200, wet: 0.3,
     play: (m) => {
-      const p = rand(0.85, 1.3);
-      m.voiceShape(520 * p, 980 * p, 0.28, 0.05, 0, 'ee');
-      m.voiceShape(980 * p, 640 * p, 0.3, 0.05, 0.27, 'ah');
+      const high = Math.random() < 0.5;
+      const p = (high ? 1.25 : 0.75) * rand(0.9, 1.1);
+      m.voiceShape(470 * p, 980 * p, 0.22, 0.06, 0, 'ee');
+      m.voiceShape(980 * p, 700 * p, 0.34, 0.06, 0.2, 'ah');
+      m.voiceShape(720 * p, 420 * p, 0.25, 0.04, 0.52, 'ah');
+      m.burst(0.6, 'bandpass', 2200 * p, 1400, 0.035, 0.05, 1.5);
     },
   },
-  thud: { gap: 80, play: (m) => { m.tone(95, 34, 0.32, 'sine', 0.38); m.burst(0.14, 'lowpass', 300, 90, 0.2); } },
+  // a death: the body dropping, a last short cry
+  thud: { gap: 80, play: (m) => { m.tone(85, 28, 0.4, 'sine', 0.5); m.burst(0.18, 'lowpass', 400, 80, 0.25); m.burst(0.05, 'bandpass', 1500, 600, 0.06, 0.02); } },
+  // a low angry growl when a villager starts to scowl at an enemy
+  growl: {
+    gap: 260, wet: 0.15,
+    play: (m) => {
+      const p = rand(0.85, 1.25);
+      const t = m.ctx.currentTime;
+      const o = m.ctx.createOscillator();
+      o.type = 'sawtooth';
+      o.frequency.setValueAtTime(95 * p, t);
+      o.frequency.exponentialRampToValueAtTime(70 * p, t + 0.7);
+      const trem = m.ctx.createOscillator();
+      trem.frequency.value = 26;
+      const td = m.ctx.createGain();
+      td.gain.value = 0.5;
+      const g = m.ctx.createGain();
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.18, t + 0.12);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.75);
+      trem.connect(td).connect(g.gain);
+      for (const fc of [480, 900]) {
+        const bp = m.ctx.createBiquadFilter();
+        bp.type = 'bandpass';
+        bp.frequency.value = fc * p;
+        bp.Q.value = 4;
+        o.connect(bp).connect(g);
+      }
+      g.connect(m.dest);
+      o.start(t); trem.start(t);
+      o.stop(t + 0.8); trem.stop(t + 0.8);
+      m.burst(0.6, 'bandpass', 600, 400, 0.04, 0.05, 1);
+    },
+  },
+  // someone yelling in the distance: a short angry shout
+  shout: {
+    gap: 500, wet: 0.5,
+    play: (m) => {
+      const p = rand(0.8, 1.3);
+      m.voiceShape(260 * p, 330 * p, 0.2, 0.05, 0, 'ah');
+      m.voiceShape(330 * p, 210 * p, 0.3, 0.05, 0.18, 'ah');
+    },
+  },
   jingle: { gap: 800, wet: 0.35, play: (m) => { [523, 659, 784, 1046].forEach((f, i) => m.bell(f, i === 3 ? 0.9 : 0.4, 0.07, i * 0.13)); } },
   bond: { gap: 400, wet: 0.35, play: (m) => { m.bell(784, 0.6, 0.05); m.bell(1175, 0.8, 0.05, 0.12); } },
   shutter: { gap: 300, play: (m) => { m.burst(0.025, 'highpass', 5000, 3500, 0.22); m.tone(1700, 800, 0.04, 'square', 0.05); m.burst(0.03, 'highpass', 4000, 2500, 0.16, 0.07); } },

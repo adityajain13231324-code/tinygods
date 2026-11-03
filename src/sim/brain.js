@@ -1,4 +1,4 @@
-import { WALL, WORLD, BRAIN, VILLAGER, SIM, COMBAT, ORDERS, WEAPONS, ARMORY, GRIEVANCE, TRAITS, ACTIVITY, BOND, FESTIVAL } from '../config/tunables.js';
+import { WALL, WORLD, BRAIN, VILLAGER, SIM, COMBAT, ORDERS, WEAPONS, ARMORY, GRIEVANCE, TENSION, TRAITS, ACTIVITY, BOND, FESTIVAL } from '../config/tunables.js';
 import { breakBond, createBond, isFree } from './bonds.js';
 import { logPair } from './history.js';
 import { exchangeRumors } from './rumors.js';
@@ -346,7 +346,7 @@ function inFog(world, v) {
 
 /** Start a fight with someone I am fed up with (or hold a grudge against). */
 function pickFight(world, v) {
-  if (cantStart(v) || world.time < v.calmUntil || inFog(world, v)) return false;
+  if (cantStart(v) || world.time < v.calmUntil || inFog(world, v)) return stopGlare(world, v);
   let target = null;
   let bestD = world.seekRadius;
   for (const o of world.villagers) {
@@ -362,14 +362,51 @@ function pickFight(world, v) {
       target = o;
     }
   }
-  if (!target) return false;
+  if (!target) return stopGlare(world, v);
 
   if (v.state === 'attack' && v.targetId === target.id) return true;
   const nerve = v.aggression + world.rng() * COMBAT.attackRoll;
-  if (v.state !== 'attack' && nerve <= v.courage * COMBAT.attackCourageFactor) return false;
+  if (v.state !== 'attack' && nerve <= v.courage * COMBAT.attackCourageFactor) return stopGlare(world, v);
+
+  // Nobody goes from calm to killing: they scowl first (the angrier the town, the shorter the scowl).
+  if (v.brewId !== target.id) {
+    v.brewId = target.id;
+    v.brewUntil = world.time + glareSeconds(world, v);
+    if (v.state !== 'attack') {
+      v.state = 'idle';
+      v.activity = null;
+      v.purpose = null;
+      v.targetId = target.id;
+      v.expression = 'angry';
+      v.timer = v.brewUntil - world.time + 0.5;
+    }
+  }
+  if (world.time < v.brewUntil && v.state !== 'attack') return true;
+  v.brewId = -1;
+  if (world.peaceful) { // shouting is allowed in the first days, fists are not
+    v.calmUntil = world.time + 6;
+    startIdle(world, v, 'peace');
+    return true;
+  }
   startAttack(world, v, target, 'fed up');
   if (v.trait === 'brawler' || v.trait === 'wildcard') v.revealed = true;
   return true;
+}
+
+/** Seconds of scowling before a spontaneous fight: shorter for hotheads and when the tension bar is high. */
+function glareSeconds(world, v) {
+  const [calm, edge] = TENSION.glareSeconds;
+  const heat = Math.min(1, Math.max(0, world.tension / 100));
+  const hothead = v.trait === 'brawler' ? 0.6 : v.trait === 'coward' ? 1.3 : 1;
+  return (calm + (edge - calm) * heat) * hothead * (0.8 + world.rng() * 0.4);
+}
+
+/** They were scowling but the moment passed: drop the glare and the angry face. */
+function stopGlare(world, v) {
+  if (v.brewId < 0) return false;
+  v.brewId = -1;
+  if (v.state === 'idle' && v.expression === 'angry') v.expression = 'calm';
+  return false;
 }
 
 /** Medics heal, peacemakers separate fighters, bodyguards defend their friend. */
@@ -697,6 +734,7 @@ export function startIdle(world, v, why = '') {
   v.expression = 'calm';
   v.targetId = null;
   v.purpose = null;
+  v.brewId = -1;
   v.timer = range(world.rng, BRAIN.idleSeconds);
 }
 
@@ -706,6 +744,7 @@ export function startAttack(world, v, target, cause = 'fed up') {
   else if (v.targetId !== target.id) note(world, `retarget: ${cause}`);
   v.state = 'attack';
   v.expression = 'angry';
+  v.brewId = -1;
   v.targetId = target.id;
   v.purpose = null;
   v.escalation = escalationFor(v, target);
@@ -871,7 +910,7 @@ function act(world, v, dt) {
 
   [v.x, v.y] = clampIn(world, v.x + v.vx * dt, v.y + v.vy * dt);
 
-  if (v.state === 'talk' || v.state === 'attack' || v.state === 'mourn') {
+  if (v.state === 'talk' || v.state === 'attack' || v.state === 'mourn' || v.brewId >= 0) {
     const other = world.villagers[v.targetId];
     if (other) v.facing = other.x >= v.x ? 1 : -1;
   } else if (Math.abs(v.vx) > 4) {
@@ -954,7 +993,7 @@ function updateThought(world, v) {
       break;
     }
     default:
-      if (v.fx.follow || v.purpose === 'follow') icon = 'flag';
+      if (v.brewId >= 0) { icon = 'angry'; group = groupOf(world.villagers[v.brewId]); } else if (v.fx.follow || v.purpose === 'follow') icon = 'flag';
   }
 
   // Bonded partners standing together glow.

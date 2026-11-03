@@ -246,6 +246,7 @@ export class VillagerView {
       case 'flee': return 'flee';
       case 'mourn': return 'mourn';
       default:
+        if (v.brewId >= 0 && v.state === 'idle') return 'argue';
         if (moving) return 'walk';
         return v.state === 'idle' && v.activity ? v.activity : 'idle';
     }

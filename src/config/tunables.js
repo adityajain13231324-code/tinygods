@@ -371,6 +371,8 @@ export const REPLAY = {
 export const TENSION = {
   perFighter: 5, // each villager currently fighting adds this
   perFleer: 2,
+  perGlarer: 2.5, // someone glaring at an enemy, about to throw the first punch, already raises the bar
+  glareSeconds: [2.8, 0.5], // how long they scowl before swinging: calm town .. town at the edge (tension 0 .. 100)
   killDrama: 12, // a kill spikes the tension by this, fading out...
   gunshotDrama: 15,
   dramaFadeSeconds: 6, // ...over about this long

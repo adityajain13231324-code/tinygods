@@ -233,7 +233,7 @@ export class Effects {
       this.emit('flash', e.x, e.y, { vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: 0.5, s0: 1.6, s1: 0.3 });
     }
     for (let i = 0; i < 10; i++) this.emit('crumb', e.x, e.y, { vx: (Math.random() - 0.5) * 300, vy: -120 - Math.random() * 200, gravity: 500, life: 0.9, tint: 0x3a3a3a });
-    this.audio?.play('shotgun', e.x);
+    this.audio?.play('explosion', e.x);
   }
 
   drawFogs() {
@@ -428,6 +428,8 @@ export class Effects {
     f.swing = v.swing;
     if (v.state === 'attack' && f.state !== 'attack') this.emit('exclaim', hx, hy - 8, { vy: -18, life: 0.7 });
     if (v.state === 'talk' && f.state !== 'talk' && Math.random() < 0.35) this.audio?.play('squeak', view.root.x);
+    if (v.brewId >= 0 && !(f.brew >= 0)) this.audio?.play('growl', view.root.x);
+    f.brew = v.brewId;
     f.state = v.state;
 
     // Wounded villagers drip, and leave a trail of drops behind them as they stagger.
