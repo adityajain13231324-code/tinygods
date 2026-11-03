@@ -131,7 +131,7 @@ Click anywhere once so the browser allows sound.
 
 ## Review pass: menu, pass-and-play, rumors, turncoats, pacing
 
-- [ ] Opening the site shows the **main menu** (Play vs bots, Pass and play, Daily town, How to play, a greyed "Play online: coming soon", and sound / blood / cutscene settings). "How to play" has six short sections.
+- [ ] Opening the site shows the **main menu** (Play vs bots, Pass and play, Daily town, How to play, "Play online", and sound / blood / cutscene settings). "How to play" has six short sections.
 - [ ] **Pass and play:** pick 2-4 players and type names. Each player gets a full-screen "Pass the device to NAME" card; the town is hidden until they press Ready. Orders are never shown to the next player, the top bar does not say "Your orders", and the gold ring only shows on the active player's faction.
 - [ ] In pass-and-play each player has their own timer (40 s for orders, 20 s for guesses); when it runs out, what they had picked is submitted.
 - [ ] The guess reveal lists how every human did. The end screen names the winning player.
@@ -170,3 +170,12 @@ Click anywhere once so the browser allows sound.
 - `node tools/effects-test.js`: bomb timing, gust and earthquake displacement.
 - Type "hunt" with nothing else: you should see real names from different factions, not the same one twice.
 - Play the Time Bomb card at a busy place: a ticking bomb appears, then a blast with a ring and flung villagers.
+
+## Online play (M4)
+- [ ] `npm run net-test` prints PASS for every match (host + 1-3 guests over a fake laggy network, live miracles, one player dropping out).
+- [ ] Two browser tabs: tab A "Play online" > "Create a room"; tab B opens the invite link (or types the code) > "Join". The lobby lists both names. A presses Start; both load the same town, B is the Tides.
+- [ ] Both submit orders; the top-right list shows "✔ ready" for whoever has handed theirs in; the town acts and looks identical in both tabs (same fights, same deaths).
+- [ ] From day 3, a miracle cast in one tab appears in both tabs a fraction of a second later.
+- [ ] Closing the guest tab: the host sees "PLAYER LEFT", a bot takes the faction next dawn. Closing the host tab: guests see "The host left".
+- [ ] No pause or speed buttons online. "Back to the menu" replaces Rematch.
+- [ ] Not tested (no second machine): play across two real devices/networks, strict firewalls (no TURN relay is set up, so a few networks will not connect), and tab throttling when a player switches tabs for a long time.

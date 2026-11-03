@@ -17,7 +17,7 @@ npm run dev        # open the printed address
 
 Menu: **Play vs bots**, **Pass and play** (2-4 friends on one device, with a "pass the device"
 screen between players), **Daily town** (same town for everyone today), **How to play**.
-Online rooms are not built yet.
+**Play online**: one player creates a room and shares the 5-letter code (or the invite link); up to 4 people join from their own devices, bots fill empty seats. No game server is needed: browsers connect to each other (WebRTC via the free PeerJS broker), and the host's browser runs the room. If the host closes the tab the match ends. `npm run net-test` checks that every browser stays in sync.
 
 ## Deploy (free)
 

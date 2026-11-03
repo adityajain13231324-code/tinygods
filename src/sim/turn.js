@@ -89,7 +89,8 @@ export function isGhost(game, seat) {
   return game.seats.some((s, i) => s.kind === 'human' && !game.eliminated[i]);
 }
 
-export function submitOrders(game, seat, orders, card = null) {
+/** Would these orders (and card) be accepted right now? Changes nothing. */
+export function validateSubmission(game, seat, orders, card = null) {
   if (game.phase !== 'command') return { ok: false, error: 'Not the command phase' };
   const ghost = isGhost(game, seat);
   if (game.eliminated[seat] && !ghost) return { ok: false, error: 'You are eliminated' };
@@ -97,8 +98,12 @@ export function submitOrders(game, seat, orders, card = null) {
   const check = validateOrders(orders, game.influence[seat], game.world, game.verbsLastTurn[seat], ghost);
   if (!check.ok) return check;
   if (card && ghost) return { ok: false, error: 'Ghosts cannot play cards' };
-  const cardCheck = validateCard(game, seat, card);
-  if (!cardCheck.ok) return cardCheck;
+  return validateCard(game, seat, card);
+}
+
+export function submitOrders(game, seat, orders, card = null) {
+  const check = validateSubmission(game, seat, orders, card);
+  if (!check.ok) return check;
   game.cardPending[seat] = card ? { id: card.id, group: card.group ?? -1, ...(card.place ? { place: card.place } : {}) } : null;
   game.pending[seat] = orders.map((o) => ({
     verb: o.verb, target: o.target ? { ...o.target } : null, strength: o.strength,

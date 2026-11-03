@@ -79,7 +79,10 @@ export function createRecap(root, ctx) {
     const btns = el('div', 'btns');
     const label = game.over ? 'See the result' : 'Next turn';
     const next = el('button', 'go', label);
-    next.onclick = () => ctx.nextTurn();
+    next.onclick = () => {
+      ctx.nextTurn();
+      if (ctx.online && !game.over) { next.textContent = 'Waiting for the others…'; next.disabled = true; }
+    };
     countdown = el('span', 'sub');
     btns.append(next, countdown);
     dock.append(btns);
@@ -93,8 +96,9 @@ export function createRecap(root, ctx) {
     card.append(close);
     const winner = FACTIONS[game.winner];
     const winnerSeat = game.seats[game.winner];
+    const youWon = ctx.online ? game.winner === ctx.seat : !ctx.hotseat;
     const title = el('h2', '', winnerSeat.kind === 'human'
-      ? (ctx.hotseat ? `${winnerSeat.name} wins the town! (the ${winner.name})` : `You win! The ${winner.name} rule the town.`)
+      ? (youWon ? `You win! The ${winner.name} rule the town.` : `${winnerSeat.name} wins the town! (the ${winner.name})`)
       : `The ${winner.name} win.`);
     title.style.color = css(winner.color);
     card.append(title, el('div', 'sub', `${game.winReason}, after ${game.turn} turns.`));
@@ -147,7 +151,7 @@ export function createRecap(root, ctx) {
     for (const id of earned) card.append(el('div', 'coach', `Achievement unlocked: ${ACHIEVEMENTS[id].name}. ${ACHIEVEMENTS[id].text}`));
 
     const btns = el('div', 'btns');
-    const again = el('button', 'go', 'Rematch');
+    const again = el('button', 'go', ctx.online ? 'Back to the menu' : 'Rematch');
     again.onclick = () => ctx.restart();
     const share = el('button', 'go ghost', 'Copy share text');
     share.onclick = async () => {
@@ -160,6 +164,7 @@ export function createRecap(root, ctx) {
       }
     };
     const menu = el('button', 'go ghost', 'Main menu');
+    menu.hidden = !!ctx.online;
     menu.onclick = () => { location.href = location.pathname; };
     const view = el('button', 'go ghost', '👁 View the town');
     view.onclick = () => { dismissed = true; };
@@ -177,7 +182,7 @@ export function createRecap(root, ctx) {
         bannerText.textContent = everyone
           ? (ctx.hotseat ? 'Every player faction has fallen. Watch the rest unfold.' : 'Your faction has fallen. Watch the rest unfold.')
           : `${fallen.map((s) => game.seats[s].name).join(', ')} fell, but can still haunt the town.`;
-        skipBtn.hidden = !everyone;
+        skipBtn.hidden = !everyone || !!ctx.online; // online, the match goes on without you being able to skip it
       }
 
       const key = `${game.phase}:${game.turn}`;

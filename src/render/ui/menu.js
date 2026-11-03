@@ -70,8 +70,10 @@ export function showMenu() {
   mk('Pass and play', '2 to 4 friends on one device. Orders are hidden by a "pass the device" screen.', () => showPassSetup());
   mk('Daily town', 'Everyone gets the same town today. Compare how you did.', () => launch({ players: '1', seed: String(dailySeed()) }));
   mk('How to play', 'Goal, orders, rumors, the guessing game.', () => showHow());
-  const online = mk('Play online', 'Coming soon: rooms with a code, each friend on their own device.', () => {}, 'disabled');
-  online.disabled = true;
+  const openOnline = (code = '') => import('./onlineLobby.js').then((m) => m.showOnlineLobby(root, modal, code));
+  mk('Play online', 'Make a room with a code. Each friend plays on their own device; bots fill empty seats.', () => openOnline());
+  const invited = new URLSearchParams(location.search).get('room');
+  if (invited) setTimeout(() => openOnline(invited), 0);
 
   card.append(buttons);
 

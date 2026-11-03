@@ -973,10 +973,14 @@ function updateThought(world, v) {
       for (let g = 0; g < v.fear.length; g++) if (v.fear[g] > worst) { worst = v.fear[g]; group = g; }
       break;
     }
-    case 'mourn':
-      icon = 'skull';
-      group = groupOf(world.villagers[v.targetId]);
+    case 'mourn': {
+      const lost = world.villagers[v.targetId]; // sleep and kidnap freeze people with nobody to mourn
+      if (lost) {
+        icon = 'skull';
+        group = groupOf(lost);
+      }
       break;
+    }
     case 'guard': {
       icon = 'shield';
       const t = v.fx.protect[0]?.target;

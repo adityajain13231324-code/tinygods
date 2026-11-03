@@ -112,7 +112,7 @@ export class Cutscenes {
 
   /** "DAY N" title card at the start of a turn. */
   startDay() {
-    if (!this.enabled || this.suppress || this.active) return;
+    if (!this.enabled || this.suppress || this.active || this.noDay) return;
     const g = this.game;
     const living = livingByFaction(g.world);
     const dead = 60 - g.world.villagers.filter((v) => v.alive).length;

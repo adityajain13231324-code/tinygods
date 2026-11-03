@@ -457,3 +457,28 @@ html, body { touch-action: manipulation; }
   padding: 7px 10px; border-radius: 9px; color: var(--ink); font-size: 13.5px; font-weight: 700; background: rgba(255, 211, 107, 0.12); }
 .ordermenu .menutoggle:hover { background: rgba(255, 211, 107, 0.24); }
 .ordermenu .verbgrid, .ordermenu .menustep { margin: 4px 2px 2px; }
+
+/* ---- online: lobby and in-game player list ---- */
+.lobby-label { text-align: left; color: var(--muted); font-size: 12px; margin: 10px 0 3px; }
+.lobby-input { width: 100%; box-sizing: border-box; padding: 9px 12px; border-radius: 10px; border: 2px solid rgba(255, 255, 255, 0.18); background: rgba(0, 0, 0, 0.28); color: var(--ink); font: inherit; }
+.lobby-input:focus { outline: none; border-color: var(--accent); }
+.lobby-or { color: var(--muted); font-size: 12px; margin: 14px 0 6px; }
+.lobby-join { display: flex; gap: 8px; }
+.lobby-code { text-transform: uppercase; letter-spacing: 0.3em; text-align: center; font-weight: 800; }
+.lobby-err { color: #ff9c86; min-height: 1.2em; margin: 8px 0 0; font-size: 13.5px; }
+.lobby-codebox { margin: 8px 0 12px; }
+.lobby-code-big { font-size: 46px; font-weight: 900; letter-spacing: 0.28em; color: var(--accent); }
+.lobby-players { display: grid; gap: 6px; margin: 8px 0 12px; text-align: left; }
+.lobby-player { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 10px; background: rgba(255, 255, 255, 0.08); }
+.lobby-player.empty { opacity: 0.5; font-style: italic; }
+.lobby-player i { width: 14px; height: 14px; border-radius: 50%; border: 2px solid rgba(0, 0, 0, 0.4); flex: none; }
+.lobby-player .who { flex: 1; }
+.lobby-player .fac { color: var(--muted); font-size: 12.5px; }
+.netpanel { position: absolute; right: 12px; top: 58px; padding: 8px 10px; font-size: 12.5px; min-width: 150px; z-index: 5; }
+.netrow { display: flex; align-items: center; gap: 7px; padding: 2px 0; }
+.netrow i { width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid rgba(0, 0, 0, 0.4); flex: none; }
+.netrow .netname { flex: 1; }
+.netrow .netstate { color: var(--muted); }
+.netrow .netstate.done { color: #7fd68a; }
+.netwarn { color: #ffb36b; margin-top: 4px; }
+@media (max-width: 700px) { .netpanel { top: auto; bottom: 8px; right: 8px; font-size: 11.5px; } }

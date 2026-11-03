@@ -20,28 +20,27 @@ import { Mixer } from './audio/mixer.js';
 import { createGame, isGhost, runToEnd, skipRecap, submitOrders, updateGame } from './sim/turn.js';
 import { createPassScreen } from './render/ui/passScreen.js';
 import { settleTension } from './sim/tension.js';
-import { mulberry32, shuffle } from './sim/rng.js';
-import { PERSONALITY_NAMES } from './bots/personalities.js';
-import { FACTIONS } from './config/content.js';
+import { castPower } from './sim/powers.js';
+import { Lockstep } from './net/lockstep.js';
+import { getOnline, makeSeats } from './net/online.js';
+import { createNetPanel } from './render/ui/netPanel.js';
+import { el } from './render/ui/dom.js';
 import { DRAMA, SIM } from './config/tunables.js';
 
 // ?seed=42 gives the same town every time; handy for bug reports and later for bot tests.
 const params = new URLSearchParams(location.search);
-const seed = Number(params.get('seed')) || 1;
-
-const BOT_NAMES = { warmonger: 'Marshal Vex', pacifist: 'Sister Pearl', opportunist: 'Old Fox', gossip: 'Madam Whisper', chaos: 'Trickster Pip' };
+const online = getOnline(); // set by the online lobby: {role, room, mySeat, seed, names}
+const seed = online ? online.seed : Number(params.get('seed')) || 1;
 
 // Seats 0..players-1 are people (Embers first), the rest are bots with random personalities.
-// One player = solo against bots. Two to four = pass-and-play on this device.
+// One player = solo against bots. Two to four = pass-and-play on this device, or online (one person per device).
 const players = Math.min(4, Math.max(1, Number(params.get('players')) || 1));
 const typedNames = (params.get('names') ?? '').split(',').filter(Boolean);
-const botTypes = shuffle(mulberry32(seed * 31), PERSONALITY_NAMES);
-let nextBot = 0;
-const seats = FACTIONS.map((f, i) => (i < players
-  ? { name: players === 1 ? 'You' : (typedNames[i] ?? `Player ${i + 1}`), kind: 'human' }
-  : (() => { const personality = botTypes[nextBot++]; return { name: BOT_NAMES[personality] ?? `${f.name} bot`, kind: 'bot', personality }; })()));
-const humanSeats = seats.map((st, i) => (st.kind === 'human' ? i : -1)).filter((i) => i >= 0);
-const hotseat = humanSeats.length > 1;
+const humanNames = online ? online.names : Array.from({ length: players }, (_, i) => (players === 1 ? 'You' : (typedNames[i] ?? `Player ${i + 1}`)));
+const seats = makeSeats(seed, humanNames);
+// On this screen: everyone in pass-and-play, only me online.
+const humanSeats = online ? [online.mySeat] : seats.map((st, i) => (st.kind === 'human' ? i : -1)).filter((i) => i >= 0);
+const hotseat = !online && humanSeats.length > 1;
 
 const game = createGame({ seed, seats });
 const { app, world: stage } = await createApp(document.getElementById('game'));
@@ -76,11 +75,12 @@ const ctx = {
   seat: humanSeats[0], // whose turn it is at the screen (changes in pass-and-play)
   humanSeats,
   hotseat,
+  online: !!online,
   passReady: true, // false while the "pass the device" screen is up
   speed: 1,
   paused: false,
-  setSpeed(n) { ctx.speed = n; },
-  togglePause() { ctx.paused = !ctx.paused; },
+  setSpeed(n) { if (!online) ctx.speed = n; },
+  togglePause() { if (!online) ctx.paused = !ctx.paused; },
   toggleMute() { audio.start(); return audio.toggleMute(); },
   isMuted: () => audio.muted,
   toggleBlood() {
@@ -95,23 +95,27 @@ const ctx = {
   isCalm: () => VillagerView.calm,
   toggleCutscenes: () => cutscenes.toggle(),
   cutscenesOn: () => cutscenes.enabled,
-  submit(orders, card = null) { submitOrders(game, ctx.seat, orders, card); },
+  submit(orders, card = null) { return net ? net.submit(orders, card) : submitOrders(game, ctx.seat, orders, card); },
+  cast(id, args = {}) { return net ? net.cast(id, args) : castPower(game, ctx.seat, id, args); },
   queuedPowers: [], // miracles typed at dawn, cast when the town wakes up
   takeQueuedPowers() { return ctx.queuedPowers.splice(0); },
   cutsceneActive: () => cutscenes.active,
   skipToEnd() {
+    if (net) return; // the others are still playing
     // Everyone playing is out: play the rest of the match instantly instead of watching bots.
     replay.stop();
     runToEnd(game);
     director.index = game.world.events.length; // don't replay every headline
   },
   nextTurn() {
+    if (net) { net.ready(); return; } // online: the next turn starts when everyone has read the news
     replay.stop(); // put the town back to its real state BEFORE the next phase begins
     skipRecap(game);
   },
   replay(highlight) { replay.play(highlight); },
   replayActive: () => replay.active,
   restart() {
+    if (online) { location.href = location.pathname; return; }
     const next = new URLSearchParams(location.search);
     next.set('seed', String(Math.floor(Math.random() * 1e6) + 1));
     location.search = next.toString();
@@ -119,12 +123,38 @@ const ctx = {
 };
 const uiRoot = document.getElementById('ui');
 const cutscenes = new Cutscenes({ uiRoot, game, camera, replay, audio });
+cutscenes.noDay = !!online;
 const hud = createHud(uiRoot, ctx);
 const board = createBoard(uiRoot);
 const command = createCommandPanel(uiRoot, ctx);
 const powerBar = createPowerBar(uiRoot, ctx, game, camera, stage);
 camera.onTap = (x, y) => powerBar.mapTap(x, y);
 const recap = createRecap(uiRoot, ctx);
+let net = null;
+if (online) {
+  const hooks = {
+    beforeNext: () => replay.stop(),
+    onLeft: (seat) => board.show({ kicker: 'PLAYER LEFT', title: `${game.seats[seat].name} LEFT`, text: 'A bot takes over their faction from the next dawn.' }),
+    onDesync: () => board.show({ kicker: 'WARNING', title: 'OUT OF SYNC', text: 'Two browsers disagree about the town. Finish the match or rejoin; please report this.' }),
+  };
+  net = new Lockstep({
+    game, role: online.role, mySeat: online.mySeat, hooks,
+    send: (m) => online.room.send(m),
+    broadcast: (m) => online.room.broadcast(m),
+  });
+  online.room.attach(net);
+  window.addEventListener('tinygods-host-left', () => {
+    const lost = el('div', 'overlay');
+    lost.style.pointerEvents = 'auto';
+    const box = el('div', 'panel card');
+    const back = el('button', 'go', 'Back to the menu');
+    back.onclick = () => { location.href = location.pathname; };
+    box.append(el('h2', '', 'The host left'), el('p', 'sub', 'This match cannot go on without the host (their browser runs the room). Thanks for playing.'), back);
+    lost.append(box);
+    uiRoot.append(lost);
+  });
+}
+const netPanel = online ? createNetPanel(uiRoot, ctx, game, () => net) : null;
 const pass = createPassScreen(uiRoot);
 const hover = createHover(uiRoot, linesLayer, stage, game);
 
@@ -216,9 +246,11 @@ function frame(frameSeconds) {
   manageSeats(dt);
 
   // Solo: timer about to run out? Hand in whatever is staged rather than losing it.
+  // Online, hand it in a second early so it reaches the host before the dawn ends.
   if (!hotseat) {
-    if (game.phase === 'command' && game.pending[ctx.seat] === null && !game.eliminated[ctx.seat] && game.timer < dt + 0.05) {
-      submitOrders(game, ctx.seat, command.stagedOrders(), command.stagedCard());
+    const mayAct = !game.eliminated[ctx.seat] || isGhost(game, ctx.seat);
+    if (game.phase === 'command' && game.pending[ctx.seat] === null && mayAct && game.timer < (net ? 1.2 : dt + 0.05)) {
+      ctx.submit(command.stagedOrders(), command.stagedCard());
     }
   }
 
@@ -228,10 +260,14 @@ function frame(frameSeconds) {
   replay.update(dt);
 
   // Slow motion while the camera is zoomed on a dramatic moment; frozen when paused or in a cutscene.
-  let gameDt = dt;
-  if (ctx.paused || cutscenes.active || (hotseat && !ctx.passReady)) gameDt = 0;
-  else if (game.phase === 'sim') gameDt = dt * ctx.speed * camera.timeScale;
-  updateGame(game, gameDt);
+  if (net) {
+    net.update(dt); // online: one shared clock, no pause, no slow motion
+  } else {
+    let gameDt = dt;
+    if (ctx.paused || cutscenes.active || (hotseat && !ctx.passReady)) gameDt = 0;
+    else if (game.phase === 'sim') gameDt = dt * ctx.speed * camera.timeScale;
+    updateGame(game, gameDt);
+  }
   if (game.phase !== 'sim' && !ctx.paused) settleTension(game.world, dt);
 
   director.update(game);
@@ -266,6 +302,7 @@ function frame(frameSeconds) {
   command.update(game);
   powerBar.update();
   recap.update(game);
+  netPanel?.update();
 }
 
 const fpsEl = document.getElementById('fps');
@@ -284,4 +321,4 @@ app.ticker.add(() => {
 });
 
 // Handy for poking around in the browser console.
-window.tinyGods = { game, app, views, ctx, frame, camera, effects, director, audio, replay, cutscenes, town, speech, spotlight };
+window.tinyGods = { net, game, app, views, ctx, frame, camera, effects, director, audio, replay, cutscenes, town, speech, spotlight };

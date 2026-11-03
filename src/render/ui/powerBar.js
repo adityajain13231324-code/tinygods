@@ -1,7 +1,7 @@
 import { FACTIONS, GROUP_NAMES, PLACES } from '../../config/content.js';
 import { POWERS } from '../../config/tunables.js';
 import { parseCommand, resolvePower } from '../../sim/parser.js';
-import { POWER_DEFS, castPower } from '../../sim/powers.js';
+import { POWER_DEFS } from '../../sim/powers.js';
 import { css, el } from './dom.js';
 import { createTypeBox } from './typeBox.js';
 import { POWER_CATS } from './cardStyle.js';
@@ -37,7 +37,7 @@ export function createPowerBar(root, ctx, game, camera, stage) {
         }
         const res = resolvePower(game, ctx.seat, a.power);
         if (!res.ok) return { ok: false, message: res.error, suggestions: ['lightning on the plaza', 'fog on the market', 'heal my weakest'] };
-        const cast = castPower(game, ctx.seat, res.id, res.args);
+        const cast = ctx.cast(res.id, res.args);
         if (!cast.ok) return { ok: false, message: cast.error, suggestions: [] };
         done.push(cast.message);
       }
@@ -67,7 +67,7 @@ export function createPowerBar(root, ctx, game, camera, stage) {
       }
       args = { villagerId: best.id, group, good, placeId };
     }
-    const r = castPower(game, ctx.seat, selected, args);
+    const r = ctx.cast(selected, args);
     say(r.ok ? r.message : r.error, !r.ok);
     if (r.ok) selected = null;
     shownKey = '';
@@ -100,7 +100,7 @@ export function createPowerBar(root, ctx, game, camera, stage) {
       b.append(el('span', 'pt-icon', def.icon), el('span', 'pt-name', def.name), cost);
       b.onclick = () => {
         if (def.needs === 'none') {
-          const r = castPower(game, ctx.seat, id, {});
+          const r = ctx.cast(id, {});
           say(r.ok ? r.message : r.error, !r.ok);
           shownKey = '';
           return;
@@ -173,7 +173,7 @@ export function createPowerBar(root, ctx, game, camera, stage) {
         const messages = [];
         for (const spec of ctx.takeQueuedPowers()) {
           const res = resolvePower(game, ctx.seat, spec);
-          const cast = res.ok ? castPower(game, ctx.seat, res.id, res.args) : res;
+          const cast = res.ok ? ctx.cast(res.id, res.args) : res;
           messages.push(cast.ok ? cast.message : `${spec.label}: ${cast.error ?? res.error}`);
         }
         if (messages.length) say(messages.join(' '));

@@ -91,11 +91,11 @@ export function createHud(root, ctx) {
       FACTIONS.forEach((f, i) => {
         const { chip, label } = chips[i];
         const infamy = Math.round(game.notoriety[i]);
-        setText(label, `${MARKS[f.mark]} ${f.name} ${living[i]}${game.seats[i].kind === 'human' ? (ctx.hotseat ? ` (${game.seats[i].name})` : ' (you)') : ''}${infamy >= 1 ? ` 🔥${infamy}` : ''}`);
+        setText(label, `${MARKS[f.mark]} ${f.name} ${living[i]}${game.seats[i].kind === 'human' ? (ctx.hotseat || (ctx.online && i !== ctx.seat) ? ` (${game.seats[i].name})` : ' (you)') : ''}${infamy >= 1 ? ` 🔥${infamy}` : ''}`);
         chips[i].chip.title = infamy >= 1
           ? `Notoriety ${infamy}: the town distrusts the ${f.name} because of the killing.`
           : `${f.name}: a clean reputation.`;
-        chip.classList.toggle('you', !ctx.hotseat && game.seats[i].kind === 'human');
+        chip.classList.toggle('you', ctx.online ? i === ctx.seat : !ctx.hotseat && game.seats[i].kind === 'human');
         chip.classList.toggle('out', game.eliminated[i]);
       });
       speedButtons.forEach((b, i) => b.classList.toggle('on', ctx.speed === [1, 2, 4][i]));
@@ -108,7 +108,8 @@ export function createHud(root, ctx) {
       const tension = Math.round(game.world.tension);
       meterFill.style.width = `${tension}%`;
       meterFill.style.background = tension < 35 ? '#7fd68a' : tension < 65 ? '#ffd36b' : '#ff7a5a';
-      speed.style.visibility = game.phase === 'sim' ? 'visible' : 'hidden';
+      speed.style.visibility = game.phase === 'sim' && !ctx.online ? 'visible' : 'hidden';
+      pauseBtn.hidden = !!ctx.online; // everybody shares one clock online
 
       const mine = game.truth.filter((t) => t.turn === game.turn && t.seat === ctx.seat).at(-1);
       setText(myOrders, !ctx.hotseat && game.phase === 'sim' && mine ? `Your orders: ${mine.orders.length ? mine.orders.map(describeOrder).join(', ') : 'none'}` : '');
