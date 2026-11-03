@@ -11,7 +11,7 @@ import { shuffle } from './rng.js';
 
 export const CARD_DEFS = {
   // turning the town
-  forged: { name: 'Forged Letter', needs: 'group', blurb: 'The whole town reads a damning fake letter: everyone outside that faction turns on it and gets angrier, and it gains 4 notoriety.' },
+  forged: { name: 'Forged Letter', needs: 'group', blurb: 'The whole town reads a damning fake letter: everyone outside that faction turns on it and gets angrier, and it gains 6 notoriety.' },
   prophecy: { name: 'Prophecy', needs: 'group', blurb: 'Doom is foretold: that faction\'s villagers lose their nerve, start the turn panicking, and are far less aggressive.' },
   alibi: { name: 'Alibi', needs: null, blurb: 'Your notoriety is wiped and the whole town warms to you.' },
   // information and economy
@@ -21,7 +21,7 @@ export const CARD_DEFS = {
   // friends and foes
   bribe: { name: 'Bribe', needs: null, blurb: 'Every neutral trusts you completely this turn, and the one who likes you most signs up on the spot.' },
   recruit: { name: 'Recruit', needs: null, blurb: 'The three neutrals who like you most join your faction on the spot.' },
-  matchmaker: { name: 'Matchmaker', needs: 'group', blurb: 'Your villagers pair up with theirs, and up to two of their lovebirds cross over and join you.' },
+  matchmaker: { name: 'Matchmaker', needs: 'group', blurb: 'Your villagers pair up with theirs, and up to three of their lovebirds cross over and join you.' },
   treaty: { name: 'Peace Treaty', needs: 'group', blurb: 'You and that faction cannot start fights with each other for the first 30 seconds (the whole town phase).' },
   // pressure
   raid: { name: 'Armory Raid', needs: 'group', blurb: 'Empty a faction\'s armory shelf and take up to three weapons from its villagers for your own unarmed ones.' },
@@ -30,9 +30,9 @@ export const CARD_DEFS = {
   kidnap: { name: 'Kidnap', needs: 'group', blurb: 'Their four most aggressive villagers are whisked away and fall asleep for most of the turn.' },
   bomb: { name: 'Time Bomb', needs: 'place', blurb: 'Plant a bomb at a place. It goes off 12 seconds into the turn and hurts everyone close except your own faction (who are only thrown about).' },
   // your own side
-  rally: { name: 'Rally', needs: null, blurb: 'Your villagers are a little braver and fiercer, slightly healed, and shielded for the first 3 seconds.' },
+  rally: { name: 'Rally', needs: null, blurb: 'Your villagers are a touch braver and fiercer, slightly healed, and shielded for the first 2 seconds.' },
   medic: { name: 'Field Hospital', needs: null, blurb: 'Heal all your villagers by 30.' },
-  truce: { name: 'Truce Bell', needs: null, blurb: 'Nobody in town can start a fight for the first 15 seconds, and you bank +2 influence for next turn.' },
+  truce: { name: 'Truce Bell', needs: null, blurb: 'Nobody in town can start a fight for the first 15 seconds, and you bank +3 influence for next turn.' },
 };
 
 export const CARD_IDS = Object.keys(CARD_DEFS);
@@ -77,10 +77,10 @@ export function applyCard(game, seat, card) {
       for (const v of world.villagers) {
         if (!v.alive || groupOf(v) === g) continue;
         v.opinion[g] = clamp(v.opinion[g] - 35, -100, 100);
-        v.aggression = Math.min(100, v.aggression + 10);
+        v.aggression = Math.min(100, v.aggression + 18);
         n++;
       }
-      game.notoriety[g] += 4;
+      game.notoriety[g] += 6;
       note(`${n} villagers now distrust the ${GROUP_NAMES[g]}, who also gain notoriety.`);
       break;
     }
@@ -142,7 +142,7 @@ export function applyCard(game, seat, card) {
     case 'matchmaker': {
       formLoveBonds(world, seat, g, 3);
       // Love wins: up to two of their villagers who fell for one of yours cross over.
-      const lovers = members(world, g).filter((v) => v.partnerId >= 0 && world.villagers[v.partnerId]?.faction === seat).slice(0, 2);
+      const lovers = members(world, g).filter((v) => v.partnerId >= 0 && world.villagers[v.partnerId]?.faction === seat).slice(0, 3);
       for (const v of lovers) switchSides(world, v, seat);
       note(lovers.length ? `${lovers.map((v) => v.name).join(' and ')} fell in love and joined you.` : `your villagers are walking out with the ${GROUP_NAMES[g]}.`);
       break;
@@ -211,10 +211,10 @@ export function applyCard(game, seat, card) {
     }
     case 'rally':
       for (const v of members(world, seat)) {
-        v.courage = Math.min(100, v.courage + 10);
-        v.aggression = Math.min(100, v.aggression + 6);
-        v.hp = Math.min(100, v.hp + 6);
-        v.blessUntil = world.time + 3;
+        v.courage = Math.min(100, v.courage + 5);
+        v.aggression = Math.min(100, v.aggression + 3);
+        v.hp = Math.min(100, v.hp + 4);
+        v.blessUntil = world.time + 2;
       }
       note('your villagers stand a little taller and are briefly shielded.');
       break;
@@ -228,8 +228,8 @@ export function applyCard(game, seat, card) {
         v.aggression = Math.max(0, v.aggression - 25);
         v.calmUntil = Math.max(v.calmUntil, world.time + 15);
       }
-      game.bonusInfluence[seat] += 2;
-      note('nobody can start a fight for the first 15 seconds. +2 influence next turn.');
+      game.bonusInfluence[seat] += 3;
+      note('nobody can start a fight for the first 15 seconds. +3 influence next turn.');
       break;
   }
   void POWERS;

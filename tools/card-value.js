@@ -17,7 +17,9 @@ function play(match, cardId) {
   let guard = 0;
   while (g.phase !== 'ended' && guard++ < 200000) {
     if (g.phase === 'command') {
-      if (cardId && !g.eliminated[0] && g.turn > 2) {
+      // A real hand holds any one card about 4 times in 17 (about 24% of turns), so play it that often, not every turn.
+      const holds = mulberry32(match * 7919 + g.turn)() < 0.24;
+      if (cardId && !g.eliminated[0] && g.turn > 2 && holds) {
         // replace the test seat's bot choice with a forced card
         g.pending[0] = null;
         g.hand[0] = [cardId];

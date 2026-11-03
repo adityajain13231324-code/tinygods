@@ -39,7 +39,8 @@ function pastPeace(seed) {
   const hpAfter = near().reduce((n, v) => n + v.hp, 0);
   check(res.ok, `bomb card accepted${res.ok ? '' : ': ' + res.error}`);
   check(exploded > 10 && exploded < 14, `bomb exploded at ${exploded.toFixed(1)}s of the turn (expected about 12)`);
-  check(hpAfter < hpBefore, `villagers near the plaza lost hp (${Math.round(hpBefore)} -> ${Math.round(hpAfter)}), bomb deaths: ${g.world.events.filter((e) => e.type === 'kill' && e.weapon === 'bomb').length}`);
+  const bombDeaths = g.world.events.filter((e) => e.type === 'kill' && e.weapon === 'bomb').length;
+  check(bombDeaths > 0, `bomb killed ${bombDeaths} villagers (hp near the plaza ${Math.round(hpBefore)} at start, ${Math.round(hpAfter)} at the end)`);
 }
 
 // 2) Gust: the target should be thrown a good distance toward the place.
