@@ -66,8 +66,10 @@ export class Mixer {
     this.sfx.gain.value = 0.9;
     this.sfx.connect(this.comp);
 
+    this.samples = {};
     this.noise = this.makeNoise();
     this.buildLayers();
+    this.loadSamples();
     this.timers = [
       setInterval(() => this.playNote(), 1100),
       setInterval(() => this.chirp(), 2400),
@@ -404,6 +406,31 @@ export class Mixer {
     vib.stop(t + dur + 0.05);
   }
 
+  /** Real recordings (public/sfx). Each file loads in the background; until then the synthesised sound plays. */
+  loadSamples() {
+    for (const f of SAMPLE_FILES) {
+      fetch(`sfx/${f}`)
+        .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(f))))
+        .then((b) => this.ctx.decodeAudioData(b))
+        .then((buf) => { this.samples[f.replace(/.(ogg|wav)$/, '')] = buf; })
+        .catch(() => { /* missing file: the synth stays as the fallback */ });
+    }
+  }
+
+  /** Play one of the named recordings (picked at random from the list). Returns false when none has loaded. */
+  sample(names, gain = 0.6, rate = 1, jitter = 0.07) {
+    const ready = names.filter((n) => this.samples?.[n]);
+    if (!ready.length) return false;
+    const src = this.ctx.createBufferSource();
+    src.buffer = this.samples[ready[Math.floor(Math.random() * ready.length)]];
+    src.playbackRate.value = rate * (1 + (Math.random() - 0.5) * 2 * jitter);
+    const g = this.ctx.createGain();
+    g.gain.value = gain;
+    src.connect(g).connect(this.dest);
+    src.start();
+    return true;
+  }
+
   /** @param {string} name @param {number} [x] world x, for stereo position */
   play(name, x) {
     if (!this.ctx || this.muted || this.ctx.state !== 'running') return;
@@ -455,6 +482,14 @@ export class Mixer {
   }
 }
 
+const SAMPLE_FILES = [
+  ...['impactPunch_heavy', 'impactPunch_medium', 'impactWood_heavy', 'impactWood_medium', 'impactMetal_medium', 'impactPlate_heavy', 'impactSoft_heavy', 'impactSoft_medium', 'impactGeneric_light']
+    .flatMap((n) => [0, 1, 2].map((i) => `${n}_${i}.ogg`)),
+  ...['01', '03', '05', '07'].map((i) => `thwack-${i}.wav`),
+  'gun-cz.wav', 'gun-sks.wav', 'gun-shotty.wav',
+];
+const pick = (base) => [0, 1, 2].map((i) => `${base}_${i}`);
+
 const pitchJitter = () => rand(0.92, 1.08); // so repeated hits never sound identical
 
 // Hits are built the way real impacts sound: a low body thump (the mass), a short filtered
@@ -466,6 +501,7 @@ const SOUNDS = {
   slap: {
     play: (m) => {
       const p = pitchJitter();
+      if (m.sample([...pick('impactPunch_heavy'), ...pick('impactPunch_medium'), ...pick('impactSoft_medium')], 0.8)) { m.tone(110 * p, 45, 0.14, 'sine', 0.18); return; }
       m.tone(120 * p, 45, 0.16, 'sine', 0.42);
       m.burst(0.07, 'lowpass', 1800 * p, 350, 0.34);
       m.burst(0.025, 'bandpass', 2600, 1800, 0.12, 0, 1.4);
@@ -476,6 +512,7 @@ const SOUNDS = {
   thwack: {
     play: (m) => {
       const p = pitchJitter();
+      if (m.sample([...pick('impactWood_heavy'), ...pick('impactWood_medium'), 'thwack-01', 'thwack-03', 'thwack-05', 'thwack-07'], 0.85)) { m.tone(100 * p, 40, 0.18, 'sine', 0.2); return; }
       m.tone(900 * p, 260, 0.05, 'triangle', 0.16);
       m.burst(0.05, 'highpass', 2200, 1200, 0.22);
       m.tone(105 * p, 40, 0.22, 'sine', 0.45);
@@ -487,6 +524,7 @@ const SOUNDS = {
     wet: 0.3,
     play: (m) => {
       const p = pitchJitter();
+      if (m.sample([...pick('impactMetal_medium'), ...pick('impactPlate_heavy')], 0.8)) return;
       [430, 817, 1290, 1860, 2610].forEach((f, i) => m.tone(f * p, f * p * 0.99, 0.55 - i * 0.08, 'sine', 0.1 / (i + 1)));
       m.tone(110, 60, 0.12, 'sine', 0.3);
       m.burst(0.02, 'highpass', 4500, 3500, 0.16);
@@ -496,6 +534,7 @@ const SOUNDS = {
   stab: {
     play: (m) => {
       const p = pitchJitter();
+      if (m.sample(pick('impactGeneric_light'), 0.7, 1.15)) { m.burst(0.12, 'bandpass', 900 * p, 3200, 0.12, 0, 2); return; }
       m.burst(0.12, 'bandpass', 900 * p, 3200, 0.2, 0, 2);
       m.burst(0.05, 'lowpass', 1200, 300, 0.22, 0.04);
       m.tone(140 * p, 55, 0.12, 'sine', 0.26, 0.03);
@@ -505,6 +544,7 @@ const SOUNDS = {
   gunshot: {
     gap: 100, wet: 0.55,
     play: (m) => {
+      if (m.sample(['gun-cz', 'gun-sks'], 0.9, 1, 0.04)) return;
       m.burst(0.012, 'highpass', 3000, 2500, 0.8);
       m.burst(0.05, 'bandpass', 2400, 900, 0.55, 0, 0.7);
       m.tone(150, 42, 0.28, 'sine', 0.5);
@@ -515,6 +555,7 @@ const SOUNDS = {
   shotgun: {
     gap: 150, wet: 0.7,
     play: (m) => {
+      if (m.sample(['gun-shotty'], 1, 1, 0.04)) return;
       m.burst(0.02, 'highpass', 2500, 2000, 0.9);
       m.burst(0.1, 'bandpass', 1800, 500, 0.7, 0, 0.6);
       m.tone(100, 28, 0.55, 'sine', 0.7);
@@ -529,6 +570,7 @@ const SOUNDS = {
   explosion: {
     gap: 150, wet: 0.7,
     play: (m) => {
+      m.sample(['gun-shotty'], 0.7, 0.45, 0.03); // a shotgun blast slowed right down is a deep boom
       m.tone(80, 22, 0.9, 'sine', 0.9);
       m.burst(0.12, 'lowpass', 4000, 400, 0.9);
       m.burst(1.4, 'lowpass', 1100, 60, 0.7, 0.02);
@@ -550,7 +592,7 @@ const SOUNDS = {
     },
   },
   // a death: the body dropping, a last short cry
-  thud: { gap: 80, play: (m) => { m.tone(85, 28, 0.4, 'sine', 0.5); m.burst(0.18, 'lowpass', 400, 80, 0.25); m.burst(0.05, 'bandpass', 1500, 600, 0.06, 0.02); } },
+  thud: { gap: 80, play: (m) => { if (m.sample(pick('impactSoft_heavy'), 0.85, 0.8)) return; m.tone(85, 28, 0.4, 'sine', 0.5); m.burst(0.18, 'lowpass', 400, 80, 0.25); m.burst(0.05, 'bandpass', 1500, 600, 0.06, 0.02); } },
   // a low angry growl when a villager starts to scowl at an enemy
   growl: {
     gap: 260, wet: 0.15,

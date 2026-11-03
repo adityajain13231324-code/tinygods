@@ -160,3 +160,8 @@ What changed and why (each found by reading the simulate.js report):
 ## Anger before blood, and realistic sound (round 11)
 - Spontaneous fights now start with a scowl: the villager stops, makes the angry face, growls and shouts at the target (`brewId`/`brewUntil`) for 2.8s in a calm town down to 0.5s at tension 100 (brawlers shorter, cowards longer). About a quarter of scowls fizzle out. Each scowler adds to the tension bar, so the bar rises before the first punch. In the peace days the scowl ends in shouting, never fists. Retaliation (being hit) skips the scowl.
 - Sounds are still synthesised (no downloads, no licences), but rebuilt in layers: body thump + flesh noise for fists, woody crack for bats, metal ring for pans, slice for knives, crack + boom + reverb tail for guns, a real explosion for bombs, growl and distant shouts that grow with tension, and a lower, louder crowd murmur when the town is angry.
+
+## Real recordings (round 12)
+- Kenney Impact Sounds (CC0), Thwack Sounds (CC0) and three gun recordings (CC-BY 3.0, credited in CREDITS.md) live in `public/sfx` (~650 KB). `tools/prep-sfx.cjs` rebuilds them from the downloaded zips (guns cut to ~1 s, mono).
+- The mixer loads them after the first click; each hit sound plays a random recording with slight pitch variation plus a small synth thump for weight. If a file is missing or not loaded yet, the synthesised sound plays instead.
+- Screams, growls, shouts, ambience and music stay synthesised (no suitable CC0 files found).

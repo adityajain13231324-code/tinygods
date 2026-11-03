@@ -1,7 +1,6 @@
-# Credits
+# Sound credits
 
-- Art: drawn in code with PixiJS Graphics. All original.
-- Sound: synthesised in code with the WebAudio API (`src/audio/mixer.js`). No sample files are used, so there is nothing to license.
-- Engine: [PixiJS](https://pixijs.com) (MIT).
-- Build tool: [Vite](https://vite.dev) (MIT).
-- Inspiration (ideas only, no code or art copied): *We Become What We Behold* by Nicky Case.
+- Impact Sounds by Kenney (kenney.nl), CC0.
+- Thwack Sounds by Jordan Irwin (AntumDeluge), CC0.
+- Gunshot recordings (cz, sks, shotty) by Vincent Sevedge, Copyright 2009, Creative Commons Attribution 3.0 Unported (http://creativecommons.org/licenses/by/3.0/). Cut to the first second or so and mixed to mono.
+- Everything else (growls, shouts, screams, ambience, music) is synthesised in the browser.
