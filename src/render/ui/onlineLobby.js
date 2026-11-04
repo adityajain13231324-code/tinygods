@@ -1,24 +1,40 @@
 import { FACTIONS } from '../../config/content.js';
-import { cleanCode, hostRoom, joinRoom } from '../../net/room.js';
+import { DEFAULT_SETTINGS, ORDER_SECS, SIM_SECS, cleanCode, hostRoom, joinRoom } from '../../net/room.js';
 import { setOnline } from '../../net/online.js';
+import { DIFFICULTY } from '../../config/tunables.js';
 import { css, el } from './dom.js';
 
-// The "Play online" dialog: create a room (get a 5-letter code and a link), or join one. When the
-// host presses Start, everybody's menu closes and the same game boots in every browser.
+// The "Play online" dialog: create a room (get a 5-letter code and a link), or join one. Everybody
+// picks a colour (a faction); the host sets the bots and the clocks. When the host presses Start,
+// everybody's menu closes and the same game boots in every browser. After a match the same dialog
+// reopens as the rematch lobby, with the same code and everyone's colour kept.
 
 const NAME_KEY = 'tinygods.onlineName';
-const hostDifficulty = () => { try { const d = localStorage.getItem('tinygods.difficulty'); return ['easy', 'normal', 'hard'].includes(d) ? d : 'normal'; } catch { return 'normal'; } };
-const read = () => { try { return localStorage.getItem(NAME_KEY) ?? ''; } catch { return ''; } };
-const write = (v) => { try { localStorage.setItem(NAME_KEY, v); } catch { /* storage can be blocked */ } };
+const MARKS = { triangle: '▲', wave: '≈', leaf: '❀', star: '★' };
+const read = (k = NAME_KEY) => { try { return localStorage.getItem(k) ?? ''; } catch { return ''; } };
+const write = (v, k = NAME_KEY) => { try { localStorage.setItem(k, v); } catch { /* storage can be blocked */ } };
+const savedSettings = () => {
+  const diff = read('tinygods.difficulty');
+  const order = Number(read('tinygods.onlineOrderSecs'));
+  const sim = Number(read('tinygods.onlineSimSecs'));
+  return {
+    difficulty: DIFFICULTY[diff] ? diff : DEFAULT_SETTINGS.difficulty,
+    orderSecs: ORDER_SECS.includes(order) ? order : DEFAULT_SETTINGS.orderSecs,
+    simSecs: SIM_SECS.includes(sim) ? sim : DEFAULT_SETTINGS.simSecs,
+  };
+};
+const clockLabel = (s) => (s >= 60 ? `${s / 60 === Math.floor(s / 60) ? s / 60 : (s / 60).toFixed(1).replace('.0', '')} min` : `${s} s`);
 
 /**
  * @param {HTMLElement} menuRoot the menu to remove when the game starts
  * @param {(opts?: object) => {card: HTMLElement, overlay: HTMLElement}} modal the menu's dialog helper
  * @param {string} [presetCode] open straight into "join" with this code (from a ?room= link)
+ * @param {{role: 'host'|'guest', code: string, name: string, seat: number} | null} [rematch] reopen the last room
  */
-export function showOnlineLobby(menuRoot, modal, presetCode = '') {
+export function showOnlineLobby(menuRoot, modal, presetCode = '', rematch = null) {
   const dlg = modal();
   const { card, overlay } = dlg;
+  card.classList.add('lobby-card');
   let room = null;
   let started = false;
   const closeAll = () => { if (!started) room?.close(); room = null; };
@@ -28,12 +44,12 @@ export function showOnlineLobby(menuRoot, modal, presetCode = '') {
   const nameInput = el('input');
   nameInput.maxLength = 14;
   nameInput.placeholder = 'Your name';
-  nameInput.value = read();
+  nameInput.value = rematch?.name || read();
   nameInput.className = 'lobby-input';
 
-  function begin(role, mySeat, seed, names, difficulty = 'normal') {
+  function begin(role, mySeat, msg) {
     started = true;
-    setOnline({ role, room, mySeat, seed, names, difficulty });
+    setOnline({ role, room, mySeat, seed: msg.seed, names: msg.names, difficulty: msg.difficulty, orderSecs: msg.orderSecs, simSecs: msg.simSecs });
     menuRoot.remove();
     overlay.remove();
     import('../../main.js');
@@ -42,7 +58,7 @@ export function showOnlineLobby(menuRoot, modal, presetCode = '') {
   function home() {
     card.replaceChildren(card.firstChild); // keep the Back button
     card.append(el('h2', '', 'Play online'));
-    card.append(el('p', 'sub', 'Each friend plays on their own device. One of you creates a room and shares the code; the others join. Empty seats are filled by bots. Needs a normal home or school internet connection.'));
+    card.append(el('p', 'sub', 'Each friend plays on their own device. One of you creates a room and shares the code; the others join. You each pick a colour, and empty seats are filled by bots. Needs a normal home or school internet connection.'));
     card.append(el('div', 'lobby-label', 'Your name'), nameInput);
     const create = el('button', 'go', 'Create a room');
     create.onclick = () => { write(nameInput.value); showHost(); };
@@ -64,36 +80,71 @@ export function showOnlineLobby(menuRoot, modal, presetCode = '') {
     card.append(create, el('div', 'lobby-or', 'or join a friend'), row, err);
   }
 
-  function playerList(players, mine = -1) {
-    const box = el('div', 'lobby-players');
-    for (let i = 0; i < 4; i++) {
-      const p = players.find((x) => x.seat === i);
-      const row = el('div', `lobby-player${p ? '' : ' empty'}`);
-      const dot = el('i');
-      dot.style.background = css(FACTIONS[i].color);
-      row.append(dot, el('span', 'who', p ? `${p.name}${p.seat === mine ? ' (you)' : ''}` : 'a bot will take this seat'), el('span', 'fac', FACTIONS[i].name));
-      box.append(row);
-    }
+  /** Four colour tiles: tap a free one to take it. Taken ones show who has them. */
+  function colourPicker(players, mySeat, pick) {
+    const box = el('div', 'lobby-colours');
+    FACTIONS.forEach((f, i) => {
+      const owner = players.find((p) => p.seat === i);
+      const mine = i === mySeat;
+      const b = el('button', `lobby-colour${mine ? ' mine' : ''}${owner && !mine ? ' taken' : ''}`);
+      b.style.setProperty('--c', css(f.color));
+      b.disabled = !!owner && !mine;
+      b.append(el('span', 'lc-mark', MARKS[f.mark]), el('b', '', f.name), el('small', '', owner ? (mine ? 'you' : owner.name) : 'free · or a bot'));
+      b.onclick = () => { if (!mine && !owner) pick(i); };
+      box.append(b);
+    });
     return box;
+  }
+
+  function settingsSummary(s) {
+    return `Bots: ${DIFFICULTY[s.difficulty].label}  ·  Orders ${clockLabel(s.orderSecs)}  ·  Town acts ${clockLabel(s.simSecs)}`;
+  }
+
+  function seg(label, hint, options, current, onPick) {
+    const row = el('div', 'lobby-set');
+    const text = el('span', 'set-text');
+    text.append(el('b', '', label), el('span', 'sub', hint));
+    const box = el('span', 'set-seg');
+    for (const [value, name] of options) {
+      const b = el('button', value === current ? 'on' : '', name);
+      b.onclick = () => { [...box.children].forEach((x) => x.classList.toggle('on', x === b)); onPick(value); };
+      box.append(b);
+    }
+    row.append(text, box);
+    return row;
   }
 
   function showHost() {
     card.replaceChildren(card.firstChild);
-    card.append(el('h2', '', 'Your room'));
-    const status = el('p', 'sub', 'Opening a room…');
-    const diffNote = el('p', 'sub', `Bots will play on ${hostDifficulty()} (change it in Settings on the main menu).`);
+    card.append(el('h2', '', rematch ? 'Rematch lobby' : 'Your room'));
+    const status = el('p', 'sub', rematch ? 'Waiting for everyone to come back…' : 'Opening a room…');
     const codeBox = el('div', 'lobby-codebox');
+    const colours = el('div');
     const list = el('div');
+    const settingsBox = el('div', 'lobby-settings');
     const start = el('button', 'go', 'Start the game');
     start.disabled = true;
     const copy = el('button', 'go ghost', 'Copy invite link');
+    const btns = el('div', 'btns');
     const err = el('p', 'lobby-err');
-    card.append(status, diffNote, codeBox, list, el('div', 'btns'), err);
-    card.lastChild.previousSibling.append(start, copy);
+    btns.append(start, copy);
+
+    const settings = savedSettings();
+    settingsBox.append(
+      el('div', 'lobby-label', 'Game settings (you pick, everyone gets the same)'),
+      seg('Bots', 'How hard the computer players are.', Object.entries(DIFFICULTY).map(([id, d]) => [id, d.label]), settings.difficulty, (v) => { write(v, 'tinygods.difficulty'); room.setSettings({ difficulty: v }); }),
+      seg('Time for orders', 'Each dawn. Typed orders are sent when it runs out.', ORDER_SECS.map((s) => [s, clockLabel(s)]), settings.orderSecs, (v) => { write(String(v), 'tinygods.onlineOrderSecs'); room.setSettings({ orderSecs: v }); }),
+      seg('Time the town acts', 'How long each day plays out.', SIM_SECS.map((s) => [s, clockLabel(s)]), settings.simSecs, (v) => { write(String(v), 'tinygods.onlineSimSecs'); room.setSettings({ simSecs: v }); }),
+    );
+    card.append(status, codeBox, el('div', 'lobby-label', 'Pick your colour'), colours, list, settingsBox, btns, err);
+
     let url = '';
     let latest = [];
     room = hostRoom({
       name: nameInput.value,
+      code: rematch?.code ?? '',
+      seat: rematch?.seat ?? 0,
+      settings,
       onChange(players, code) {
         latest = players;
         if (code) {
@@ -101,7 +152,9 @@ export function showOnlineLobby(menuRoot, modal, presetCode = '') {
           codeBox.replaceChildren(el('div', 'lobby-code-big', code), el('div', 'sub', 'Tell your friends this code, or send them the link.'));
           status.textContent = players.length < 2 ? 'Waiting for friends to join…' : 'Ready when you are.';
         }
-        list.replaceChildren(playerList(players, 0));
+        const mine = room.mySeat();
+        colours.replaceChildren(colourPicker(players, mine, (n) => room.setSeat(n)));
+        list.replaceChildren(playerList(players, room.players.find((p) => p.id === 0)?.id));
         start.disabled = players.length < 2;
         start.textContent = players.length < 2 ? 'Start the game (need 2+ players)' : `Start the game (${players.length} players${players.length < 4 ? `, ${4 - players.length} bot${players.length === 3 ? '' : 's'}` : ''})`;
       },
@@ -112,27 +165,53 @@ export function showOnlineLobby(menuRoot, modal, presetCode = '') {
     };
     start.onclick = () => {
       if (latest.length < 2) return;
-      const { seed, names, difficulty } = room.start(hostDifficulty());
-      begin('host', 0, seed, names, difficulty);
+      const msg = room.start();
+      begin('host', msg.seat, msg);
     };
   }
 
-  function showGuest(code) {
+  function playerList(players, myId) {
+    const box = el('div', 'lobby-players');
+    for (const p of [...players].sort((a, b) => a.seat - b.seat)) {
+      const row = el('div', 'lobby-player');
+      const dot = el('i');
+      dot.style.background = css(FACTIONS[p.seat].color);
+      row.append(dot, el('span', 'who', `${p.name}${p.id === myId ? ' (you)' : ''}`), el('span', 'fac', FACTIONS[p.seat].name));
+      box.append(row);
+    }
+    const bots = 4 - players.length;
+    if (bots > 0) box.append(el('div', 'lobby-player empty', `${bots} bot${bots === 1 ? '' : 's'} will take the free colour${bots === 1 ? '' : 's'}`));
+    return box;
+  }
+
+  function showGuest(code, attempt = 0) {
     card.replaceChildren(card.firstChild);
-    card.append(el('h2', '', `Room ${code}`));
-    const status = el('p', 'sub', 'Connecting…');
+    card.append(el('h2', '', rematch ? `Rematch · room ${code}` : `Room ${code}`));
+    const status = el('p', 'sub', rematch ? 'Rejoining the room…' : 'Connecting…');
+    const colours = el('div');
     const list = el('div');
+    const note = el('p', 'sub');
     const err = el('p', 'lobby-err');
-    card.append(status, list, err);
+    card.append(status, el('div', 'lobby-label', 'Pick your colour'), colours, list, note, err);
     room = joinRoom({
       code,
       name: nameInput.value,
-      onLobby(players) {
+      seat: rematch?.seat,
+      onLobby(players, settings) {
         status.textContent = 'You are in. Waiting for the host to start the game…';
-        list.replaceChildren(playerList(players, room.seat));
+        colours.replaceChildren(colourPicker(players, room.seat, (n) => room.pick(n)));
+        list.replaceChildren(playerList(players, room.id));
+        if (settings) note.textContent = settingsSummary(settings);
       },
-      onStart({ seed, names, seat, difficulty }) { begin('guest', seat, seed, names, difficulty); },
-      onError(text) {
+      onStart(msg) { begin('guest', msg.seat, msg); },
+      onError(text, kind) {
+        // after a match the host's browser needs a moment to reopen the room: keep knocking
+        if (rematch && attempt < 25 && (kind === 'peer-unavailable' || kind === 'timeout')) {
+          status.textContent = 'Waiting for the host to reopen the room…';
+          room = null;
+          setTimeout(() => { if (overlay.isConnected) showGuest(code, attempt + 1); }, 2000);
+          return;
+        }
         status.textContent = '';
         err.textContent = text;
         const back = el('button', 'go ghost', 'Try again');
@@ -147,6 +226,10 @@ export function showOnlineLobby(menuRoot, modal, presetCode = '') {
     });
   }
 
-  home();
-  if (presetCode) card.querySelector('.lobby-code')?.focus();
+  if (rematch?.role === 'host') showHost();
+  else if (rematch?.role === 'guest') showGuest(rematch.code);
+  else {
+    home();
+    if (presetCode) card.querySelector('.lobby-code')?.focus();
+  }
 }

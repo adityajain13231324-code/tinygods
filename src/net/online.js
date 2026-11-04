@@ -7,18 +7,18 @@ import { mulberry32, shuffle } from '../sim/rng.js';
 
 const BOT_NAMES = { warmonger: 'Marshal Vex', pacifist: 'Sister Pearl', opportunist: 'Old Fox', gossip: 'Madam Whisper', chaos: 'Trickster Pip' };
 
-/** Seats 0..names.length-1 are people (Embers first); the rest are bots with seeded personalities. */
+/** names[i] is the person leading faction i; an empty or missing name means a bot with a seeded personality. */
 export function makeSeats(seed, names) {
   const botTypes = shuffle(mulberry32(seed * 31), PERSONALITY_NAMES);
   let nextBot = 0;
   return FACTIONS.map((f, i) => {
-    if (i < names.length) return { name: names[i], kind: 'human' };
+    if (names[i]) return { name: names[i], kind: 'human' };
     const personality = botTypes[nextBot++];
     return { name: BOT_NAMES[personality] ?? `${f.name} bot`, kind: 'bot', personality };
   });
 }
 
 let current = null;
-/** @param {{role: 'host'|'guest', room: any, mySeat: number, seed: number, names: string[]} | null} o */
+/** @param {{role: 'host'|'guest', room: any, mySeat: number, seed: number, names: string[], difficulty?: string, orderSecs?: number, simSecs?: number} | null} o */
 export const setOnline = (o) => { current = o; };
 export const getOnline = () => current;

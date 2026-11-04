@@ -44,7 +44,21 @@ const hotseat = !online && humanSeats.length > 1;
 
 const wanted = online ? online.difficulty : params.get('difficulty');
 const difficulty = DIFFICULTY[wanted] ? wanted : 'normal';
-const game = createGame({ seed, seats, difficulty, commandSeconds: online ? 45 : undefined });
+// Timer settings (menu > Settings). Online, the host picks them in the lobby and everyone gets the same ones.
+const savedSecs = (key, allowed, fallback) => { try { const v = Number(localStorage.getItem(key)); return allowed.includes(v) ? v : fallback; } catch { return fallback; } };
+const timers = online ? {} : {
+  commandSeconds: savedSecs('tinygods.orderSecs', [30, 45, 60, 90], 45),
+  simSeconds: savedSecs('tinygods.simSecs', [32, 45, 60], 45),
+  recapSeconds: savedSecs('tinygods.newsSecs', [10, 20, 40], 20),
+};
+// Remember who we are, so the rematch lobby can reopen the same room and put everyone back in their colour.
+const saveRematch = (o) => {
+  let name = '';
+  try { name = localStorage.getItem('tinygods.onlineName') ?? ''; } catch { /* storage can be blocked */ }
+  const info = { role: o.role, code: o.room.code, name: name || o.names[o.mySeat] || '', seat: o.mySeat, difficulty: o.difficulty, orderSecs: o.orderSecs, simSecs: o.simSecs };
+  try { sessionStorage.setItem('tinygods.rematch', JSON.stringify(info)); } catch { /* storage can be blocked */ }
+};
+const game = createGame({ seed, seats, difficulty, ...(online ? { commandSeconds: online.orderSecs ?? 45, simSeconds: online.simSecs ?? 32 } : timers) });
 const { app, world: stage } = await createApp(document.getElementById('game'));
 // Frame-rate cap (menu > Settings, or the button in the top bar): Auto follows the screen, or 60 / 30.
 const FPS_CYCLE = ['0', '60', '30'];
@@ -84,6 +98,7 @@ const ctx = {
   humanSeats,
   hotseat,
   online: !!online,
+  isHost: online?.role === 'host',
   passReady: true, // false while the "pass the device" screen is up
   speed: 1,
   paused: false,
@@ -128,6 +143,15 @@ const ctx = {
   },
   replay(highlight) { replay.play(highlight); },
   replayActive: () => replay.active,
+  rematchAsks: 0, // online: how many guests asked the host for another match
+  askRematch() { online?.room.send({ t: 'wantrematch' }); },
+  /** Online host: everybody goes back to a lobby with the same room code (and their colours), to start again. */
+  rematch() {
+    if (!online || online.role !== 'host') return;
+    saveRematch(online);
+    online.room.broadcast({ t: 'rematch' });
+    setTimeout(() => { online.room.close(); location.href = `${location.pathname}?rematch=1`; }, 600);
+  },
   restart() {
     if (online) { location.href = location.pathname; return; }
     const next = new URLSearchParams(location.search);
@@ -161,6 +185,12 @@ if (online) {
     broadcast: (m) => online.room.broadcast(m),
   });
   online.room.attach(net);
+  if (online.role === 'host') {
+    const askers = new Set();
+    online.room.onRematchRequest = (seat) => { askers.add(seat); ctx.rematchAsks = askers.size; };
+  } else {
+    online.room.onRematch = () => { saveRematch(online); setTimeout(() => { online.room.close(); location.href = `${location.pathname}?rematch=1`; }, 200); };
+  }
   window.addEventListener('tinygods-host-left', () => {
     const lost = el('div', 'overlay');
     lost.style.pointerEvents = 'auto';
@@ -253,6 +283,12 @@ function frame(frameSeconds) {
   const sideDock = window.innerWidth >= SIDE_DOCK_MIN_WIDTH; // wide screens: the panel sits beside the town, not over it
   camera.insetTarget = panelOn && !sideDock ? cmdPanel.offsetHeight + 14 : 0;
   camera.insetRightTarget = panelOn && sideDock ? cmdPanel.offsetWidth + 24 : 0;
+  const tboard = document.getElementById('townboard');
+  if (tboard) {
+    const below = cmdPanel && panelOn && sideDock ? cmdPanel.offsetTop + cmdPanel.offsetHeight + 10 : (document.getElementById('topbar')?.offsetHeight || 40) + 12;
+    uiRoot.style.setProperty('--boardTop', `${below}px`);
+    tboard.classList.toggle('tight', window.innerHeight - below - 12 < 150 || !sideDock || game.phase === 'ended');
+  }
   uiRoot.style.setProperty('--topH', `${(document.getElementById('topbar')?.offsetHeight || 40) + 10}px`);
   camera.insetTop = document.getElementById('topbar')?.offsetHeight + 6 || 46;
   camera.update(dt);

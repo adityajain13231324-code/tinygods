@@ -260,10 +260,10 @@ export function createCommandPanel(root, ctx) {
       const rivals = [0, 1, 2, 3].filter((f) => f !== ctx.seat && living[f] > 0);
       const strongest = rivals.slice().sort((x, y) => living[y] - living[x])[0];
       const weakest = rivals.slice().sort((x, y) => living[x] - living[y])[0];
-      const quick = [['🗡️ Arm up', 'arm up'], ['🕊️ Stand down', 'everyone stand down'], ['🎉 Party', 'party at the plaza']];
-      if (strongest !== undefined) quick.push([`😱 Scare ${FACTIONS[strongest].name}`, `scare the ${FACTIONS[strongest].name}`]);
-      if (weakest !== undefined && !game.world.peaceful) quick.push([`⚔️ Attack ${FACTIONS[weakest].name}`, `attack the ${FACTIONS[weakest].name}`]);
-      quick.push(['🛡️ Guard us', 'guard my people']);
+      const name = (f) => FACTIONS[f].name;
+      const quick = [['🗡️ Arm up', 'arm up'], ['🕊️ Stand down', 'everyone stand down'], ['🎉 Party', 'party at the plaza'], ['🛡️ Guard us', 'guard my people'], ['🙈 Hide', 'hide in the houses'], ['🏃 Run away', 'run away from everyone']];
+      if (strongest !== undefined) quick.push([`😱 Scare ${name(strongest)}`, `scare the ${name(strongest)}`], [`💞 Love ${name(strongest)}`, `love the ${name(strongest)}`]);
+      if (weakest !== undefined && !game.world.peaceful) quick.push([`⚔️ Attack ${name(weakest)}`, `attack the ${name(weakest)}`], [`👊 Shove ${name(weakest)}`, `shove the ${name(weakest)}`], [`🪤 Ambush ${name(weakest)}`, `ambush the ${name(weakest)} at the plaza`]);
       const bar = el('div', 'quickbar');
       bar.append(el('span', 'sub', 'Quick:'));
       for (const [label, text] of quick) {

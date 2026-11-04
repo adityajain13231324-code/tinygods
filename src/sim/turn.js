@@ -30,7 +30,7 @@ const TICK = 1 / SIM.tickHz;
  * @param {{seed?: number, seats: {name: string, kind: 'human'|'bot', personality?: string}[]}} opts
  *   seats[i] leads faction i.
  */
-export function createGame({ seed = 1, seats, cosmetics = true, difficulty = 'normal', commandSeconds = TURN.commandSeconds }) {
+export function createGame({ seed = 1, seats, cosmetics = true, difficulty = 'normal', commandSeconds = TURN.commandSeconds, simSeconds = TURN.simSeconds, recapSeconds = TURN.recapSeconds }) {
   const world = createWorld(seed, { cosmetics });
   const game = {
     seed,
@@ -43,6 +43,8 @@ export function createGame({ seed = 1, seats, cosmetics = true, difficulty = 'no
     lastEventId: null,
     difficulty,
     commandSeconds,
+    simSeconds, // how long the town acts each day
+    recapSeconds, // how long the news stays up before the next day starts by itself
     power: new Array(POPULATION.factions).fill(0), // god power points left this turn
     hand: Array.from({ length: POPULATION.factions }, () => []), // this turn's three cards per seat
     cardPending: new Array(POPULATION.factions).fill(null), // the card each seat chose to play
@@ -294,7 +296,7 @@ function stepSim(game) {
   game.livingBefore = livingNow;
 
   const decided = factionsAlive(livingNow).length <= 1;
-  if (decided || game.simElapsed >= TURN.simSeconds) endSim(game);
+  if (decided || game.simElapsed >= game.simSeconds) endSim(game);
 }
 
 function endSim(game) {
@@ -352,7 +354,7 @@ function endSim(game) {
     game.winReason = result.reason;
   }
   game.phase = 'recap';
-  game.timer = TURN.recapSeconds;
+  game.timer = game.recapSeconds;
 }
 
 function endRecap(game) {

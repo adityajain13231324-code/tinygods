@@ -2,6 +2,7 @@ import { FACTIONS, PLACES } from '../../config/content.js';
 import { TURN } from '../../config/tunables.js';
 import { describeOrder } from '../../sim/orders.js';
 import { livingByFaction } from '../../sim/win.js';
+import { POWER_DEFS } from '../../sim/powers.js';
 import { clock, css, el, setText } from './dom.js';
 
 const MARKS = { triangle: '▲', wave: '≈', leaf: '❀', star: '★' };
@@ -71,6 +72,37 @@ export function createHud(root, ctx) {
   feed.id = 'feed';
   root.append(topbar, feed);
 
+  // Town board (wide screens, under the order panel): who is left, and a running log of what happened.
+  const board = el('div');
+  board.id = 'townboard';
+  const score = el('div', 'tb-score');
+  const rows = FACTIONS.map((f) => {
+    const row = el('div', 'tb-row');
+    const dot = el('i');
+    dot.style.background = css(f.color);
+    const name = el('b', '', f.name);
+    const bar = el('span', 'tb-bar');
+    const fill = el('i');
+    fill.style.background = css(f.color);
+    bar.append(fill);
+    const num = el('em');
+    const lost = el('small');
+    row.append(dot, name, bar, num, lost);
+    score.append(row);
+    return { row, fill, num, lost };
+  });
+  const logHead = el('div', 'tb-head', 'What is happening');
+  const log = el('div', 'tb-log');
+  board.append(el('div', 'tb-head', 'The town'), score, logHead, log);
+  root.append(board);
+  const logLine = (turnNo, icon, text) => {
+    const line = el('div', '');
+    line.append(el('span', 'tb-turn', `T${turnNo}`), el('span', 'tb-icon', icon), el('span', '', text));
+    log.prepend(line);
+    while (log.children.length > 40) log.lastChild.remove();
+  };
+  const placeName = (id) => PLACES.find((p) => p.id === id)?.name ?? 'the town';
+
   const chips = FACTIONS.map((f) => {
     const chip = el('span', 'chip');
     const dot = el('i');
@@ -87,7 +119,7 @@ export function createHud(root, ctx) {
     update(game) {
       setText(turn, `Turn ${game.turn}`);
       setText(phase, PHASE_LABEL[game.phase]);
-      setText(timer, game.phase === 'sim' ? clock(TURN.simSeconds - game.simElapsed) : game.phase === 'ended' ? '' : clock(game.timer));
+      setText(timer, game.phase === 'sim' ? clock((game.simSeconds ?? TURN.simSeconds) - game.simElapsed) : game.phase === 'ended' ? '' : clock(game.timer));
       setText(alert, ctx.replayActive() ? '⏪ REPLAY' : game.suddenDeath && game.phase !== 'ended' ? 'Tension rising!' : '');
 
       const living = livingByFaction(game.world);
@@ -117,6 +149,18 @@ export function createHud(root, ctx) {
       const mine = game.truth.filter((t) => t.turn === game.turn && t.seat === ctx.seat).at(-1);
       setText(myOrders, !ctx.hotseat && game.phase === 'sim' && mine ? `Your orders: ${mine.orders.length ? mine.orders.map(describeOrder).join(', ') : 'none'}` : '');
 
+      // Scoreboard: living villagers per faction, and who lost people this turn.
+      const turnKills = game.world.events.filter((e) => e.type === 'kill' && e.turn === game.turn);
+      FACTIONS.forEach((f, i) => {
+        const r = rows[i];
+        r.fill.style.width = `${Math.min(100, (living[i] / 12) * 100)}%`;
+        setText(r.num, String(living[i]));
+        const lostNow = turnKills.filter((e) => e.victimFaction === i).length;
+        setText(r.lost, lostNow ? `−${lostNow}` : '');
+        r.row.classList.toggle('out', game.eliminated[i]);
+        r.row.classList.toggle('you', ctx.online ? i === ctx.seat : !ctx.hotseat && game.seats[i].kind === 'human');
+      });
+
       // Kill feed from the world's event log.
       const events = game.world.events;
       while (feedIndex < events.length) {
@@ -126,8 +170,21 @@ export function createHud(root, ctx) {
           const v = game.world.villagers[e.victimId];
           const line = el('div', '', `${k.name} (${tag(k)}) downed ${v.name} (${tag(v)})`);
           addFeed(feed, line);
+          logLine(e.turn, '⚔️', `${k.name} (${tag(k)}) downed ${v.name} (${tag(v)}) at the ${placeName(e.place)}`);
         } else if (e.type === 'gunshot') {
           addFeed(feed, el('div', 'shot', `Gunshot at the ${PLACES.find((p) => p.id === e.place).name}!`));
+          logLine(e.turn, '🔫', `Gunshot at the ${placeName(e.place)}`);
+        } else if (e.type === 'bond') {
+          logLine(e.turn, '💞', `${game.world.villagers[e.aId].name} and ${game.world.villagers[e.bId].name} paired up`);
+        } else if (e.type === 'defect') {
+          const v = game.world.villagers[e.villagerId];
+          logLine(e.turn, '🔄', `${v.name} switched sides`);
+        } else if (e.type === 'rumorStart') {
+          logLine(e.turn, '🗣️', 'A rumor starts to spread');
+        } else if (e.type === 'power') {
+          logLine(e.turn, '✨', `${POWER_DEFS[e.power]?.name ?? 'A miracle'} was cast`);
+        } else if (e.type === 'explosion') {
+          logLine(e.turn, '💥', 'An explosion');
         }
       }
     },

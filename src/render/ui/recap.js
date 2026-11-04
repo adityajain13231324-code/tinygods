@@ -151,8 +151,19 @@ export function createRecap(root, ctx) {
     for (const id of earned) card.append(el('div', 'coach', `Achievement unlocked: ${ACHIEVEMENTS[id].name}. ${ACHIEVEMENTS[id].text}`));
 
     const btns = el('div', 'btns');
-    const again = el('button', 'go', ctx.online ? 'Back to the menu' : 'Rematch');
-    again.onclick = () => ctx.restart();
+    const again = el('button', 'go', 'Rematch');
+    const host = !ctx.online || ctx.isHost;
+    const asked = { value: false };
+    const label = () => (!ctx.online ? 'Rematch' : host ? (ctx.rematchAsks ? `Rematch (${ctx.rematchAsks} asked)` : 'Rematch lobby') : asked.value ? 'Asked ✓ waiting for the host' : 'Ask for a rematch');
+    again.textContent = label();
+    again.onclick = () => {
+      if (!ctx.online) ctx.restart();
+      else if (host) ctx.rematch();
+      else if (!asked.value) { asked.value = true; ctx.askRematch(); again.textContent = label(); }
+    };
+    if (ctx.online) {
+      const tick = setInterval(() => { if (!again.isConnected) { clearInterval(tick); return; } if (!again.disabled) again.textContent = label(); }, 500);
+    }
     const share = el('button', 'go ghost', 'Copy share text');
     share.onclick = async () => {
       const text = shareText(game, ctx.seat, location.origin + location.pathname);
@@ -164,7 +175,6 @@ export function createRecap(root, ctx) {
       }
     };
     const menu = el('button', 'go ghost', 'Main menu');
-    menu.hidden = !!ctx.online;
     menu.onclick = () => { location.href = location.pathname; };
     const view = el('button', 'go ghost', '👁 View the town');
     view.onclick = () => { dismissed = true; };

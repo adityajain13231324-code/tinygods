@@ -122,12 +122,17 @@ export function showMenu() {
   play.onclick = (e) => { e.stopPropagation(); startSolo(); };
   solo.append(play);
 
-  const openOnline = (code = '') => import('./onlineLobby.js').then((m) => m.showOnlineLobby(root, modal, code));
+  const openOnline = (code = '', rematch = null) => import('./onlineLobby.js').then((m) => m.showOnlineLobby(root, modal, code, rematch));
   card('🌐', 'Play online', 'Make a room with a 5-letter code. Friends join from their own devices; bots fill empty seats.', { onClick: () => openOnline() });
   card('🛋️', 'Pass and play', '2 to 4 friends on one device. Orders are hidden by a "pass the device" screen.', { onClick: () => showPassSetup() });
   card('📅', 'Daily town', 'Everyone gets the same town today. Compare how you did.', { onClick: () => launch({ players: '1', seed: String(dailySeed()) }) });
   const invited = new URLSearchParams(location.search).get('room');
-  if (invited) setTimeout(() => openOnline(invited), 0);
+  let rematch = null;
+  if (new URLSearchParams(location.search).get('rematch') === '1') {
+    try { rematch = JSON.parse(sessionStorage.getItem('tinygods.rematch') ?? 'null'); sessionStorage.removeItem('tinygods.rematch'); } catch { rematch = null; }
+  }
+  if (rematch?.code) setTimeout(() => openOnline(rematch.code, rematch), 0);
+  else if (invited) setTimeout(() => openOnline(invited), 0);
 
   wrap.append(hero, modes);
   root.append(bg, wrap);
@@ -175,6 +180,10 @@ export function showMenu() {
     };
     choice('tinygods.fps', 'Frame rate', 'Auto matches your screen (60, 120, 144...). Pick 60 or 30 to save battery.', FPS_CHOICES, '0');
     choice('tinygods.difficulty', 'Bot difficulty', 'How hard the computer players are.', Object.entries(DIFFICULTY).map(([id, d]) => [id, d.label]), 'normal');
+    choice('tinygods.orderSecs', 'Time for orders', 'How long you have each dawn to give orders. Whatever you typed is sent when it runs out.', [['30', '30 s'], ['45', '45 s'], ['60', '1 min'], ['90', '1½ min']], '45');
+    choice('tinygods.simSecs', 'Time the town acts', 'How long each day plays out before the news.', [['32', '32 s'], ['45', '45 s'], ['60', '1 min']], '45');
+    choice('tinygods.newsSecs', 'Time for the news', 'How long the news stays up before the next day starts by itself.', [['10', '10 s'], ['20', '20 s'], ['40', '40 s']], '20');
+    list.append(el('p', 'sub', 'Online games always use one shared clock (45 s orders).'));
     dlg.card.append(list);
   }
 
