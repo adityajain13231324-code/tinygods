@@ -1,6 +1,0 @@
-const fs=require('fs');
-function sub(f,a,b){let s=fs.readFileSync(f,'utf8').replace(/\r\n/g,'\n');if(!s.includes(a))throw new Error('missing '+a.slice(0,60));fs.writeFileSync(f,s.replace(a,()=>b));}
-const P='src/sim/parser.js';
-sub(P,"scatter: ['scatter', 'disperse', 'scamper', 'vanish', 'disappear', 'bolt', 'scarper'],","scatter: ['scatter', 'disperse', 'vanish', 'disappear'],");
-sub(P,"teach (?:.{0,20}?)a lesson|stand up to|give (?:.{0,12}?)a beating|put (?:.{0,12}?)in (?:their|its) place|settle (?:the )?score with|have it out with|show (?:.{0,12}?)who(?:'s| is) boss|","teach (?=.{0,20}a lesson)|stand up to|give (?=.{0,12}a beating)|put (?=.{0,12}in (?:their|its) place)|settle (?:the )?score with|have it out with|show (?=.{0,12}who(?:'s| is) boss)|");
-sub(P,"[/leave (?:the )?(\w+)(?: ones| folks| lot)? alone|let (?:the )?(\w+) be|give (?:the )?(\w+) (?:some )?space|keep (?:your|a) distance from|have nothing to do with|don'?t (?:go near|get near|bother|talk to)|steer clear of/g, ' avoid '],","[/leave (?:the )?(\w+)(?: ones| folks| lot)? alone|let (?:the )?(\w+) be|give (?:the )?(\w+) (?:some )?space|keep (?:your|a) distance from|have nothing to do with|don'?t (?:go near|get near|bother|talk to)|steer clear of/g, ' avoid $1$2$3 '],");
