@@ -487,11 +487,22 @@ html, body { touch-action: manipulation; }
 @media (min-width: 920px) {
   #command, #powerbar {
     left: auto; right: 12px; bottom: auto; top: var(--topH, 58px); transform: none;
-    width: min(400px, 31vw); max-height: calc(100vh - var(--topH, 58px) - 14px); overflow-y: auto; overflow-x: hidden;
+    width: clamp(300px, 21vw, 380px); max-height: calc(100vh - var(--topH, 58px) - 14px); overflow-y: auto; overflow-x: hidden;
     animation: panel-in-side 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.05);
     scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.25) transparent;
   }
   @keyframes panel-in-side { from { transform: translateX(28px); opacity: 0; } }
+  /* powers in the dock: two roomy columns, so the whole spell book reads at a glance and nothing is cut off */
+  #powerbar { padding: 12px 14px; gap: 10px; }
+  #powerbar .powerhead { gap: 8px; }
+  #powerbar .powerhead .sub { flex: 1 1 100%; order: 3; line-height: 1.35; }
+  #powerbar .powergrid { grid-template-columns: 1fr 1fr; gap: 8px; }
+  #powerbar .ptile { padding: 9px 10px; gap: 8px; min-width: 0; }
+  #powerbar .pt-icon { font-size: 22px; }
+  #powerbar .pt-name { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+  #powerbar .typeform { flex-wrap: wrap; }
+  #powerbar .typeform input { flex: 1 1 100%; padding: 9px 12px; }
+  #powerbar .typeform button { flex: 1 1 100%; }
   .netpanel { right: auto; left: 12px; top: auto; bottom: 12px; }
 }
 
