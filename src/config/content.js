@@ -31,6 +31,9 @@ export const VERBS = {
   arm: { label: 'Arm up', targets: [], blurb: 'Unarmed villagers fetch a weapon; gun owners reload.' },
   accuse: { label: 'Accuse', targets: ['group'], blurb: 'Start a rumor that the target group did something awful. It spreads from villager to villager; believers like them less. Nobody learns who started it.' },
   praise: { label: 'Praise', targets: ['group'], blurb: 'Start a rumor that the target group did something wonderful. Believers like them more.' },
+  scare: { label: 'Scare', targets: ['group'], blurb: 'Your villagers walk up to the target faction and glare, mutter and loom until they lose their nerve and run. Bullying makes enemies resent you.' },
+  scatter: { label: 'Run away', targets: [], blurb: 'Everyone scatters away from everybody else and keeps their distance.' },
+  ambush: { label: 'Ambush', targets: ['place'], blurb: 'Lie in wait at a place and jump anyone from another faction who wanders close.' },
   festival: { label: 'Festival', targets: ['place'], blurb: 'A party at a place: everyone nearby calms down and friendships form.' },
 };
 

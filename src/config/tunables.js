@@ -191,8 +191,11 @@ export const GRIEVANCE = {
 // The closing storm: once sudden death starts, the safe area shrinks every turn toward the middle
 // of town, so the last survivors are forced together and a match always ends.
 export const STORM = {
-  shrinkPerTurn: 0.12, // fraction of the map lost per turn, from the turn after sudden death begins
-  minSize: 0.34, // the safe area never gets smaller than this fraction of the map
+  shrinkPerTurn: 0.09, // fraction of the map lost per turn, from the turn after sudden death begins
+  minSize: 0.45, // the safe area never gets smaller than this fraction of the map...
+  lateTurn: 13, // ...until a long match drags on: from this turn the storm tightens faster
+  lateShrinkPerTurn: 0.07,
+  lateMinSize: 0.3,
 };
 
 // War fever: late in the match (sudden death) and whenever only two factions are left, the
@@ -308,6 +311,12 @@ export const ORDERS = {
   protectStay: 60,
   avoidDistance: 150,
   avoidPush: 1.2, // how hard avoiders steer away (times walk speed)
+  scareReach: 80, // scarers walk up to this close to their victim, then glare
+  scareFear: 5, // fear a victim gains per second-ish (x strength) from a glaring scarer
+  scareCourage: 1.2, // courage lost per scare tick (x strength)
+  scareFlee: 0.1, // chance per tick (x strength) that the victim bolts
+  scareGrudge: 2.5, // ...and how much more they resent the scarer (bullying has a price)
+  ambushReach: 1.15, // an ambusher jumps anyone this close to the place's edge (x radius)
   armAggression: 5,
   trustMatchGain: 0.05, // neutrals trust you more when your order matches how they feel
   trustMismatchLoss: 0.03,

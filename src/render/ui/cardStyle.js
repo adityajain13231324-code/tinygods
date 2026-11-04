@@ -52,5 +52,8 @@ export const VERB_LOOK = {
   accuse: { icon: '🗣️', tip: 'Start a rumor against a faction' },
   praise: { icon: '👏', tip: 'Start a rumor praising a faction' },
   festival: { icon: '🎉', tip: 'A party that calms everyone' },
+  scare: { icon: '👻', tip: 'Walk up to a faction and frighten them into running' },
+  scatter: { icon: '💨', tip: 'Everyone runs away from everyone' },
+  ambush: { icon: '🥷', tip: 'Wait at a place and jump anyone who comes near' },
 };
-export const VERB_ORDER = ['hate', 'love', 'fear', 'assault', 'protect', 'avoid', 'follow', 'escort', 'hunt', 'standdown', 'arm', 'accuse', 'praise', 'festival'];
+export const VERB_ORDER = ['hate', 'love', 'fear', 'assault', 'protect', 'avoid', 'follow', 'escort', 'hunt', 'standdown', 'arm', 'accuse', 'praise', 'festival', 'scare', 'scatter', 'ambush'];

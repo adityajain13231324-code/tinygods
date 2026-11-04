@@ -219,7 +219,8 @@ function beginTurn(game) {
   world.seekRadius = COMBAT.seekRadius + fever * FEVER.seekPerPoint;
 
   // The storm closes in from the turn after sudden death begins.
-  const shrink = Math.max(STORM.minSize, 1 - STORM.shrinkPerTurn * Math.max(0, game.turn - TURN.suddenDeathTurn));
+  const late = Math.max(0, game.turn - STORM.lateTurn);
+  const shrink = Math.max(late > 0 ? STORM.lateMinSize : STORM.minSize, 1 - STORM.shrinkPerTurn * Math.max(0, game.turn - TURN.suddenDeathTurn) - STORM.lateShrinkPerTurn * late);
   const cx = WORLD.width / 2;
   const cy = WORLD.height / 2;
   const hw = (WORLD.width / 2 - WORLD.margin) * shrink;

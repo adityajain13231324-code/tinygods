@@ -17,7 +17,7 @@ export function validateOrder(order, world) {
   if (!verb) return { ok: false, error: 'Unknown verb' };
   if (![1, 2, 3].includes(order.strength)) return { ok: false, error: 'Strength must be 1, 2 or 3' };
 
-  if (world.peaceful && (order.verb === 'assault' || order.verb === 'hunt')) return { ok: false, error: `${verb.label} is locked: the town is at peace until day ${TURN.peaceTurns + 1}` };
+  if (world.peaceful && (order.verb === 'assault' || order.verb === 'hunt' || order.verb === 'ambush')) return { ok: false, error: `${verb.label} is locked: the town is at peace until day ${TURN.peaceTurns + 1}` };
   if (verb.targets.length === 0) {
     if (order.target) return { ok: false, error: `${verb.label} takes no target` };
     return { ok: true };
@@ -90,6 +90,7 @@ export function plainOrder(order) {
     avoid: `will keep away from the ${t}`, follow: `will go to the ${t}`, escort: `will follow ${t}`, hunt: `will hunt ${t}`,
     assault: order.target?.kind === 'place' ? `will attack whoever is at the ${t}` : `will charge the ${t}`, standdown: 'will stand down', arm: 'will fetch weapons from the armory',
     accuse: `will spread a rumor about the ${t}`, praise: `will praise the ${t}`, festival: `will throw a party at the ${t}`,
+    scare: `will walk up to the ${t} and frighten them`, scatter: 'will run away from everybody', ambush: `will lie in wait at the ${t}`,
   }[order.verb] ?? `will ${order.verb}`;
   void the;
   return `${who} ${text}.`;
@@ -142,8 +143,8 @@ export function applyOrders(world, seat, orders, lastVerbs = null) {
       notes.push('Hunt: you cannot hunt your own villager.');
       continue;
     }
-    if (order.verb === 'assault' && order.target.kind === 'group' && order.target.id === seat) {
-      notes.push('Assault: you cannot assault your own faction.');
+    if ((order.verb === 'scare' || order.verb === 'assault') && order.target.kind === 'group' && order.target.id === seat) {
+      notes.push(`${order.verb === 'scare' ? 'Scare' : 'Assault'}: you cannot do that to your own faction.`);
       continue;
     }
     const subjects = pickSubjects(world, seat, order);
@@ -219,6 +220,15 @@ export function applyOrders(world, seat, orders, lastVerbs = null) {
           break;
         case 'avoid':
           if (w === 1 || world.rng() < w) v.fx.avoid.push({ target: order.target, S });
+          break;
+        case 'scatter':
+          if (w === 1 || world.rng() < w) for (let g = 0; g < NUM_GROUPS; g++) if (g !== groupOf(v)) v.fx.avoid.push({ target: { kind: 'group', id: g }, S });
+          break;
+        case 'scare':
+          if ((w === 1 || world.rng() < w) && order.target.id !== groupOf(v)) v.fx.scare.push({ group: order.target.id, S });
+          break;
+        case 'ambush':
+          if (w === 1 || world.rng() < w) v.fx.ambush = order.target.id;
           break;
         case 'follow':
           if (w === 1 || world.rng() < w) v.fx.follow = order.target.id;

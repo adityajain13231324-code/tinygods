@@ -17,12 +17,15 @@ const ACTIONS = {
   hate: ['hate', 'despise', 'loathe', 'punish', 'war', 'revenge', 'avenge', 'resent', 'curse'],
   assault: ['attack', 'assault', 'fight', 'charge', 'invade', 'storm', 'kill', 'destroy', 'crush', 'eliminate', 'murder', 'strike', 'hurt', 'beat', 'smash', 'slaughter', 'wipe', 'rush'],
   love: ['love', 'like', 'befriend', 'friend', 'bond', 'hug', 'ally', 'adore', 'kiss', 'unite', 'forgive', 'reconcile', 'cherish', 'peace', 'respect', 'welcome'],
-  fear: ['fear', 'scare', 'scared', 'terrify', 'frighten', 'threaten', 'spook', 'afraid', 'intimidate', 'horrify', 'haunt', 'dread'],
+  fear: ['fear', 'afraid', 'dread', 'feared', 'fearful'],
+  scare: ['scare', 'scared', 'terrify', 'terrified', 'frighten', 'frightened', 'threaten', 'spook', 'intimidate', 'horrify', 'haunt', 'bully', 'menace', 'harass', 'torment', 'pester', 'unnerve', 'rattle'],
+  scatter: ['scatter', 'disperse', 'vanish', 'disappear'],
+  ambush: ['ambush', 'lurk', 'stakeout', 'waylay'],
   protect: ['protect', 'guard', 'defend', 'bodyguard', 'safeguard', 'shelter', 'secure', 'fortify', 'cover'],
   avoid: ['avoid', 'dodge', 'evade', 'shun', 'ignore', 'escape', 'flee', 'ditch'],
   go: ['go', 'head', 'march', 'gather', 'assemble', 'meet', 'hide', 'hiding', 'retreat', 'station', 'stay', 'camp', 'wait', 'visit', 'relocate', 'walk', 'run', 'regroup'],
   escort: ['escort', 'follow', 'accompany', 'shadow', 'trail', 'tail', 'stick', 'join'],
-  hunt: ['hunt', 'ambush', 'assassinate', 'chase', 'track', 'stalk', 'pursue', 'target'],
+  hunt: ['hunt', 'assassinate', 'chase', 'track', 'stalk', 'pursue', 'target'],
   standdown: ['standdown', 'relax', 'surrender', 'settle', 'behave'],
   accuse: ['accuse', 'blame', 'rumor', 'rumour', 'gossip', 'slander', 'frame', 'smear', 'lie', 'lies', 'allege', 'expose', 'snitch'],
   praise: ['praise', 'compliment', 'flatter', 'honor', 'honour', 'hail', 'applaud', 'admire', 'glorify', 'thank', 'toast'],
@@ -65,11 +68,11 @@ const ACTIONS = {
 };
 
 // When a sentence holds words for several actions, the earlier in this list wins.
-const PRIORITY = ['standdown', 'bomb', 'kidnap', 'warchest', 'forged', 'bribe', 'prophecy', 'raid', 'spoiled', 'matchmaker', 'treaty', 'alarm', 'recruit', 'medic', 'census',
+const PRIORITY = ['standdown', 'scatter', 'ambush', 'bomb', 'kidnap', 'warchest', 'forged', 'bribe', 'prophecy', 'raid', 'spoiled', 'matchmaker', 'treaty', 'alarm', 'recruit', 'medic', 'census',
   'truce', 'spy', 'alibi', 'earthquake', 'tornado', 'fireball', 'disarm', 'rain', 'charm', 'enrage', 'aegis', 'sleep', 'lightning', 'miracle', 'whisper', 'fog', 'gust', 'rally', 'hunt', 'escort', 'avoid', 'festival', 'arm', 'protect',
-  'go', 'assault', 'hate', 'love', 'fear', 'accuse', 'praise'];
+  'go', 'scare', 'assault', 'hate', 'love', 'fear', 'accuse', 'praise'];
 
-const ORDER_VERBS = new Set(['assault', 'hate', 'love', 'fear', 'protect', 'avoid', 'go', 'escort', 'hunt', 'standdown', 'accuse', 'praise', 'festival', 'arm']);
+const ORDER_VERBS = new Set(['assault', 'hate', 'love', 'fear', 'scare', 'scatter', 'ambush', 'protect', 'avoid', 'go', 'escort', 'hunt', 'standdown', 'accuse', 'praise', 'festival', 'arm']);
 const VERB_ID = { go: 'follow' }; // typed "go" is the game's Go-to-a-place order
 
 const GROUP_WORDS = {
@@ -114,6 +117,27 @@ const STOP = new Set(['the', 'a', 'an', 'to', 'of', 'on', 'at', 'in', 'with', 'f
 
 // Multi-word phrases become one keyword before the sentence is read.
 const PHRASES = [
+  // everybody runs from everybody (before the plain "away from X" rule below)
+  [/(?:run(?:ning)?|flee(?:ing)?|get|stay|keep|hide|stay out of|keep out of|steer clear of|escape)(?: right)?(?: away| off| out)? from (?:every(?:one|body)|all|anyone|anybody|each other|the others|other villagers|other people|the rest|all of them|all the others)/g, ' scatter '],
+  [/run(?:ning)? (?:away|off)\b(?! from)|run for (?:it|your lives|the hills|cover)|head for the hills|make a run for it|get out of (?:here|town)|scatter everyone|every(?:one|body) (?:run|flee|hide)|save yourselves|every man for himself/g, ' scatter '],
+  // ambush
+  [/lie in wait|wait in ambush|set (?:an? )?ambush|lay (?:an? )?ambush|lurk (?:at|in|near|around)|stake ?out|jump (?:anyone|everyone|whoever|anybody)|hide and wait|wait and (?:jump|pounce)/g, ' ambush '],
+  // "scare" is something you do TO them: walk up and frighten them
+  [/(?:stare|glare|growl|snarl|jeer|sneer|hiss) at|stare down|sneak up on|creep up on|loom over|get in (?:the )?faces? of|make (?:them|the (\w+)(?: ones)?) (?:scared|afraid|terrified|nervous|run)|put the fear of god into|rattle (?:the )?cages? of|shake up|rough up/g, ' scare $1 '],
+  // being scared OF someone (the real "fear" order)
+  [/(?:be |are |get |feel |become |stay )?(?:afraid|fearful|frightened|wary|nervous) (?:of|around)|(?:be )?scared of|fear them|watch out for|be (?:careful|cautious) (?:of|around|with)/g, ' fear '],
+  // picking fights, many ways
+  [/pick (?:a )?fights? with|go after|take on|teach (?=.{0,20}a lesson)|stand up to|give (?=.{0,12}a beating)|put (?=.{0,12}in (?:their|its) place)|settle (?:the )?score with|have it out with|show (?=.{0,12}who(?:'s| is) boss)|declare war on|go to war with|march on|throw hands with|duke it out with/g, ' attack '],
+  // friendly, many ways
+  [/make friends? with|get along with|be (?:nice|kind|friendly|polite) to|play nice with|buddy up with|team up with|hang out with|cozy up to|warm up to|extend (?:a |an )?(?:olive branch|hand) to|bury the hatchet with|shake hands with|invite (?:them|the \w+) (?:over|in)|make nice with|reach out to/g, ' love '],
+  [/cheer for|root for|speak well of|sing (?:the )?praises of|say nice things about|big up|tell everyone how (?:great|good|nice|wonderful)/g, ' praise '],
+  [/(?:talk|speak) (?:badly|ill|trash|smack) (?:about|of)|trash[- ]?talk|bad[- ]?mouth|smear campaign|spread (?:nasty )?(?:lies|gossip) about|tell everyone (?:that )?the \w+ (?:are|is) (?:evil|bad|dangerous|awful)/g, ' accuse '],
+  // staying out of trouble
+  [/leave (?:the )?(\w+)(?: ones| folks| lot)? alone|let (?:the )?(\w+) be|give (?:the )?(\w+) (?:some )?space|keep (?:your|a) distance from|have nothing to do with|don'?t (?:go near|get near|bother|talk to)|steer clear of/g, ' avoid $1$2$3 '],
+  [/take cover|batten down|barricade|lock (?:the |your )?doors?|lock down|board up|shelter in place|go underground|go into hiding|duck and cover|keep (?:your )?heads? down/g, ' hide '],
+  [/guard duty|be on (?:the )?watch|keep watch|stand watch|keep an eye (?:on|out for)|watch out for my|have (?:their|each other'?s?|our) backs?|cover (?:my|our|their) backs?|on patrol|patrol (?:the|around)/g, ' protect '],
+  [/(?:hurry|dash|sprint|race|speed|scurry|dart|rush|bolt) (?:over |back |off )?(?:to|toward|towards|into|for)\b/g, ' go '],
+  [/(?:get|go) (?:back )?(?:to|in)(?:side)? (?:the )?(?:houses|homes?)/g, ' hide '],
   [/stand(?:ing)? down|stop (?:the )?fight(?:ing)?|put (?:their |your |the )?(?:weapons?|guns?|fists?) (?:down|away)|hold (?:your )?fire|lay low|cease (?:the )?fire|no more fighting|don'?t fight|do not fight|keep the peace/g, ' standdown '],
   [/keep away from|stay away from|steer clear of|stay clear of|keep (?:out of|clear of)|away from/g, ' avoid '],
   [/look(?:ing)? after|watch(?:ing)? over|take care of|stand guard|keep safe/g, ' protect '],
@@ -315,8 +339,7 @@ function parseClause(rawClause, game, seat) {
 /** An order: who (subject), does what (verb), to whom or where (target), how hard (strength). */
 function parseOrder(id, clause, raw, f, game, seat) {
   const { group, place, named, ownNamed, otherNamed, explicit } = f;
-  const behaviour = ['go', 'escort', 'hunt', 'standdown', 'protect', 'avoid'].includes(id);
-
+  
   // Who should do it?
   let subject = null;
   const count = findCount(raw);
@@ -350,6 +373,11 @@ function parseOrder(id, clause, raw, f, game, seat) {
   if (verb === 'go') {
     const hiding = raw.some((t) => ['hide', 'hiding', 'shelter', 'retreat', 'indoors'].includes(t));
     target = { kind: 'place', id: place ?? (hiding ? 'houses' : 'plaza') };
+  } else if (verb === 'scatter') {
+    target = null;
+  } else if (verb === 'ambush') {
+    if (!place) return fail('Ambush where? Pick a place:', game, seat, { verb: 'ambush' });
+    target = { kind: 'place', id: place };
   } else if (verb === 'festival') {
     target = { kind: 'place', id: place ?? 'plaza' };
   } else if (verb === 'protect') {
@@ -361,11 +389,11 @@ function parseOrder(id, clause, raw, f, game, seat) {
     else return fail('Avoid whom or what? Pick one:', game, seat, { verb: 'avoid' });
   } else if (verb === 'assault' && place && (group === null || group === seat)) {
     target = { kind: 'place', id: place }; // "kill everyone at the houses"
-  } else if (['hate', 'love', 'fear', 'accuse', 'praise', 'assault'].includes(verb)) {
+  } else if (['hate', 'love', 'fear', 'scare', 'accuse', 'praise', 'assault'].includes(verb)) {
     let g = group;
     if (g === null && named.length) g = named[0].faction >= 0 ? named[0].faction : 4;
     if (g === null) return fail(`${VERB_WORD[verb]} whom? Pick a faction:`, game, seat, { verb });
-    if (g === seat && ['hate', 'accuse', 'fear', 'assault'].includes(verb)) return fail(`You cannot ${VERB_WORD[verb].toLowerCase()} your own faction. Pick a rival:`, game, seat, { verb });
+    if (g === seat && ['hate', 'accuse', 'fear', 'scare', 'assault'].includes(verb)) return fail(`You cannot ${VERB_WORD[verb].toLowerCase()} your own faction. Pick a rival:`, game, seat, { verb });
     target = { kind: 'group', id: g };
   }
   if (ownNamed.length && !subject && verb !== 'hunt' && verb !== 'escort') subject = { kind: 'villagers', ids: ownNamed.map((v) => v.id), names: ownNamed.map((v) => v.name) };
@@ -381,9 +409,9 @@ function parseOrder(id, clause, raw, f, game, seat) {
 
 // ---- failure with something to try ----------------------------------------------------
 
-const VERB_WORD = { hate: 'Hate', love: 'Love', fear: 'Scare', accuse: 'Accuse', praise: 'Praise', assault: 'Attack' };
+const VERB_WORD = { hate: 'Hate', love: 'Love', fear: 'Fear', scare: 'Scare', accuse: 'Accuse', praise: 'Praise', assault: 'Attack' };
 const VERB_SENTENCE = {
-  hate: (t) => `hate the ${t}`, love: (t) => `love the ${t}`, fear: (t) => `scare the ${t}`, accuse: (t) => `accuse the ${t}`,
+  hate: (t) => `hate the ${t}`, love: (t) => `love the ${t}`, fear: (t) => `be afraid of the ${t}`, scare: (t) => `scare the ${t}`, accuse: (t) => `accuse the ${t}`,
   praise: (t) => `praise the ${t}`, assault: (t) => `attack the ${t}`, avoid: (t) => `stay away from the ${t}`, protect: (t) => `guard the ${t}`,
 };
 
@@ -426,6 +454,8 @@ function fail(message, game, seat, ctx = {}) {
     list.push(`send three villagers to hunt ${foe(0)}`);
   } else if (ctx.verb === 'escort') {
     list = [`have ${myName} follow ${foe(0)}`, `follow ${myName}`, `send everyone to the ${place(0)}`, `have ${myName} follow ${foe(1)}`];
+  } else if (ctx.verb === 'ambush') {
+    list = [0, 1, 2, 3].map((i) => `ambush at the ${place(i)}`);
   } else if (ctx.verb === 'whisper') {
     list = rivals.map((f) => `whisper that the ${rName(f)} are dangerous`);
   } else if (ctx.verb) {
@@ -453,7 +483,7 @@ function fail(message, game, seat, ctx = {}) {
     ? [`lightning on the ${place(0)}`, 'heal my weakest', `fog on the ${place(1)}`, `whisper that the ${rv(0)} are dangerous`, `blow ${myName} to the ${place(2)}`, `lightning on the ${rv(1)}`, 'fog', `heal ${myName}`]
     : [`scare the ${rv(0)}`, `attack the ${rv(1)}`, `hunt ${foe(0)}`, `send three villagers to the ${place(0)}`, `have ${myName} follow ${foe(1)}`, 'arm up', 'everyone stand down',
       `forge a letter against the ${rv(0)}`, `plant a time bomb at the ${place(1)}`, `love the ${rv(1)} and praise us`, `party at the ${place(2)}`, 'hide in the houses', `guard the ${place(3)}`,
-      `my brawlers attack the ${rv(0)}`, `spy on the ${rv(1)}`, `hate the ${rv(0)} really hard`, `accuse the ${rv(1)}`, 'recruit a neutral', `raid the ${rv(0)} armory`];
+      `my brawlers attack the ${rv(0)}`, `run away from everyone`, `ambush at the ${place(2)}`, `bully the ${rv(1)}`, `spy on the ${rv(1)}`, `hate the ${rv(0)} really hard`, `accuse the ${rv(1)}`, 'recruit a neutral', `raid the ${rv(0)} armory`];
   const suggestions = [...list];
   for (const s of pickMany(bank, 8, round * 5)) if (suggestions.length < Math.max(4, list.length ? 5 : 4) && !suggestions.includes(s)) suggestions.push(s);
   return { ok: false, message, suggestions: suggestions.slice(0, 6) };

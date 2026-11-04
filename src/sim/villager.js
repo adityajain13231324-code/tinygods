@@ -42,7 +42,7 @@ export function usableWeapon(v) {
   return v.escalation >= (isFirearm(w) ? 2 : 1) ? w : 'none';
 }
 
-export const emptyFx = () => ({ protect: [], avoid: [], follow: null, arm: 0, love: [], festival: null, escort: null, hunt: null, assault: null, standdown: false });
+export const emptyFx = () => ({ protect: [], avoid: [], follow: null, arm: 0, love: [], festival: null, escort: null, hunt: null, assault: null, standdown: false, scare: [], ambush: null });
 
 /** @returns {Villager} */
 export function createVillager(rng, { id, name, shape, faction, x, y, count = 60 }) {

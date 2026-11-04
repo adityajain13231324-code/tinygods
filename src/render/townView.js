@@ -109,7 +109,7 @@ export class TownView {
       }
       return false;
     });
-    const nearPlace = (x, y, extra) => places.some((p) => Math.hypot(x - p.x, y - p.y) < p.radius + extra);
+    const nearPlace = (x, y, extra) => places.some((p) => Math.hypot(x - p.x, y - p.y) < p.radius + extra) || (this.cottages ?? []).some((c) => Math.hypot(x - c.x, y - c.y) < 62 + extra);
     for (let i = 0; i < 260; i++) {
       const x = rng() * W;
       const y = rng() * H;
@@ -139,6 +139,18 @@ export class TownView {
       const draw = PLACE_DRAWERS[p.id];
       if (draw) draw.call(this, g, p, rng);
     }
+    // Cottages and farmsteads out between the places, so the town feels lived in.
+    const spots = [
+      [150, 560, 0xc45a3a, 56, 0], [230, 640, 0x5a7fc4, 54, 1], [1790, 560, 0x8a5ac4, 56, 0], [1700, 650, 0xc48a3a, 52, 2],
+      [760, 870, 0x3f9a6a, 54, 2], [1150, 930, 0xc45a3a, 56, 0], [1230, 150, 0x5a7fc4, 54, 1], [700, 130, 0xc48a3a, 52, 2],
+      [90, 140, 0x8a5ac4, 54, 0], [1830, 140, 0x3f9a6a, 54, 0], [1830, 980, 0xc45a3a, 54, 1], [1050, 1010, 0x8a5ac4, 52, 0],
+    ];
+    this.cottages = spots.map(([x, y]) => ({ x, y }));
+    spots.forEach(([x, y, roof, w, style], i) => {
+      house(g, x, y, roof, w, style, this.chimneys ??= [], i + 9);
+      if (i % 3 === 0) fence(g, x - 26, y + 44, 52);
+      if (i % 4 === 1) garden(g, x + 36, y + 14, 38);
+    });
 
     this.heroTrees = [];
     const trees = [];
@@ -317,17 +329,94 @@ function drawTree(g, x, y, s, kind) {
   return g;
 }
 
-function house(g, x, y, roof, w = 62) {
-  shadow(g, x, y + 22, w * 0.62, 10);
-  g.rect(x - w / 2, y - 24, w, 48).fill(0xf0e2c0).stroke({ width: 3, color: INK });
-  g.poly([x - w / 2 - 6, y - 24, x + w / 2 + 6, y - 24, x, y - 58]).fill(roof).stroke({ width: 3, color: INK, join: 'round' });
-  for (let i = 0; i < 4; i++) g.moveTo(x - w / 2 + 4 + i * 6, y - 28 - i * 7).lineTo(x + w / 2 - 4 - i * 6, y - 28 - i * 7).stroke({ width: 1, color: INK, alpha: 0.25 });
-  g.rect(x - 8, y - 2, 16, 26).fill(0x7a5230).stroke({ width: 2, color: INK });
-  g.circle(x + 4, y + 11, 1.4).fill(0xf2c53d);
-  for (const dx of [-w / 2 + 9, w / 2 - 21]) {
-    g.rect(x + dx, y - 14, 12, 12).fill(0xbfe3ff).stroke({ width: 2, color: INK });
-    g.moveTo(x + dx + 6, y - 14).lineTo(x + dx + 6, y - 2).moveTo(x + dx, y - 8).lineTo(x + dx + 12, y - 8).stroke({ width: 1, color: INK });
-    g.rect(x + dx - 1, y - 1, 14, 4).fill(0xe5533d); // flower box
+const WALLS = [0xf3e5c3, 0xf6d9b6, 0xe9e2d2, 0xf0d0c0];
+const SHUTTER = [0x3f7a4a, 0x3d6fb0, 0x9a3a3a, 0x7a5a2a];
+
+/**
+ * A cottage. style 0 = cottage, 1 = tall townhouse, 2 = thatched hut. `chimneys` is the list the
+ * smoke puffs come out of. (x, y) is the middle of the walls.
+ */
+function house(g, x, y, roof, w = 62, style = 0, chimneys = null, seed = 0) {
+  const base = y + 24;
+  const wallTop = style === 1 ? y - 42 : y - 24;
+  const wall = WALLS[(seed + style) % WALLS.length];
+  const shut = SHUTTER[(seed * 3 + style) % SHUTTER.length];
+  shadow(g, x, base - 2, w * 0.66, 10);
+
+  // stone foundation and plastered walls with a timber frame
+  g.rect(x - w / 2 - 1, base - 8, w + 2, 8).fill(0x9a9a9a).stroke({ width: 2.5, color: INK });
+  for (let i = 0; i < 5; i++) g.moveTo(x - w / 2 + 6 + i * (w / 5), base - 8).lineTo(x - w / 2 + 6 + i * (w / 5), base).stroke({ width: 1, color: INK, alpha: 0.3 });
+  g.rect(x - w / 2, wallTop, w, base - 8 - wallTop).fill(wall).stroke({ width: 3, color: INK });
+  for (const bx of [x - w / 2 + 2, x + w / 2 - 2]) g.rect(bx - 2, wallTop, 4, base - 8 - wallTop).fill(0x7a5230);
+  g.rect(x - w / 2, wallTop + 3, w, 4).fill(0x7a5230);
+  if (style === 1) g.rect(x - w / 2, y - 12, w, 4).fill(0x7a5230); // the floor between the storeys
+
+  // roof
+  const roofTop = wallTop - (style === 2 ? 34 : 36);
+  if (style === 2) {
+    g.poly([x - w / 2 - 8, wallTop + 2, x + w / 2 + 8, wallTop + 2, x + w / 4, roofTop + 8, x, roofTop, x - w / 4, roofTop + 8]).fill(0xd9b45a).stroke({ width: 3, color: INK, join: 'round' });
+    for (let i = 0; i < 5; i++) g.moveTo(x - w / 2 + i * (w / 4.5), wallTop).lineTo(x - w / 3 + i * (w / 7), roofTop + 10).stroke({ width: 1.2, color: 0x9a7a2a, alpha: 0.7 });
+  } else {
+    g.poly([x - w / 2 - 8, wallTop + 1, x + w / 2 + 8, wallTop + 1, x, roofTop]).fill(roof).stroke({ width: 3, color: INK, join: 'round' });
+    // shingle rows, each a little offset
+    for (let r = 0; r < 4; r++) {
+      const t = (r + 1) / 5;
+      const ry = wallTop + 1 - (wallTop + 1 - roofTop) * t;
+      const half = (w / 2 + 8) * (1 - t);
+      g.moveTo(x - half + 2, ry).lineTo(x + half - 2, ry).stroke({ width: 1.2, color: INK, alpha: 0.28 });
+      for (let k = -half + 8 + (r % 2) * 5; k < half - 4; k += 10) g.moveTo(x + k, ry).lineTo(x + k, ry + 7).stroke({ width: 1, color: INK, alpha: 0.18 });
+    }
+    g.poly([x - w / 2 - 8, wallTop + 1, x - w / 2 + 6, wallTop + 1, x - 4, roofTop + 4, x, roofTop]).fill({ color: 0xffffff, alpha: 0.12 }); // sunny side
+    g.circle(x, roofTop + 2, 2.5).fill(INK); // ridge cap
+  }
+  if (style === 1) { // round attic window in the gable
+    g.circle(x, wallTop - 12, 6).fill(0xffe9a8).stroke({ width: 2, color: INK });
+    g.moveTo(x - 6, wallTop - 12).lineTo(x + 6, wallTop - 12).stroke({ width: 1, color: INK });
+  }
+
+  // chimney (it pokes out of the roof; smoke comes from it)
+  if (chimneys && style !== 2) {
+    const cx = x + w / 4;
+    const cy = wallTop - 22;
+    g.rect(cx - 5, cy - 14, 10, 20).fill(0xb4635a).stroke({ width: 2, color: INK });
+    g.rect(cx - 7, cy - 17, 14, 5).fill(0x8a8a8a).stroke({ width: 1.5, color: INK });
+    chimneys.push({ x: cx, y: cy - 20 });
+  }
+
+  // arched door with a step and a lantern
+  g.rect(x - 11, base - 6, 22, 5).fill(0xb4b4b4).stroke({ width: 1.5, color: INK });
+  g.roundRect(x - 8, base - 30, 16, 24, 7).fill(0x7a5230).stroke({ width: 2, color: INK });
+  g.moveTo(x, base - 28).lineTo(x, base - 7).stroke({ width: 1, color: INK, alpha: 0.5 });
+  g.circle(x + 4, base - 17, 1.5).fill(0xf2c53d);
+  g.circle(x + 15, base - 24, 2.4).fill(0xffe27a).stroke({ width: 1, color: INK });
+
+  // shuttered windows with a warm glow and flower boxes
+  const rows = style === 1 ? [y - 30, y + 2 - 8] : [y - 14];
+  for (const wy of rows) {
+    for (const dx of [-w / 2 + 8, w / 2 - 20]) {
+      if (wy > base - 30 && Math.abs(x + dx + 6 - x) < 11) continue; // never over the door
+      g.rect(x + dx - 3, wy, 3, 13).fill(shut).stroke({ width: 1, color: INK });
+      g.rect(x + dx + 12, wy, 3, 13).fill(shut).stroke({ width: 1, color: INK });
+      g.rect(x + dx, wy, 12, 13).fill(0xffe9a8).stroke({ width: 2, color: INK });
+      g.moveTo(x + dx + 6, wy).lineTo(x + dx + 6, wy + 13).moveTo(x + dx, wy + 6.5).lineTo(x + dx + 12, wy + 6.5).stroke({ width: 1, color: INK });
+      g.rect(x + dx - 2, wy + 12, 16, 4).fill(0x8a5a35).stroke({ width: 1, color: INK });
+      for (const [fx, c] of [[1, 0xe5533d], [6, 0xffffff], [11, 0xff9ac1]]) g.circle(x + dx + fx, wy + 11, 2.4).fill(c);
+    }
+  }
+}
+
+/** A low garden fence with posts. */
+function fence(g, x, y, len) {
+  for (let i = 0; i <= len; i += 9) g.rect(x + i - 1.5, y - 10, 3, 12).fill(0xf0e6cc).stroke({ width: 1, color: INK, alpha: 0.6 });
+  g.moveTo(x, y - 6).lineTo(x + len, y - 6).moveTo(x, y - 1).lineTo(x + len, y - 1).stroke({ width: 1.6, color: 0xe3d6b6 });
+}
+
+/** A little vegetable patch. */
+function garden(g, x, y, w) {
+  g.roundRect(x, y, w, 14, 4).fill(0x8a5d36).stroke({ width: 1.5, color: INK, alpha: 0.7 });
+  for (let i = 8; i < w - 4; i += 12) {
+    g.circle(x + i, y + 7, 4).fill(i % 24 === 8 ? 0x4faf5c : 0xe8923a);
+    g.circle(x + i - 1, y + 5, 2).fill({ color: 0xffffff, alpha: 0.25 });
   }
 }
 
@@ -443,15 +532,25 @@ const PLACE_DRAWERS = {
   },
 
   houses(g, p) {
-    house(g, p.x - 72, p.y - 14, 0xc45a3a);
-    house(g, p.x + 12, p.y - 46, 0x5a7fc4, 56);
-    house(g, p.x + 26, p.y + 32, 0x8a5ac4, 58);
-    this.chimneys ??= [];
-    this.chimneys.push({ x: p.x - 60, y: p.y - 64 }, { x: p.x + 24, y: p.y - 92 });
-    for (const x of [-34, -22, -10]) g.rect(p.x + x - 1, p.y + 50, 2.5, 18).fill(0xe9dfc4); // picket fence
-    g.moveTo(p.x - 38, p.y + 56).lineTo(p.x - 6, p.y + 56).stroke({ width: 2, color: 0xe9dfc4 });
-    g.moveTo(p.x - 98, p.y + 44).lineTo(p.x - 50, p.y + 44).stroke({ width: 1.2, color: INK, alpha: 0.5 }); // washing line
-    for (const [dx, c] of [[-92, 0xffffff], [-80, 0xff7aa8], [-68, 0x6bb8f0]]) g.rect(p.x + dx, p.y + 44, 8, 12).fill(c);
+    const ch = (this.chimneys ??= []);
+    // two rows of cottages along a lane, with fences, gardens, a lamp and washing
+    g.rect(p.x - 150, p.y + 6, 300, 22).fill({ color: 0xd9c795, alpha: 0.55 }); // the lane
+    house(g, p.x - 118, p.y - 36, 0xc45a3a, 58, 0, ch, 1);
+    house(g, p.x - 44, p.y - 52, 0x5a7fc4, 56, 1, ch, 2);
+    house(g, p.x + 34, p.y - 40, 0x8a5ac4, 58, 0, ch, 3);
+    house(g, p.x + 112, p.y - 48, 0xc48a3a, 54, 2, ch, 4);
+    house(g, p.x - 96, p.y + 66, 0x3f9a6a, 56, 2, ch, 5);
+    house(g, p.x - 22, p.y + 74, 0xc45a3a, 60, 0, ch, 6);
+    house(g, p.x + 58, p.y + 70, 0x5a7fc4, 56, 1, ch, 7);
+    house(g, p.x + 132, p.y + 64, 0x8a5ac4, 56, 0, ch, 8);
+    fence(g, p.x - 150, p.y + 40, 60);
+    fence(g, p.x + 14, p.y + 40, 70);
+    garden(g, p.x - 62, p.y + 36, 52);
+    garden(g, p.x + 88, p.y + 36, 46);
+    lamp(g, p.x - 2, p.y + 22);
+    lamp(g, p.x + 176, p.y + 22);
+    g.moveTo(p.x - 160, p.y - 6).lineTo(p.x - 100, p.y + 8).stroke({ width: 1.2, color: INK, alpha: 0.5 }); // washing line
+    for (const [dx, c] of [[-152, 0xffffff], [-140, 0xff7aa8], [-128, 0x6bb8f0], [-116, 0xf2c53d]]) g.rect(p.x + dx, p.y - 3 + (dx + 152) * 0.11, 8, 12).fill(c).stroke({ width: 1, color: INK, alpha: 0.4 });
   },
 
   armory(g, p) {

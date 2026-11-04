@@ -409,6 +409,18 @@ function stopGlare(world, v) {
   return false;
 }
 
+/** The nearest living villager (not me) that passes `test`, within `max` px. */
+function nearestOf(world, v, test, max) {
+  let best = null;
+  let bestD = max;
+  for (const o of world.villagers) {
+    if (o === v || !o.alive || !test(o)) continue;
+    const d = dist(v, o.x, o.y);
+    if (d < bestD) { bestD = d; best = o; }
+  }
+  return best;
+}
+
 /** Medics heal, peacemakers separate fighters, bodyguards defend their friend. */
 function traitDuties(world, v) {
   switch (v.trait) {
@@ -553,6 +565,56 @@ function obeyOrders(world, v) {
       }
     }
     return false;
+  }
+
+  // "Scare the Tides": walk up to them, glare, and keep at it until they lose their nerve and run.
+  if (fx.scare.length > 0 && !fx.standdown) {
+    const prey = nearestOf(world, v, (o) => fx.scare.some((s) => s.group === groupOf(o)) && o.state !== 'flee', 650);
+    if (prey) {
+      const S = fx.scare.find((s) => s.group === groupOf(prey)).S;
+      if (dist(v, prey.x, prey.y) > ORDERS.scareReach) {
+        v.state = 'wander';
+        v.purpose = 'follow';
+        v.targetX = prey.x;
+        v.targetY = prey.y;
+        return true;
+      }
+      // Close enough: loom. Their fear and doubt grow, and now and then they bolt.
+      v.state = 'idle';
+      v.activity = null;
+      v.timer = 0.6;
+      v.targetId = prey.id;
+      v.expression = 'angry';
+      v.brewId = prey.id; // the glare animation and the thought bubble
+      prey.fear[groupOf(v)] = Math.min(100, prey.fear[groupOf(v)] + ORDERS.scareFear * S * 0.5);
+      prey.courage = Math.max(10, prey.courage - ORDERS.scareCourage * S);
+      prey.grievance[v.id] += ORDERS.scareGrudge * S; // bullying breeds resentment
+      if (world.rng() < ORDERS.scareFlee * S) {
+        startFlee(world, prey, v.x, v.y);
+        prey.panic = Math.max(prey.panic, 0.8);
+        prey.panicX = v.x;
+        prey.panicY = v.y;
+      }
+      return true;
+    }
+  }
+
+  // "Ambush at the plaza": lie in wait, then jump whoever from another faction comes close.
+  if (fx.ambush && !fx.standdown) {
+    const place = world.places.find((p) => p.id === fx.ambush);
+    if (v.state !== 'attack') {
+      const victim = nearestOf(world, v, (o) => o.faction !== v.faction && dist(o, place.x, place.y) < place.radius * ORDERS.ambushReach, 400);
+      if (victim) {
+        startAttack(world, v, victim, 'ambush order');
+        return false;
+      }
+      if (dist(v, place.x, place.y) > place.radius * 0.8) {
+        goToPlace(world, v, place, 'follow');
+        return true;
+      }
+      if (v.state === 'idle') v.timer = Math.max(v.timer, 0.8); // stay put, hidden
+      return true;
+    }
   }
 
   // "Follow Mia": stay near one villager, wherever they go.
