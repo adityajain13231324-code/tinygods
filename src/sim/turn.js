@@ -308,6 +308,8 @@ function endSim(game) {
   for (const v of world.villagers) {
     if (!v.alive) continue;
     v.fx = emptyFx();
+    v.carry = null;
+    v.carrying = false;
     v.activity = null;
     v.guardBonus = 0;
     v.panic = 0;

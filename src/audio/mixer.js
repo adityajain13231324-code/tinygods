@@ -578,6 +578,9 @@ const SOUNDS = {
       for (let i = 0; i < 6; i++) m.burst(0.04, 'highpass', 3000 + i * 200, 1500, 0.1, 0.25 + i * 0.12 + Math.random() * 0.05); // falling debris
     },
   },
+  // a shove: cloth and a soft thump, with a little "oof"
+  shove: { gap: 80, play: (m) => { const p = pitchJitter(); m.burst(0.09, 'lowpass', 900 * p, 250, 0.28); m.tone(130 * p, 55, 0.14, 'sine', 0.3); m.voiceShape(300 * p, 200 * p, 0.12, 0.03, 0.02, 'ah'); } },
+  splash: { gap: 300, wet: 0.4, play: (m) => { m.burst(0.4, 'bandpass', 1800, 500, 0.3, 0, 0.8); m.burst(0.2, 'highpass', 3000, 1500, 0.12, 0.05); m.tone(220, 80, 0.25, 'sine', 0.2); } },
   swing: { gap: 90, play: (m) => m.burst(0.16, 'bandpass', 350, 1500, 0.08, 0, 0.9) },
   // a scream with breath: a rising voice, a cracked second note, and a noisy edge
   scream: {

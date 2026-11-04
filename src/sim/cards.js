@@ -141,7 +141,7 @@ export function applyCard(game, seat, card) {
     }
     case 'matchmaker': {
       formLoveBonds(world, seat, g, 3);
-      // Love wins: up to two of their villagers who fell for one of yours cross over.
+      // Love wins: up to three of their villagers who fell for one of yours cross over.
       const lovers = members(world, g).filter((v) => v.partnerId >= 0 && world.villagers[v.partnerId]?.faction === seat).slice(0, 3);
       for (const v of lovers) switchSides(world, v, seat);
       note(lovers.length ? `${lovers.map((v) => v.name).join(' and ')} fell in love and joined you.` : `your villagers are walking out with the ${GROUP_NAMES[g]}.`);

@@ -17,7 +17,7 @@ export function validateOrder(order, world) {
   if (!verb) return { ok: false, error: 'Unknown verb' };
   if (![1, 2, 3].includes(order.strength)) return { ok: false, error: 'Strength must be 1, 2 or 3' };
 
-  if (world.peaceful && (order.verb === 'assault' || order.verb === 'hunt' || order.verb === 'ambush')) return { ok: false, error: `${verb.label} is locked: the town is at peace until day ${TURN.peaceTurns + 1}` };
+  if (world.peaceful && ['assault', 'hunt', 'ambush', 'shove', 'seize'].includes(order.verb)) return { ok: false, error: `${verb.label} is locked: the town is at peace until day ${TURN.peaceTurns + 1}` };
   if (verb.targets.length === 0) {
     if (order.target) return { ok: false, error: `${verb.label} takes no target` };
     return { ok: true };
@@ -27,6 +27,7 @@ export function validateOrder(order, world) {
   if (t.kind === 'group' && !(Number.isInteger(t.id) && t.id >= 0 && t.id < NUM_GROUPS)) return { ok: false, error: 'Bad group' };
   if (t.kind === 'place' && !world.places.some((p) => p.id === t.id)) return { ok: false, error: 'Bad place' };
   if (t.kind === 'villager' && !world.villagers[t.id]?.alive) return { ok: false, error: 'That villager is not around' };
+  if (order.dest !== undefined && !world.places.some((p) => p.id === order.dest)) return { ok: false, error: 'Bad place to drag them to' };
   const s = order.subject;
   if (s) {
     const ok = s.kind === 'all'
@@ -74,7 +75,8 @@ export function validateOrders(orders, influence, world, lastVerbs = null, ghost
 export function describeOrder(order) {
   const v = VERBS[order.verb];
   const where = order.target ? ` ${targetName(order.target)}` : '';
-  return `${describeSubject(order.subject)}${v.label}${where} (${'!'.repeat(order.strength)})`;
+  const to = order.dest ? ` -> ${PLACES.find((p) => p.id === order.dest)?.name ?? order.dest}` : '';
+  return `${describeSubject(order.subject)}${v.label}${where}${to} (${'!'.repeat(order.strength)})`;
 }
 
 /** An order as a plain sentence: "3 villagers will go to the Armory." */
@@ -90,7 +92,7 @@ export function plainOrder(order) {
     avoid: `will keep away from the ${t}`, follow: `will go to the ${t}`, escort: `will follow ${t}`, hunt: `will hunt ${t}`,
     assault: order.target?.kind === 'place' ? `will attack whoever is at the ${t}` : `will charge the ${t}`, standdown: 'will stand down', arm: 'will fetch weapons from the armory',
     accuse: `will spread a rumor about the ${t}`, praise: `will praise the ${t}`, festival: `will throw a party at the ${t}`,
-    scare: `will walk up to the ${t} and frighten them`, scatter: 'will run away from everybody', ambush: `will lie in wait at the ${t}`,
+    scare: `will walk up to the ${t} and frighten them`, shove: `will walk up to the ${t} and push them away`, seize: `will grab ${t} and drag them ${order.dest ? 'to the ' + (PLACES.find((p) => p.id === order.dest)?.name ?? order.dest) : 'away'}`, scatter: 'will run away from everybody', ambush: `will lie in wait at the ${t}`,
   }[order.verb] ?? `will ${order.verb}`;
   void the;
   return `${who} ${text}.`;
@@ -143,7 +145,11 @@ export function applyOrders(world, seat, orders, lastVerbs = null) {
       notes.push('Hunt: you cannot hunt your own villager.');
       continue;
     }
-    if ((order.verb === 'scare' || order.verb === 'assault') && order.target.kind === 'group' && order.target.id === seat) {
+    if (order.verb === 'seize' && world.villagers[order.target.id].faction === seat) {
+      notes.push('Seize: you cannot seize your own villager.');
+      continue;
+    }
+    if ((order.verb === 'scare' || order.verb === 'shove' || order.verb === 'assault') && order.target.kind === 'group' && order.target.id === seat) {
       notes.push(`${order.verb === 'scare' ? 'Scare' : 'Assault'}: you cannot do that to your own faction.`);
       continue;
     }
@@ -168,6 +174,14 @@ export function applyOrders(world, seat, orders, lastVerbs = null) {
       const prey = world.villagers[order.target.id];
       const pool = world.villagers.filter((v) => v.alive && v.faction === seat && (!subjects || subjects.has(v.id)));
       hunters = new Set(pool.sort((a, b) => Math.hypot(a.x - prey.x, a.y - prey.y) - Math.hypot(b.x - prey.x, b.y - prey.y)).slice(0, S * 2).map((v) => v.id));
+    }
+    // Seize: the nearest villagers (one more than the strength, at least two) go and grab one enemy together.
+    let grabbers = null;
+    if (order.verb === 'seize') {
+      const prey = world.villagers[order.target.id];
+      const pool = world.villagers.filter((v) => v.alive && v.faction === seat && !v.fx.seize && (!subjects || subjects.has(v.id)));
+      grabbers = new Set(pool.sort((a, b) => Math.hypot(a.x - prey.x, a.y - prey.y) - Math.hypot(b.x - prey.x, b.y - prey.y)).slice(0, subjects ? 12 : S + 1).map((v) => v.id));
+      notes.push(grabbers.size >= 2 ? `Seize: ${grabbers.size} of yours are going for ${prey.name}.` : `Seize: not enough villagers to lift ${prey.name} (it takes two).`);
     }
     // Assault: a squad (3 per point of strength, the nearest to the enemy unless named) charges a faction.
     if (order.verb === 'assault') {
@@ -223,6 +237,12 @@ export function applyOrders(world, seat, orders, lastVerbs = null) {
           break;
         case 'scatter':
           if (w === 1 || world.rng() < w) for (let g = 0; g < NUM_GROUPS; g++) if (g !== groupOf(v)) v.fx.avoid.push({ target: { kind: 'group', id: g }, S });
+          break;
+        case 'shove':
+          if ((w === 1 || world.rng() < w) && order.target.id !== groupOf(v)) v.fx.shove.push({ group: order.target.id, S });
+          break;
+        case 'seize':
+          if (grabbers.has(v.id)) v.fx.seize = { victim: order.target.id, dest: order.dest ?? 'houses' };
           break;
         case 'scare':
           if ((w === 1 || world.rng() < w) && order.target.id !== groupOf(v)) v.fx.scare.push({ group: order.target.id, S });

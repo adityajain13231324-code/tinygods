@@ -213,9 +213,9 @@ export const GHOST = { influence: 1, verbs: ['love', 'fear', 'praise', 'accuse',
 
 // Rumors (see sim/rumors.js)
 export const RUMOR = {
-  seeds: 2, // first listeners = this + strength
-  baseBelief: 0.2, // belief chance = base + the listener's trust in the player (+ temperament), capped
-  passChance: 0.45, // a believer repeats it to someone they start chatting with
+  seeds: 6, // first listeners = this + strength
+  baseBelief: 0.3, // belief chance = base + the listener's trust in the player (+ temperament), capped
+  passChance: 0.55, // a believer repeats it to someone they start chatting with
   expireTurns: 2, // a rumor stops spreading after this many turns
   opinionBase: 10, // a believed rumor shifts opinion of the target by base + perStrength * S
   opinionPerStrength: 8,
@@ -256,6 +256,11 @@ export const NOTORIETY = {
 
 // ---- Fighting ------------------------------------------------------------
 export const COMBAT = {
+  fistShoveSpeed: 220, // a brawler's shove: a short stumble (about 70 px), not a separation
+  fistShove: 0.10, // in a fist fight, this share of moves is a shove (no damage, big push)
+  fistShout: 0.03, // ...and this share is a shout that rattles whoever is listening
+  screamDamage: 14, // a hit this hard makes the victim scream and the onlookers flinch
+  shoutRadius: 130,
   duelInterval: 0.9, // seconds between swings
   hitBase: 0.5,
   hitSpread: 200, // (courage difference) / this shifts the hit chance
@@ -316,6 +321,13 @@ export const ORDERS = {
   scareCourage: 1.2, // courage lost per scare tick (x strength)
   scareFlee: 0.1, // chance per tick (x strength) that the victim bolts
   scareGrudge: 2.5, // ...and how much more they resent the scarer (bullying has a price)
+  shoveReach: 46, // shovers walk up to this close
+  shoveEvery: 1.6, // seconds between one shover's shoves (divided by strength)
+  shoveSpeed: 520, // knockback speed of a shove (about 160 px of travel)
+  shoveGrievance: 0.3, // fraction of the victim's tolerance added: being pushed around makes enemies
+  seizeJoin: 44, // grabbers must be this close to lift someone
+  seizeSeconds: 28, // the longest a drag lasts
+  seizeDunk: 5, // hp lost when dragged to the pond and dunked
   ambushReach: 1.15, // an ambusher jumps anyone this close to the place's edge (x radius)
   armAggression: 5,
   trustMatchGain: 0.05, // neutrals trust you more when your order matches how they feel

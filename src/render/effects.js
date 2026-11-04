@@ -419,7 +419,7 @@ export class Effects {
     if (v.hitFlash > f.hit + 0.5) {
       for (let i = 0; i < 3; i++) this.emit('star', view.root.x + (Math.random() - 0.5) * 16, view.bodyY() - 6, { vy: -30 - Math.random() * 20, life: 0.5, s0: 0.7, s1: 1.2, spin: 6 });
       this.number(view.root.x, hy - 6, `-${Math.round(v.lastDamage)}`, v.lastDamage >= 25 ? 0xff7a5a : 0xffffff);
-      if (VillagerView.bloodEnabled) this.spray(view.root.x, view.bodyY(), v.hitFromX, v.hitFromY, v.lastDamage >= 25 ? 6 : 3);
+      if (VillagerView.bloodEnabled && v.lastHitWeapon !== 'shove') this.spray(view.root.x, view.bodyY(), v.hitFromX, v.hitFromY, v.lastDamage >= 25 ? 6 : 3);
       this.audio?.play(HIT_SOUND[v.lastHitWeapon] ?? 'slap', view.root.x);
     }
     f.hit = v.hitFlash;
@@ -494,7 +494,7 @@ export class Effects {
   }
 }
 
-const HIT_SOUND = { none: 'slap', pan: 'clang', bat: 'thwack', knife: 'stab', gun: 'slap', shotgun: 'slap' };
+const HIT_SOUND = { shove: 'shove', none: 'slap', pan: 'clang', bat: 'thwack', knife: 'stab', gun: 'slap', shotgun: 'slap' };
 
 function makeTextures(app) {
   const make = (draw) => {

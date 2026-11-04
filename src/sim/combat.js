@@ -1,4 +1,4 @@
-import { BOND, BRAIN, COMBAT, GRIEVANCE, TENSION, TRAITS, WEAPONS } from '../config/tunables.js';
+import { BOND, BRAIN, COMBAT, GRIEVANCE, ORDERS, TENSION, TRAITS, WEAPONS } from '../config/tunables.js';
 import { breakBond } from './bonds.js';
 import { chainFor, logPair } from './history.js';
 import { groupOf, isFirearm, usableWeapon } from './villager.js';
@@ -27,9 +27,56 @@ export function resolveCombat(world, dt) {
   }
 }
 
+/** A shove: nobody is cut, but the victim is thrown back and a lot angrier. */
+export function shoveVictim(world, attacker, victim, speed = ORDERS.shoveSpeed) {
+  shoveFrom(victim, attacker.x, attacker.y, speed);
+  victim.hp = Math.max(1, victim.hp - 4);
+  victim.hitFlash = 0.6;
+  victim.lastDamage = 4;
+  victim.lastHitWeapon = 'shove';
+  victim.hitFromX = attacker.x;
+  victim.hitFromY = attacker.y;
+  const g = groupOf(attacker);
+  victim.opinion[g] = Math.max(-100, victim.opinion[g] - 4);
+  victim.fear[g] = Math.min(100, victim.fear[g] + 2);
+  victim.grievance[attacker.id] += victim.tolerance * ORDERS.shoveGrievance;
+}
+
+/** A shout: whoever is listening loses a little nerve. */
+export function shoutAt(world, shouter) {
+  const g = groupOf(shouter);
+  world.events.push({ type: 'shout', turn: world.turn, time: world.time, x: shouter.x, y: shouter.y });
+  for (const o of world.villagers) {
+    if (!o.alive || o === shouter || groupOf(o) === g) continue;
+    if (Math.hypot(o.x - shouter.x, o.y - shouter.y) > COMBAT.shoutRadius) continue;
+    o.fear[g] = Math.min(100, o.fear[g] + 3);
+    o.courage = Math.max(10, o.courage - 1.5);
+  }
+}
+
+/** A scream of pain: people nearby flinch (some run), and everybody hears it. */
+function scream(world, victim) {
+  world.events.push({ type: 'scream', turn: world.turn, time: world.time, x: victim.x, y: victim.y });
+  for (const o of world.villagers) {
+    if (!o.alive || o === victim || o.state === 'attack') continue;
+    if (Math.hypot(o.x - victim.x, o.y - victim.y) > COMBAT.shoutRadius * 0.8) continue;
+    if (TRAITS.steady.includes(o.trait)) continue;
+    o.panic = Math.max(o.panic, (o.trait === 'coward' ? 1.2 : 0.6));
+    o.panicX = victim.x;
+    o.panicY = victim.y;
+  }
+}
+
 function strike(world, attacker, victim, weapon) {
   const { rng } = world;
   const stats = WEAPONS[weapon];
+
+  // Fists are not all punching: people push, and yell, and then punch.
+  if (weapon === 'none') {
+    const roll = rng();
+    if (roll < COMBAT.fistShout) { shoutAt(world, attacker); return; }
+    if (roll < COMBAT.fistShout + COMBAT.fistShove) { shoveVictim(world, attacker, victim, COMBAT.fistShoveSpeed); return; }
+  }
 
   if (weapon !== 'none') logPair(world, attacker, victim, 'weapon', weapon);
 
@@ -91,6 +138,7 @@ function dealDamage(world, attacker, victim, weapon, share) {
   victim.grievance[attacker.id] = Math.max(gv + victim.tolerance * GRIEVANCE.hitGain, victim.tolerance * GRIEVANCE.hitFloor);
 
   if (victim.hp <= 0) kill(world, attacker, victim, weapon);
+  else if (damage >= COMBAT.screamDamage && rng() < 0.6) scream(world, victim);
 }
 
 function gunshot(world, shooter, weapon, target, hit) {
@@ -133,7 +181,8 @@ export function blast(world, seat, x, y, r, { minDamage = 14, maxDamage = 60, mi
     v.panic = COMBAT.panicSeconds;
     v.panicX = x;
     v.panicY = y;
-    const damage = v.faction === seat ? 0 : minDamage + (maxDamage - minDamage) * k; // your own people are flung about but not hurt
+    let damage = v.faction === seat ? 0 : minDamage + (maxDamage - minDamage) * k; // your own people are flung about but not hurt
+    if (world.time < v.blessUntil) damage *= 0.4; // under an Aegis (or a Rally's short shield)
     v.hp -= damage;
     v.hitFlash = 1;
     v.lastDamage = damage;

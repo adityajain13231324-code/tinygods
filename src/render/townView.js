@@ -447,30 +447,54 @@ function barrel(g, x, y) {
 
 const PLACE_DRAWERS = {
   plaza(g, p, rng) {
-    g.circle(p.x + 6, p.y + 6, p.radius + 14).fill({ color: 0x000000, alpha: 0.1 });
-    g.circle(p.x, p.y, p.radius + 12).fill(0xdcd3bd).stroke({ width: 4, color: 0xb9ae93 });
-    for (const r of [p.radius - 26, p.radius - 60]) g.circle(p.x, p.y, r).stroke({ width: 3, color: 0xc9bfa5 });
-    for (let i = 0; i < 12; i++) {
-      const a = (Math.PI * 2 * i) / 12;
-      g.moveTo(p.x + Math.cos(a) * 30, p.y + Math.sin(a) * 30).lineTo(p.x + Math.cos(a) * (p.radius - 12), p.y + Math.sin(a) * (p.radius - 12)).stroke({ width: 1.5, color: 0xc9bfa5 });
+    const R = p.radius;
+    g.circle(p.x + 7, p.y + 7, R + 16).fill({ color: 0x000000, alpha: 0.1 });
+    g.circle(p.x, p.y, R + 14).fill(0xcfc4a8).stroke({ width: 4, color: 0xa99d80 }); // kerb
+    g.circle(p.x, p.y, R + 6).fill(0xdcd3bd);
+    // cobbles: rings of little stones, and spokes
+    for (let ring = 1; ring <= 6; ring++) {
+      const r = (R / 6.4) * ring;
+      const n = Math.round(r / 6);
+      for (let i = 0; i < n; i++) {
+        const a = (Math.PI * 2 * i) / n + ring * 0.3;
+        g.ellipse(p.x + Math.cos(a) * r, p.y + Math.sin(a) * r, 4.4, 3).fill({ color: ring % 2 ? 0xc9bfa5 : 0xd3c9b0, alpha: 0.9 }).stroke({ width: 0.8, color: 0xa99d80, alpha: 0.5 });
+      }
     }
-    for (let i = 0; i < 70; i++) {
-      const a = rng() * Math.PI * 2;
-      const d = Math.sqrt(rng()) * (p.radius - 4);
-      g.circle(p.x + Math.cos(a) * d, p.y + Math.sin(a) * d, 2.5).fill({ color: 0xc4b99d, alpha: 0.8 });
+    for (const r of [R * 0.78, R * 0.42]) g.circle(p.x, p.y, r).stroke({ width: 3, color: 0xb9ae93 });
+    for (let i = 0; i < 8; i++) {
+      const a = (Math.PI * 2 * i) / 8 + Math.PI / 8;
+      g.moveTo(p.x + Math.cos(a) * 46, p.y + Math.sin(a) * 46).lineTo(p.x + Math.cos(a) * (R * 0.78), p.y + Math.sin(a) * (R * 0.78)).stroke({ width: 2, color: 0xb9ae93 });
     }
-    // A star compass in the middle.
-    const pts = [];
-    for (let i = 0; i < 16; i++) {
-      const r = i % 2 === 0 ? 24 : 8;
-      const a = -Math.PI / 2 + (Math.PI / 8) * i;
-      pts.push(p.x + Math.cos(a) * r, p.y + Math.sin(a) * r);
+    // four flowerbeds between the spokes
+    const bloom = [0xff7aa8, 0xffe27a, 0xc9b6ff, 0xffffff];
+    for (let q = 0; q < 4; q++) {
+      const a = (Math.PI / 2) * q + Math.PI / 4;
+      const bx = p.x + Math.cos(a) * R * 0.6;
+      const by = p.y + Math.sin(a) * R * 0.6 * 0.92;
+      g.ellipse(bx, by, 24, 17).fill(0x7a5230).stroke({ width: 2, color: INK, alpha: 0.8 });
+      g.ellipse(bx, by - 1, 21, 14).fill(0x5faa4d);
+      for (let i = 0; i < 9; i++) {
+        const fa = rng() * 6.28;
+        const fd = Math.sqrt(rng()) * 15;
+        g.circle(bx + Math.cos(fa) * fd, by + Math.sin(fa) * fd * 0.65, 2.6).fill(bloom[(q + i) % 4]);
+      }
     }
-    g.poly(pts).fill(0xe9dfc4).stroke({ width: 2, color: 0xb9ae93 });
+    // the fountain: stone basin, water, a pillar and a spout
+    g.ellipse(p.x + 5, p.y + 8, 50, 22).fill({ color: 0x000000, alpha: 0.14 });
+    g.ellipse(p.x, p.y, 46, 36).fill(0xa8a8b0).stroke({ width: 4, color: INK });
+    g.ellipse(p.x, p.y, 38, 28).fill(0x62b4ea).stroke({ width: 2, color: 0x3f87b8 });
+    g.ellipse(p.x - 8, p.y - 6, 20, 8).fill({ color: 0xffffff, alpha: 0.32 });
+    g.ellipse(p.x, p.y + 2, 16, 11).fill(0x9a9aa4).stroke({ width: 2.5, color: INK });
+    g.rect(p.x - 5, p.y - 30, 10, 32).fill(0xb4b4be).stroke({ width: 2.5, color: INK });
+    g.ellipse(p.x, p.y - 30, 12, 6).fill(0xc4c4ce).stroke({ width: 2, color: INK });
+    g.circle(p.x, p.y - 38, 5).fill(0xf2c53d).stroke({ width: 2, color: INK }); // a golden ball on top
     for (let i = 0; i < 4; i++) {
-      const a = (Math.PI / 2) * i + Math.PI / 4;
-      bench(g, p.x + Math.cos(a) * (p.radius - 22), p.y + Math.sin(a) * (p.radius - 22) * 0.9);
-      lamp(g, p.x + Math.cos(a + Math.PI / 4) * (p.radius + 2), p.y + Math.sin(a + Math.PI / 4) * (p.radius + 2));
+      const a = (Math.PI / 2) * i;
+      bench(g, p.x + Math.cos(a) * (R - 18), p.y + Math.sin(a) * (R - 18) * 0.9);
+    }
+    for (let i = 0; i < 6; i++) {
+      const a = (Math.PI * 2 * i) / 6 + Math.PI / 6;
+      lamp(g, p.x + Math.cos(a) * (R + 4), p.y + Math.sin(a) * (R + 4));
     }
   },
 
@@ -495,24 +519,53 @@ const PLACE_DRAWERS = {
   },
 
   market(g, p) {
-    const awnings = [0xe5533d, 0x3d8be5, 0xf2c53d];
-    const goods = [[0xe5533d, 0xf2c53d, 0x7acb7f], [0xff9f43, 0xe5533d, 0xf2c53d], [0x9b6bff, 0xff7aa8, 0x7acb7f]];
-    for (let i = 0; i < 3; i++) {
-      const x = p.x - 86 + i * 68;
-      const y = p.y - 64;
-      shadow(g, x + 26, y + 40, 34, 8);
-      g.rect(x, y + 14, 56, 28).fill(0xb98a55).stroke({ width: 3, color: INK });
-      for (let k = 0; k < 6; k++) g.circle(x + 9 + k * 8, y + 22, 3.4).fill(goods[i][k % 3]).stroke({ width: 1, color: INK });
-      for (let s = 0; s < 4; s++) g.rect(x + s * 14, y, 14, 17).fill(s % 2 === 0 ? awnings[i] : 0xfff8e6);
-      g.rect(x, y, 56, 17).stroke({ width: 3, color: INK });
-      g.rect(x + 1, y + 17, 3, 25).fill(INK);
-      g.rect(x + 52, y + 17, 3, 25).fill(INK);
+    // a cobbled yard
+    g.ellipse(p.x, p.y + 6, p.radius + 8, p.radius * 0.78).fill({ color: 0xd9c795, alpha: 0.75 }).stroke({ width: 2, color: 0xb5a373, alpha: 0.7 });
+    const awnings = [0xe5533d, 0x3d8be5, 0xf2c53d, 0x4faf5c, 0x9b6bff];
+    const goods = [
+      [0xe5533d, 0xf2c53d, 0x7acb7f, 0xe5533d], // fruit
+      [0x9ec9f0, 0xc8dcf0, 0x9ec9f0, 0xe8e8f0], // fish
+      [0xd9a35a, 0xe9bb73, 0xd9a35a, 0xf0d7a8], // bread
+      [0xff7aa8, 0x6bb8f0, 0xf2c53d, 0x9b6bff], // cloth
+      [0xb4635a, 0xd98a5a, 0xb4635a, 0xe8a070], // pots
+    ];
+    const stalls = [[-96, -66], [-14, -72], [70, -62], [-62, 6], [6, 16]];
+    stalls.forEach(([dx, dy], i) => {
+      const x = p.x + dx;
+      const y = p.y + dy;
+      shadow(g, x + 28, y + 42, 36, 8);
+      g.rect(x + 1, y + 16, 3, 26).fill(0x7a5230);
+      g.rect(x + 52, y + 16, 3, 26).fill(0x7a5230);
+      g.rect(x, y + 22, 56, 20).fill(0xb98a55).stroke({ width: 3, color: INK });
+      g.rect(x + 2, y + 22, 52, 5).fill({ color: 0x000000, alpha: 0.18 });
+      for (let k = 0; k < 7; k++) g.circle(x + 8 + k * 6.6, y + 21, 3.4).fill(goods[i][k % 4]).stroke({ width: 1, color: INK });
+      // striped awning with a scalloped edge
+      for (let st = 0; st < 4; st++) g.poly([x + st * 14 - 2, y - 2, x + st * 14 + 16, y - 2, x + st * 14 + 14, y + 16, x + st * 14, y + 16]).fill(st % 2 === 0 ? awnings[i] : 0xfff8e6);
+      for (let st = 0; st < 4; st++) g.circle(x + st * 14 + 7, y + 16, 7).fill(st % 2 === 0 ? awnings[i] : 0xfff8e6).stroke({ width: 1.5, color: INK });
+      g.poly([x - 3, y - 2, x + 59, y - 2, x + 56, y - 9, x, y - 9]).fill(awnings[i]).stroke({ width: 3, color: INK, join: 'round' });
+    });
+    // bunting strung between the poles
+    const flags = [0xe5533d, 0xf2c53d, 0x3d8be5, 0x4faf5c, 0xff7aa8];
+    g.moveTo(p.x - 100, p.y - 86).quadraticCurveTo(p.x - 14, p.y - 70, p.x + 78, p.y - 82).stroke({ width: 1.5, color: INK, alpha: 0.7 });
+    for (let i = 0; i < 12; i++) {
+      const t = (i + 0.5) / 12;
+      const fx = (1 - t) * (1 - t) * (p.x - 100) + 2 * (1 - t) * t * (p.x - 14) + t * t * (p.x + 78);
+      const fy = (1 - t) * (1 - t) * (p.y - 86) + 2 * (1 - t) * t * (p.y - 70) + t * t * (p.y - 82);
+      g.poly([fx - 4, fy, fx + 4, fy, fx, fy + 9]).fill(flags[i % 5]).stroke({ width: 0.8, color: INK, alpha: 0.6 });
     }
-    g.rect(p.x + 96, p.y - 62, 3, 44).fill(INK); // flag pole
-    crate(g, p.x - 70, p.y + 14);
-    crate(g, p.x - 52, p.y + 20, 0.8);
-    barrel(g, p.x + 70, p.y + 18);
-    lamp(g, p.x + 4, p.y + 8);
+    // a hand cart of melons, crates and barrels
+    g.ellipse(p.x + 84, p.y + 54, 30, 6).fill({ color: 0x000000, alpha: 0.14 });
+    g.rect(p.x + 62, p.y + 28, 44, 18).fill(0xa8703f).stroke({ width: 2.5, color: INK });
+    for (const dx of [8, 22, 36]) g.circle(p.x + 62 + dx, p.y + 27, 6).fill(0x7acb7f).stroke({ width: 1.5, color: INK });
+    g.circle(p.x + 72, p.y + 50, 8).fill(0x7a5230).stroke({ width: 2.5, color: INK });
+    g.circle(p.x + 72, p.y + 50, 2.5).fill(0xc4a070);
+    g.moveTo(p.x + 106, p.y + 36).lineTo(p.x + 128, p.y + 46).stroke({ width: 3, color: 0x7a5230, cap: 'round' });
+    crate(g, p.x - 108, p.y + 30);
+    crate(g, p.x - 90, p.y + 38, 0.8);
+    barrel(g, p.x - 74, p.y + 52);
+    barrel(g, p.x + 122, p.y + 12);
+    lamp(g, p.x + 4, p.y + 38);
+    g.rect(p.x + 104, p.y - 70, 3, 44).fill(INK); // flag pole
   },
 
   well(g, p) {
@@ -554,40 +607,118 @@ const PLACE_DRAWERS = {
   },
 
   armory(g, p) {
-    shadow(g, p.x, p.y + 30, 62, 10);
-    g.rect(p.x - 54, p.y - 36, 108, 66).fill(0x9a9aa6).stroke({ width: 4, color: INK });
-    for (let r = 0; r < 4; r++) for (let c = 0; c < 6; c++) g.moveTo(p.x - 54 + c * 18, p.y - 36 + r * 16).lineTo(p.x - 54 + c * 18 + 18, p.y - 36 + r * 16).stroke({ width: 1, color: 0x6a6a76, alpha: 0.6 });
-    for (let i = 0; i < 5; i++) g.rect(p.x - 54 + i * 23, p.y - 50, 15, 16).fill(0x9a9aa6).stroke({ width: 3, color: INK });
-    g.rect(p.x - 13, p.y - 6, 26, 36).fill(0x5b4a3a).stroke({ width: 3, color: INK });
-    g.circle(p.x + 6, p.y + 12, 2).fill(0xf2c53d);
-    g.rect(p.x + 32, p.y - 82, 3, 44).fill(INK);
-    for (const dx of [-40, 34]) g.rect(p.x + dx, p.y - 22, 6, 18).fill(INK).stroke({ width: 1, color: 0xf2c53d }); // arrow slits
-    crate(g, p.x - 74, p.y + 18);
-    barrel(g, p.x + 72, p.y + 20);
-    for (let i = 0; i < 3; i++) g.moveTo(p.x - 80 + i * 8, p.y - 4).lineTo(p.x - 76 + i * 8, p.y - 30).stroke({ width: 2, color: 0x6b4a2b }); // spear rack
+    const x = p.x;
+    const y = p.y;
+    shadow(g, x, y + 40, 84, 11);
+    // keep: stone blocks, crenellations
+    g.rect(x - 64, y - 30, 128, 74).fill(0x9a9aa8).stroke({ width: 4, color: INK });
+    for (let r = 0; r < 5; r++) for (let c = 0; c < 8; c++) {
+      const off = r % 2 ? 8 : 0;
+      g.rect(x - 64 + c * 16 + off - (r % 2 ? 16 : 0), y - 30 + r * 15, 16, 15).stroke({ width: 1, color: 0x6a6a78, alpha: 0.55 });
+    }
+    g.rect(x - 64, y - 30, 128, 9).fill({ color: 0xffffff, alpha: 0.12 });
+    for (let i = 0; i < 7; i++) g.rect(x - 64 + i * 19, y - 46, 12, 16).fill(0x9a9aa8).stroke({ width: 3, color: INK });
+    // two round towers with cone roofs and flags
+    for (const tx of [-72, 72]) {
+      g.rect(x + tx - 17, y - 52, 34, 98).fill(0xa6a6b4).stroke({ width: 4, color: INK });
+      for (let r = 0; r < 6; r++) g.moveTo(x + tx - 17, y - 40 + r * 16).lineTo(x + tx + 17, y - 40 + r * 16).stroke({ width: 1, color: 0x6a6a78, alpha: 0.5 });
+      g.poly([x + tx - 22, y - 52, x + tx + 22, y - 52, x + tx, y - 92]).fill(0xb4423a).stroke({ width: 3, color: INK, join: 'round' });
+      g.rect(x + tx - 1.5, y - 112, 3, 22).fill(INK);
+      g.poly([x + tx + 1.5, y - 112, x + tx + 20, y - 106, x + tx + 1.5, y - 99]).fill(0xe5533d).stroke({ width: 1.2, color: INK });
+      g.rect(x + tx - 3, y - 30, 6, 18).fill(INK); // arrow slit
+    }
+    // double door with iron bands and studs, a banner above
+    g.roundRect(x - 22, y - 8, 44, 52, 8).fill(0x5b4a3a).stroke({ width: 3.5, color: INK });
+    g.moveTo(x, y - 6).lineTo(x, y + 44).stroke({ width: 2, color: INK });
+    for (const by of [4, 22, 36]) g.rect(x - 22, y + by, 44, 4).fill(0x3a3a46);
+    for (const sx of [-14, -6, 6, 14]) for (const sy of [8, 26]) g.circle(x + sx, y + sy, 1.6).fill(0xc4c4cc);
+    g.circle(x + 6, y + 22, 2.4).fill(0xf2c53d);
+    g.poly([x - 14, y - 26, x + 14, y - 26, x + 14, y - 8, x, y - 14, x - 14, y - 8]).fill(0xb4423a).stroke({ width: 2, color: INK, join: 'round' });
+    g.moveTo(x - 8, y - 22).lineTo(x + 8, y - 12).moveTo(x + 8, y - 22).lineTo(x - 8, y - 12).stroke({ width: 2, color: 0xf2e9c8, cap: 'round' }); // crossed swords
+    // torches by the door
+    for (const tx of [-32, 32]) {
+      g.rect(x + tx - 1.5, y + 2, 3, 14).fill(0x5a3a22);
+      g.circle(x + tx, y - 1, 6).fill({ color: 0xffb347, alpha: 0.35 });
+      g.poly([x + tx - 3, y + 2, x + tx, y - 8, x + tx + 3, y + 2]).fill(0xff9f1c).stroke({ width: 1, color: INK });
+    }
+    // yard: weapon rack, shields, a dummy, an anvil and hay
+    g.rect(x - 112, y + 6, 4, 34).fill(0x5a3a22);
+    g.rect(x - 94, y + 6, 4, 34).fill(0x5a3a22);
+    g.rect(x - 114, y + 12, 26, 3).fill(0x5a3a22);
+    for (let i = 0; i < 4; i++) g.moveTo(x - 108 + i * 6, y + 12).lineTo(x - 104 + i * 6, y - 16).stroke({ width: 2.2, color: i % 2 ? 0x9a9aa8 : 0x6b4a2b, cap: 'round' });
+    g.circle(x - 100, y + 30, 8).fill(0x3d8be5).stroke({ width: 2, color: INK });
+    g.circle(x - 100, y + 30, 2.5).fill(0xf2c53d);
+    g.rect(x + 100, y + 2, 4, 44).fill(0x5a3a22); // training dummy
+    g.rect(x + 90, y + 12, 24, 4).fill(0x5a3a22);
+    g.circle(x + 102, y - 2, 8).fill(0xd9b45a).stroke({ width: 2, color: INK });
+    g.rect(x + 95, y + 8, 14, 20).fill(0xd9b45a).stroke({ width: 2, color: INK });
+    g.poly([x + 96, y + 52, x + 114, y + 52, x + 110, y + 44, x + 100, y + 44]).fill(0x4a4a56).stroke({ width: 2, color: INK }); // anvil
+    for (const [hx, hy] of [[-84, 56], [-66, 58]]) {
+      g.ellipse(x + hx, y + hy, 12, 8).fill(0xe3c360).stroke({ width: 1.5, color: INK });
+      g.moveTo(x + hx - 8, y + hy - 2).lineTo(x + hx + 8, y + hy + 1).stroke({ width: 1, color: 0xa88a2a });
+    }
+    crate(g, x + 62, y + 58);
+    barrel(g, x + 80, y + 58);
   },
 
   pond(g, p, rng) {
-    g.ellipse(p.x + 4, p.y + 5, p.radius + 8, p.radius * 0.7 + 6).fill({ color: 0x000000, alpha: 0.08 });
-    g.ellipse(p.x, p.y, p.radius + 6, p.radius * 0.7 + 5).fill(0xd8c690); // sandy bank
-    g.ellipse(p.x, p.y, p.radius, p.radius * 0.7).fill(0x6db7e8).stroke({ width: 4, color: 0x3f87b8 });
-    g.ellipse(p.x - 14, p.y - 8, p.radius * 0.6, p.radius * 0.33).fill({ color: 0x8fcdf5, alpha: 0.6 });
-    for (let i = 0; i < 6; i++) {
+    const R = p.radius;
+    g.ellipse(p.x + 5, p.y + 7, R + 14, R * 0.7 + 10).fill({ color: 0x000000, alpha: 0.09 });
+    g.ellipse(p.x, p.y, R + 12, R * 0.7 + 9).fill(0xd8c690).stroke({ width: 2, color: 0xb9a56a, alpha: 0.8 }); // sandy bank
+    for (let i = 0; i < 26; i++) { // pebbles on the bank
       const a = rng() * Math.PI * 2;
-      const d = rng() * p.radius * 0.55;
+      g.circle(p.x + Math.cos(a) * (R + 6 + rng() * 5), p.y + Math.sin(a) * (R * 0.7 + 5 + rng() * 4), 1.6 + rng() * 1.6).fill({ color: rng() < 0.5 ? 0xb9a56a : 0xf3e8c8, alpha: 0.9 });
+    }
+    // water in layers: shallow edge, then deeper, then the deep middle
+    g.ellipse(p.x, p.y, R, R * 0.7).fill(0x79c3ee).stroke({ width: 4, color: 0x3f87b8 });
+    g.ellipse(p.x, p.y, R * 0.8, R * 0.56).fill(0x5eaee4);
+    g.ellipse(p.x + 4, p.y + 2, R * 0.5, R * 0.34).fill(0x4a9bd6);
+    g.ellipse(p.x - 18, p.y - 12, R * 0.55, R * 0.22).fill({ color: 0xffffff, alpha: 0.28 }); // sky reflection
+    for (let i = 0; i < 9; i++) { // ripples and glints
+      const a = rng() * Math.PI * 2;
+      const d = 0.25 + rng() * 0.6;
+      const rx = p.x + Math.cos(a) * R * d;
+      const ry = p.y + Math.sin(a) * R * 0.7 * d;
+      g.moveTo(rx - 7, ry).quadraticCurveTo(rx, ry - 3, rx + 7, ry).stroke({ width: 1.4, color: 0xffffff, alpha: 0.45 });
+    }
+    // lily pads and flowers
+    for (let i = 0; i < 9; i++) {
+      const a = rng() * Math.PI * 2;
+      const d = rng() * R * 0.6;
       const x = p.x + Math.cos(a) * d;
-      const y = p.y + Math.sin(a) * d * 0.6;
-      g.circle(x, y, 7).fill(0x4fae5c).stroke({ width: 1.5, color: 0x2f7a3a });
-      if (i % 3 === 0) g.circle(x, y, 2.5).fill(0xffb3c7);
+      const y = p.y + Math.sin(a) * d * 0.62;
+      g.ellipse(x, y, 8.5, 5.5).fill(0x4fae5c).stroke({ width: 1.5, color: 0x2f7a3a });
+      g.poly([x, y, x + 8, y - 2, x + 8, y + 2]).fill(0x79c3ee);
+      if (i % 3 === 0) { g.circle(x - 1, y - 1, 3).fill(0xffb3c7); g.circle(x - 1, y - 1, 1.2).fill(0xffe27a); }
     }
-    for (let i = 0; i < 7; i++) { // reeds
-      const x = p.x - p.radius + 12 + i * 5;
-      g.moveTo(x, p.y + 20).lineTo(x - 2, p.y - 6).stroke({ width: 2, color: 0x4a8a3a });
-      g.ellipse(x - 2, p.y - 9, 2, 5).fill(0x7a5230);
+    // rocks round the edge, tall reeds and cattails on both sides
+    for (let i = 0; i < 14; i++) {
+      const a = (Math.PI * 2 * i) / 14 + rng() * 0.3;
+      const rx = p.x + Math.cos(a) * (R + 2);
+      const ry = p.y + Math.sin(a) * (R * 0.7 + 1);
+      g.ellipse(rx, ry, 8 + rng() * 5, 5 + rng() * 3).fill(0xa3a3ab).stroke({ width: 1.6, color: 0x6e6e78 });
+      g.ellipse(rx - 2, ry - 1.5, 4, 2).fill({ color: 0xffffff, alpha: 0.25 });
     }
-    g.rect(p.x - p.radius - 14, p.y + 6, 50, 10).fill(0xb98a55).stroke({ width: 2, color: INK }); // dock
-    for (const dx of [-p.radius - 10, -p.radius + 28]) g.rect(p.x + dx, p.y + 12, 4, 12).fill(INK);
-    for (const [dx, dy, s] of [[60, 34, 1], [-30, 48, 0.8], [76, 6, 0.7]]) g.ellipse(p.x + dx, p.y + dy, 9 * s, 6 * s).fill(0x9a9a9a).stroke({ width: 1.5, color: 0x6e6e6e });
+    for (const side of [1, -1]) {
+      for (let i = 0; i < 9; i++) {
+        const rx = p.x + side * (R * 0.55 + i * 4.5) + (side > 0 ? 12 : -12);
+        const ry = p.y + R * 0.52 - Math.abs(i - 4) * 2;
+        g.moveTo(rx, ry + 8).quadraticCurveTo(rx + side * 3, ry - 6, rx + side * 1, ry - 18 - (i % 3) * 5).stroke({ width: 2, color: 0x4a8a3a, cap: 'round' });
+        if (i % 2 === 0) g.ellipse(rx + side, ry - 20 - (i % 3) * 5, 2.4, 6).fill(0x7a5230).stroke({ width: 1, color: INK });
+      }
+    }
+    // a wooden dock with planks, posts and a little rowboat
+    const dx = p.x - R - 24;
+    const dy = p.y + 2;
+    for (let i = 0; i < 9; i++) g.rect(dx + i * 7, dy, 6, 14).fill(i % 2 ? 0xb98a55 : 0xa8793f).stroke({ width: 1, color: INK, alpha: 0.7 });
+    for (const px of [0, 56]) { g.rect(dx + px - 2, dy + 10, 5, 14).fill(0x5a3a22).stroke({ width: 1, color: INK }); }
+    g.ellipse(dx + 46, dy + 26, 20, 7).fill({ color: 0x000000, alpha: 0.12 });
+    g.poly([dx + 26, dy + 20, dx + 66, dy + 20, dx + 58, dy + 30, dx + 34, dy + 30]).fill(0xb4635a).stroke({ width: 2, color: INK, join: 'round' });
+    g.rect(dx + 28, dy + 21, 36, 3).fill(0xe0c9a0);
+    g.moveTo(dx + 46, dy + 20).lineTo(dx + 62, dy + 8).stroke({ width: 2, color: 0x7a5230, cap: 'round' }); // oar
+    // stepping stones and a little bench by the water
+    for (const [sx, sy, sc] of [[64, 40, 1], [-34, 52, 0.8], [84, 8, 0.7], [-60, 46, 0.9]]) g.ellipse(p.x + sx, p.y + sy, 9 * sc, 6 * sc).fill(0x9a9aa4).stroke({ width: 1.5, color: 0x6e6e78 });
+    bench(g, p.x + 20, p.y + R * 0.7 + 22);
   },
 
   farm(g, p) {

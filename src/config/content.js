@@ -31,6 +31,8 @@ export const VERBS = {
   arm: { label: 'Arm up', targets: [], blurb: 'Unarmed villagers fetch a weapon; gun owners reload.' },
   accuse: { label: 'Accuse', targets: ['group'], blurb: 'Start a rumor that the target group did something awful. It spreads from villager to villager; believers like them less. Nobody learns who started it.' },
   praise: { label: 'Praise', targets: ['group'], blurb: 'Start a rumor that the target group did something wonderful. Believers like them more.' },
+  shove: { label: 'Shove', targets: ['group'], blurb: 'Your villagers walk up to the target faction and push them away, again and again. It hurts nobody much but makes enemies.' },
+  seize: { label: 'Seize', targets: ['villager'], blurb: 'Several of your villagers grab one enemy villager and drag them off to a place (the Houses unless you say otherwise; the Pond if you want them dunked), then let go.' },
   scare: { label: 'Scare', targets: ['group'], blurb: 'Your villagers walk up to the target faction and glare, mutter and loom until they lose their nerve and run. Bullying makes enemies resent you.' },
   scatter: { label: 'Run away', targets: [], blurb: 'Everyone scatters away from everybody else and keeps their distance.' },
   ambush: { label: 'Ambush', targets: ['place'], blurb: 'Lie in wait at a place and jump anyone from another faction who wanders close.' },
@@ -41,7 +43,7 @@ export const SHAPES =['circle', 'square', 'triangle', 'hex'];
 
 // Positions are in world coordinates (1920 x 1080).
 export const PLACES = [
-  { id: 'plaza', name: 'Plaza', x: 960, y: 540, radius: 120 },
+  { id: 'plaza', name: 'Plaza', x: 960, y: 540, radius: 150 },
   { id: 'park', name: 'Park', x: 330, y: 270, radius: 130 },
   { id: 'market', name: 'Market', x: 1590, y: 270, radius: 120 },
   { id: 'well', name: 'Well', x: 960, y: 190, radius: 75 },

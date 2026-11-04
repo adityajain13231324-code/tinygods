@@ -54,6 +54,9 @@ export class Director {
       if (e.type === 'kill') this.onKill(game, e);
       else if (e.type === 'gunshot') this.onGunshot(game, e);
       else if (e.type === 'bond') this.audio?.play('bond', world.villagers[e.aId].x);
+      else if (e.type === 'shout') this.audio?.play('shout', e.x);
+      else if (e.type === 'scream') this.audio?.play('scream', e.x);
+      else if (e.type === 'splash') { this.audio?.play('splash', e.x); this.effects.puff?.(e.x, e.y, 10, 0xbfe3ff); }
       else if (e.type === 'defect') this.onDefect(game, e);
       else if (e.type === 'explosion') {
         this.effects.explosion(e);

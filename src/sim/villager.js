@@ -42,7 +42,7 @@ export function usableWeapon(v) {
   return v.escalation >= (isFirearm(w) ? 2 : 1) ? w : 'none';
 }
 
-export const emptyFx = () => ({ protect: [], avoid: [], follow: null, arm: 0, love: [], festival: null, escort: null, hunt: null, assault: null, standdown: false, scare: [], ambush: null });
+export const emptyFx = () => ({ protect: [], avoid: [], follow: null, arm: 0, love: [], festival: null, escort: null, hunt: null, assault: null, standdown: false, scare: [], ambush: null, shove: [], seize: null });
 
 /** @returns {Villager} */
 export function createVillager(rng, { id, name, shape, faction, x, y, count = 60 }) {
@@ -81,6 +81,9 @@ export function createVillager(rng, { id, name, shape, faction, x, y, count = 60
     peaceCooldown: 0, // a peacemaker who just separated people waits before trying again
     heard: new Set(), // rumor ids already heard
     believed: [], // rumors this villager believes (and repeats)
+    shoveAt: 0, // sim time of this villager's next shove
+    carry: null, // someone is dragging me: {by: [ids], dest: placeId, until}
+    carrying: false, // I am helping drag someone (I walk slower)
     brewId: -1, // who I am glaring at before I start a fight with them (-1: nobody)
     brewUntil: 0, // sim time at which the glare turns into a punch
     scuffleChecked: false, // has this fist fight already had its one chance to break off?

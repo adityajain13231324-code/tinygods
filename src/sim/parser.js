@@ -19,6 +19,8 @@ const ACTIONS = {
   love: ['love', 'like', 'befriend', 'friend', 'bond', 'hug', 'ally', 'adore', 'kiss', 'unite', 'forgive', 'reconcile', 'cherish', 'peace', 'respect', 'welcome'],
   fear: ['fear', 'afraid', 'dread', 'feared', 'fearful'],
   scare: ['scare', 'scared', 'terrify', 'terrified', 'frighten', 'frightened', 'threaten', 'spook', 'intimidate', 'horrify', 'haunt', 'bully', 'menace', 'harass', 'torment', 'pester', 'unnerve', 'rattle'],
+  shove: ['shove', 'jostle', 'elbow', 'barge', 'manhandle', 'shoulder'],
+  seize: ['seize', 'grab', 'drag', 'haul', 'lasso', 'collar'],
   scatter: ['scatter', 'disperse', 'vanish', 'disappear'],
   ambush: ['ambush', 'lurk', 'stakeout', 'waylay'],
   protect: ['protect', 'guard', 'defend', 'bodyguard', 'safeguard', 'shelter', 'secure', 'fortify', 'cover'],
@@ -68,11 +70,11 @@ const ACTIONS = {
 };
 
 // When a sentence holds words for several actions, the earlier in this list wins.
-const PRIORITY = ['standdown', 'scatter', 'ambush', 'bomb', 'kidnap', 'warchest', 'forged', 'bribe', 'prophecy', 'raid', 'spoiled', 'matchmaker', 'treaty', 'alarm', 'recruit', 'medic', 'census',
+const PRIORITY = ['standdown', 'scatter', 'ambush', 'seize', 'shove', 'bomb', 'kidnap', 'warchest', 'forged', 'bribe', 'prophecy', 'raid', 'spoiled', 'matchmaker', 'treaty', 'alarm', 'recruit', 'medic', 'census',
   'truce', 'spy', 'alibi', 'earthquake', 'tornado', 'fireball', 'disarm', 'rain', 'charm', 'enrage', 'aegis', 'sleep', 'lightning', 'miracle', 'whisper', 'fog', 'gust', 'rally', 'hunt', 'escort', 'avoid', 'festival', 'arm', 'protect',
   'go', 'scare', 'assault', 'hate', 'love', 'fear', 'accuse', 'praise'];
 
-const ORDER_VERBS = new Set(['assault', 'hate', 'love', 'fear', 'scare', 'scatter', 'ambush', 'protect', 'avoid', 'go', 'escort', 'hunt', 'standdown', 'accuse', 'praise', 'festival', 'arm']);
+const ORDER_VERBS = new Set(['assault', 'hate', 'love', 'fear', 'scare', 'shove', 'seize', 'scatter', 'ambush', 'protect', 'avoid', 'go', 'escort', 'hunt', 'standdown', 'accuse', 'praise', 'festival', 'arm']);
 const VERB_ID = { go: 'follow' }; // typed "go" is the game's Go-to-a-place order
 
 const GROUP_WORDS = {
@@ -117,6 +119,13 @@ const STOP = new Set(['the', 'a', 'an', 'to', 'of', 'on', 'at', 'in', 'with', 'f
 
 // Multi-word phrases become one keyword before the sentence is read.
 const PHRASES = [
+  // "grab X and drag them to the pond" is one order, not two
+  [/\b(grab|seize|snatch|collar|catch|lasso)\b([^,;.]*?)\band\b(?= (?:drag|haul|carry|take|bring|lead|march|walk))/g, ' $1$2 '],
+  // push people away / take someone away
+  [/push (?=.{0,24}\b(?:away|back|around|off)\b)|push around|shove away|drive (?=(?:\w+ ){0,2}(?:off|away|back)\b)|chase (?=(?:\w+ ){0,2}(?:off|away)\b)|force (?:them )?back|muscle (?=(?:\w+ ){0,2}out\b)|elbow (?:them )?aside/g, ' shove '],
+  [/(?:take|lead|walk|haul|carry|drag|march|bring) (?:\w+ ){0,2}?(?:away|off)\b|carry off|take (?:\w+ )?(?:with|along)|pick (?:\w+ )?up and (?:carry|take)|drag (?:\w+ )?(?:to|off|away)|round (?:\w+ )?up/g, ' seize '],
+  // shouting: part of scaring
+  [/(?:shout|yell|scream|holler|bark|bellow|roar|heckle|boo) (?:at|down)|boo\b|shout down|scream at/g, ' scare '],
   // everybody runs from everybody (before the plain "away from X" rule below)
   [/(?:run(?:ning)?|flee(?:ing)?|get|stay|keep|hide|stay out of|keep out of|steer clear of|escape)(?: right)?(?: away| off| out)? from (?:every(?:one|body)|all|anyone|anybody|each other|the others|other villagers|other people|the rest|all of them|all the others)/g, ' scatter '],
   [/run(?:ning)? (?:away|off)\b(?! from)|run for (?:it|your lives|the hills|cover)|head for the hills|make a run for it|get out of (?:here|town)|scatter everyone|every(?:one|body) (?:run|flee|hide)|save yourselves|every man for himself/g, ' scatter '],
@@ -350,6 +359,7 @@ function parseOrder(id, clause, raw, f, game, seat) {
   // Verb-specific targets.
   let verb = id;
   let target = null;
+  let dest = null; // where a seized villager is dragged
   if (id === 'hunt' || ((id === 'hate' || id === 'assault') && (group === null || group === seat) && otherNamed.length)) {
     verb = 'hunt';
     const prey = otherNamed[0];
@@ -373,6 +383,12 @@ function parseOrder(id, clause, raw, f, game, seat) {
   if (verb === 'go') {
     const hiding = raw.some((t) => ['hide', 'hiding', 'shelter', 'retreat', 'indoors'].includes(t));
     target = { kind: 'place', id: place ?? (hiding ? 'houses' : 'plaza') };
+  } else if (verb === 'seize') {
+    const prey = otherNamed[0];
+    if (!prey) return fail('Seize whom? Pick someone from another faction:', game, seat, { verb: 'seize' });
+    target = { kind: 'villager', id: prey.id, name: prey.name };
+    if (ownNamed.length && !subject) subject = { kind: 'villagers', ids: ownNamed.map((v) => v.id), names: ownNamed.map((v) => v.name) };
+    if (place) dest = place;
   } else if (verb === 'scatter') {
     target = null;
   } else if (verb === 'ambush') {
@@ -389,11 +405,11 @@ function parseOrder(id, clause, raw, f, game, seat) {
     else return fail('Avoid whom or what? Pick one:', game, seat, { verb: 'avoid' });
   } else if (verb === 'assault' && place && (group === null || group === seat)) {
     target = { kind: 'place', id: place }; // "kill everyone at the houses"
-  } else if (['hate', 'love', 'fear', 'scare', 'accuse', 'praise', 'assault'].includes(verb)) {
+  } else if (['hate', 'love', 'fear', 'scare', 'shove', 'accuse', 'praise', 'assault'].includes(verb)) {
     let g = group;
     if (g === null && named.length) g = named[0].faction >= 0 ? named[0].faction : 4;
     if (g === null) return fail(`${VERB_WORD[verb]} whom? Pick a faction:`, game, seat, { verb });
-    if (g === seat && ['hate', 'accuse', 'fear', 'scare', 'assault'].includes(verb)) return fail(`You cannot ${VERB_WORD[verb].toLowerCase()} your own faction. Pick a rival:`, game, seat, { verb });
+    if (g === seat && ['hate', 'accuse', 'fear', 'scare', 'shove', 'assault'].includes(verb)) return fail(`You cannot ${VERB_WORD[verb].toLowerCase()} your own faction. Pick a rival:`, game, seat, { verb });
     target = { kind: 'group', id: g };
   }
   if (ownNamed.length && !subject && verb !== 'hunt' && verb !== 'escort') subject = { kind: 'villagers', ids: ownNamed.map((v) => v.id), names: ownNamed.map((v) => v.name) };
@@ -404,14 +420,15 @@ function parseOrder(id, clause, raw, f, game, seat) {
 
   const order = { verb: VERB_ID[verb] ?? verb, target, strength };
   if (subject) order.subject = subject;
+  if (dest) order.dest = dest;
   return { ok: true, action: { kind: 'order', order, label: describeOrder(order) } };
 }
 
 // ---- failure with something to try ----------------------------------------------------
 
-const VERB_WORD = { hate: 'Hate', love: 'Love', fear: 'Fear', scare: 'Scare', accuse: 'Accuse', praise: 'Praise', assault: 'Attack' };
+const VERB_WORD = { hate: 'Hate', love: 'Love', fear: 'Fear', shove: 'Shove', scare: 'Scare', accuse: 'Accuse', praise: 'Praise', assault: 'Attack' };
 const VERB_SENTENCE = {
-  hate: (t) => `hate the ${t}`, love: (t) => `love the ${t}`, fear: (t) => `be afraid of the ${t}`, scare: (t) => `scare the ${t}`, accuse: (t) => `accuse the ${t}`,
+  hate: (t) => `hate the ${t}`, love: (t) => `love the ${t}`, fear: (t) => `be afraid of the ${t}`, scare: (t) => `scare the ${t}`, shove: (t) => `push the ${t} away`, accuse: (t) => `accuse the ${t}`,
   praise: (t) => `praise the ${t}`, assault: (t) => `attack the ${t}`, avoid: (t) => `stay away from the ${t}`, protect: (t) => `guard the ${t}`,
 };
 
@@ -454,6 +471,9 @@ function fail(message, game, seat, ctx = {}) {
     list.push(`send three villagers to hunt ${foe(0)}`);
   } else if (ctx.verb === 'escort') {
     list = [`have ${myName} follow ${foe(0)}`, `follow ${myName}`, `send everyone to the ${place(0)}`, `have ${myName} follow ${foe(1)}`];
+  } else if (ctx.verb === 'seize') {
+    list = foes.map((v) => `grab ${v.name} and drag them to the ${place(0)}`);
+    list.push(`two villagers take ${foe(0)} away`);
   } else if (ctx.verb === 'ambush') {
     list = [0, 1, 2, 3].map((i) => `ambush at the ${place(i)}`);
   } else if (ctx.verb === 'whisper') {
@@ -483,7 +503,7 @@ function fail(message, game, seat, ctx = {}) {
     ? [`lightning on the ${place(0)}`, 'heal my weakest', `fog on the ${place(1)}`, `whisper that the ${rv(0)} are dangerous`, `blow ${myName} to the ${place(2)}`, `lightning on the ${rv(1)}`, 'fog', `heal ${myName}`]
     : [`scare the ${rv(0)}`, `attack the ${rv(1)}`, `hunt ${foe(0)}`, `send three villagers to the ${place(0)}`, `have ${myName} follow ${foe(1)}`, 'arm up', 'everyone stand down',
       `forge a letter against the ${rv(0)}`, `plant a time bomb at the ${place(1)}`, `love the ${rv(1)} and praise us`, `party at the ${place(2)}`, 'hide in the houses', `guard the ${place(3)}`,
-      `my brawlers attack the ${rv(0)}`, `run away from everyone`, `ambush at the ${place(2)}`, `bully the ${rv(1)}`, `spy on the ${rv(1)}`, `hate the ${rv(0)} really hard`, `accuse the ${rv(1)}`, 'recruit a neutral', `raid the ${rv(0)} armory`];
+      `my brawlers attack the ${rv(0)}`, `run away from everyone`, `ambush at the ${place(2)}`, `bully the ${rv(1)}`, `push the ${rv(0)} away`, `grab ${foe(0)} and drag them to the pond`, `spy on the ${rv(1)}`, `hate the ${rv(0)} really hard`, `accuse the ${rv(1)}`, 'recruit a neutral', `raid the ${rv(0)} armory`];
   const suggestions = [...list];
   for (const s of pickMany(bank, 8, round * 5)) if (suggestions.length < Math.max(4, list.length ? 5 : 4) && !suggestions.includes(s)) suggestions.push(s);
   return { ok: false, message, suggestions: suggestions.slice(0, 6) };

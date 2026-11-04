@@ -5,7 +5,7 @@ import { exchangeRumors } from './rumors.js';
 import { range } from './rng.js';
 import { clampIn } from './world.js';
 import { groupOf, effectiveWeapon, usableWeapon, isFirearm } from './villager.js';
-import { resolveCombat, updateBombs } from './combat.js';
+import { resolveCombat, shoutAt, shoveVictim, updateBombs } from './combat.js';
 import { shoveFrom } from './shove.js';
 import { stepKnockback } from './shove.js';
 import { updateTension } from './tension.js';
@@ -50,6 +50,7 @@ export function stepWorld(world, dt = 1 / SIM.tickHz) {
     stepKnockback(world, v, dt);
   }
 
+  updateCarried(world);
   resolveCombat(world, dt);
   updateBombs(world);
   updateTornadoes(world);
@@ -409,6 +410,72 @@ function stopGlare(world, v) {
   return false;
 }
 
+/**
+ * Seizures: once two grabbers stand next to their victim, they lift them and carry them toward the
+ * place. The victim is moved along with the grabbers until they get there, one of them is hurt or
+ * the time runs out, then dropped (dunked, if it is the pond).
+ */
+function updateCarried(world) {
+  for (const victim of world.villagers) {
+    if (!victim.alive) continue;
+    if (!victim.carry) {
+      // is a lift starting? two grabbers close to me, both on this seizure
+      const helpers = world.villagers.filter((g) => g.alive && g.fx.seize?.victim === victim.id && g.faction !== victim.faction && dist(g, victim.x, victim.y) <= ORDERS.seizeJoin + 12 && g.state !== 'attack' && g.state !== 'flee');
+      if (helpers.length >= 2) {
+        victim.carry = { by: helpers.map((g) => g.id), dest: helpers[0].fx.seize.dest, until: world.time + ORDERS.seizeSeconds };
+        victim.state = 'mourn';
+        victim.expression = 'scared';
+        victim.timer = ORDERS.seizeSeconds;
+        victim.targetId = null;
+        victim.purpose = null;
+        world.events.push({ type: 'scream', turn: world.turn, time: world.time, x: victim.x, y: victim.y });
+      }
+      continue;
+    }
+    const c = victim.carry;
+    const dest = world.places.find((p) => p.id === c.dest);
+    const team = c.by.map((id) => world.villagers[id]).filter((g) => g.alive && g.state !== 'attack' && g.state !== 'flee' && g.hp > 30 && g.fx.seize?.victim === victim.id);
+    const arrived = team.some((g) => dist(g, dest.x, dest.y) < dest.radius * 0.45);
+    if (team.length < 2 || arrived || world.time > c.until) {
+      // let go
+      for (const id of c.by) {
+        const g = world.villagers[id];
+        g.carrying = false;
+        if (g.fx.seize?.victim === victim.id) g.fx.seize = null;
+        victim.opinion[groupOf(g)] = Math.max(-100, victim.opinion[groupOf(g)] - 20);
+        victim.fear[groupOf(g)] = Math.min(100, victim.fear[groupOf(g)] + 15);
+        victim.grievance[g.id] += victim.tolerance * 0.5; // they will remember this
+      }
+      if (arrived && dest.id === 'pond') {
+        victim.hp = Math.max(1, victim.hp - ORDERS.seizeDunk);
+        victim.lastDamage = ORDERS.seizeDunk;
+        victim.lastHitWeapon = 'shove';
+        victim.hitFlash = 0.6;
+        world.events.push({ type: 'splash', turn: world.turn, time: world.time, x: victim.x, y: victim.y });
+      }
+      victim.carry = null;
+      victim.vx = 0;
+      victim.vy = 0;
+      startIdle(world, victim, 'let go');
+      victim.state = 'mourn'; // stunned for a moment
+      victim.expression = 'scared';
+      victim.timer = 2.5;
+      continue;
+    }
+    // carried: hang between the grabbers
+    const mx = team.reduce((n, g) => n + g.x, 0) / team.length;
+    const my = team.reduce((n, g) => n + g.y, 0) / team.length;
+    [victim.x, victim.y] = clampIn(world, mx, my + 8);
+    victim.vx = 0;
+    victim.vy = 0;
+    victim.kx = 0;
+    victim.ky = 0;
+    victim.state = 'mourn';
+    victim.timer = Math.max(victim.timer, 1);
+    victim.facing = team[0].facing;
+  }
+}
+
 /** The nearest living villager (not me) that passes `test`, within `max` px. */
 function nearestOf(world, v, test, max) {
   let best = null;
@@ -567,6 +634,65 @@ function obeyOrders(world, v) {
     return false;
   }
 
+  // "Shove the Tides": walk up and push them away, again and again.
+  if (fx.shove.length > 0 && !fx.standdown) {
+    const prey = nearestOf(world, v, (o) => fx.shove.some((s) => s.group === groupOf(o)), 650);
+    if (prey) {
+      if (dist(v, prey.x, prey.y) > ORDERS.shoveReach) {
+        v.state = 'wander';
+        v.purpose = 'follow';
+        v.targetX = prey.x;
+        v.targetY = prey.y;
+        return true;
+      }
+      v.state = 'idle';
+      v.activity = null;
+      v.timer = 0.6;
+      v.targetId = prey.id;
+      v.expression = 'angry';
+      v.brewId = prey.id;
+      if (world.time >= v.shoveAt) {
+        const S = fx.shove.find((s) => s.group === groupOf(prey)).S;
+        v.shoveAt = world.time + ORDERS.shoveEvery / S;
+        v.swing = 1;
+        shoveVictim(world, v, prey);
+      }
+      return true;
+    }
+  }
+
+  // "Grab Mia and drag her to the pond": go to her together; once two are on her, carry her away.
+  if (fx.seize && !fx.standdown) {
+    const s = fx.seize;
+    const victim = world.villagers[s.victim];
+    const dest = world.places.find((p) => p.id === s.dest);
+    if (!victim?.alive || victim.faction === v.faction) {
+      fx.seize = null;
+      v.carrying = false;
+    } else if (victim.carry?.by.includes(v.id)) {
+      v.carrying = true;
+      v.state = 'wander';
+      v.purpose = 'follow';
+      v.expression = 'angry';
+      v.targetX = dest.x;
+      v.targetY = dest.y;
+      return true;
+    } else if (!victim.carry) {
+      if (dist(v, victim.x, victim.y) > ORDERS.seizeJoin) {
+        v.state = 'wander';
+        v.purpose = 'follow';
+        v.targetX = victim.x;
+        v.targetY = victim.y;
+      } else {
+        v.state = 'idle'; // at the victim, waiting for a friend to help lift
+        v.timer = 0.5;
+        v.targetId = victim.id;
+        v.expression = 'angry';
+      }
+      return true;
+    }
+  }
+
   // "Scare the Tides": walk up to them, glare, and keep at it until they lose their nerve and run.
   if (fx.scare.length > 0 && !fx.standdown) {
     const prey = nearestOf(world, v, (o) => fx.scare.some((s) => s.group === groupOf(o)) && o.state !== 'flee', 650);
@@ -586,6 +712,7 @@ function obeyOrders(world, v) {
       v.targetId = prey.id;
       v.expression = 'angry';
       v.brewId = prey.id; // the glare animation and the thought bubble
+      if (world.rng() < 0.35) shoutAt(world, v); // they yell as they loom
       prey.fear[groupOf(v)] = Math.min(100, prey.fear[groupOf(v)] + ORDERS.scareFear * S * 0.5);
       prey.courage = Math.max(10, prey.courage - ORDERS.scareCourage * S);
       prey.grievance[v.id] += ORDERS.scareGrudge * S; // bullying breeds resentment
@@ -876,6 +1003,7 @@ function act(world, v, dt) {
   let ty = null;
   let stopAt = 0;
   let speed = v.speed;
+  if (v.carrying) speed *= 0.85; // dragging someone is slow work
 
   switch (v.state) {
     case 'wander':

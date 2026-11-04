@@ -18,7 +18,7 @@ export const POWER_DEFS = {
   miracle: { name: 'Miracle', icon: '✨', cost: POWERS.miracle.cost, needs: 'villager', hint: 'Click a villager to heal them.', blurb: 'Heal one villager. Their faction warms to you.' },
   aegis: { name: 'Aegis', icon: '🛡️', cost: POWERS.aegis.cost, needs: 'villager', hint: 'Click a villager to shield them.', blurb: 'One villager takes 60% less damage for 16 seconds.' },
   rain: { name: 'Downpour', icon: '🌧️', cost: POWERS.rain.cost, needs: 'point', hint: 'Click a spot: everyone there cools off.', blurb: 'A heavy rain on a wide area: fights break up and tempers drop.' },
-  fog: { name: 'Fog', icon: '🌫️', cost: POWERS.fog.cost, needs: 'point', hint: 'Click a spot for fog.', blurb: 'A patch of fog: nobody inside can start a fight for a while.' },
+  fog: { name: 'Fog', icon: '🌫️', cost: POWERS.fog.cost, needs: 'point', hint: 'Click a spot for fog.', blurb: 'A patch of fog: fights inside stop at once and nobody in it can pick a new one for a while (they still defend themselves).' },
   sleep: { name: 'Sleep', icon: '💤', cost: POWERS.sleep.cost, needs: 'villager', hint: 'Click a villager to put them to sleep.', blurb: 'One villager freezes in place for 8 seconds.' },
   // mind games
   whisper: { name: 'Whisper', icon: '👂', cost: POWERS.whisper.cost, needs: 'villager+group', hint: 'Choose a faction, then click a villager to whisper to.', blurb: 'Plant a thought in one villager: they now distrust (or like) a faction.' },
