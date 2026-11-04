@@ -84,6 +84,19 @@ export function createHud(root, ctx) {
   // Town board (wide screens, under the order panel): who is left, and a running log of what happened.
   const board = el('div');
   board.id = 'townboard';
+  board.classList.add('minimized');
+  const boardToggle = el('button', 'tb-toggle', 'The town · Expand ▾');
+  boardToggle.setAttribute('aria-expanded', 'false');
+  boardToggle.setAttribute('aria-controls', 'townboard-content');
+  const boardContent = el('div', 'tb-content');
+  boardContent.id = 'townboard-content';
+  boardContent.hidden = true;
+  boardToggle.onclick = () => {
+    const minimized = board.classList.toggle('minimized');
+    boardContent.hidden = minimized;
+    boardToggle.setAttribute('aria-expanded', String(!minimized));
+    boardToggle.textContent = minimized ? 'The town · Expand ▾' : 'The town · Minimize ▴';
+  };
   const score = el('div', 'tb-score');
   const rows = FACTIONS.map((f) => {
     const row = el('div', 'tb-row');
@@ -102,7 +115,8 @@ export function createHud(root, ctx) {
   });
   const logHead = el('div', 'tb-head', 'What is happening');
   const log = el('div', 'tb-log');
-  board.append(el('div', 'tb-head', 'The town'), score, logHead, log);
+  boardContent.append(score, logHead, log);
+  board.append(boardToggle, boardContent);
   root.append(board);
   const logLine = (turnNo, icon, text) => {
     const line = el('div', '');

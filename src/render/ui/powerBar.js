@@ -83,6 +83,7 @@ export function createPowerBar(root, ctx, game, camera, stage) {
   }
 
   function build() {
+    const scrollTop = panel.querySelector('.sheet-body')?.scrollTop ?? 0;
     panel.replaceChildren();
     const left = game.power[ctx.seat] ?? 0;
     const head = el('div', 'powerhead');
@@ -161,6 +162,7 @@ export function createPowerBar(root, ctx, game, camera, stage) {
       foot.append(aim, cancel);
     }
     finishSheet(panel, `Miracles · ${left} power`, foot);
+    panel.querySelector('.sheet-body').scrollTop = scrollTop;
   }
 
   const hintFor = (id) => ({
@@ -178,6 +180,8 @@ export function createPowerBar(root, ctx, game, camera, stage) {
       const open = game.phase === 'sim' && !game.world.peaceful && !game.eliminated[ctx.seat] && ctx.passReady && !ctx.cutsceneActive?.();
       panel.hidden = !open;
       if (!open) {
+        const body = panel.querySelector('.sheet-body');
+        if (body) body.scrollTop = 0;
         shownKey = '';
         selected = null;
         if (game.phase !== 'sim') castQueued = false;

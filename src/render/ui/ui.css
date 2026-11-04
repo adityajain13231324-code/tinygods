@@ -514,6 +514,10 @@ html, body { touch-action: manipulation; }
 }
 @media (max-width: 919px) { #townboard { display: none; } }
 #townboard .tb-head { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+#townboard { pointer-events: auto; }
+#townboard.minimized { bottom: auto; }
+.tb-toggle { min-height: 44px; flex: none; width: 100%; border: 0; border-radius: 8px; padding: 7px 10px; background: #35412f; color: var(--accent); text-align: left; font-weight: 800 !important; }
+.tb-content { display: flex; flex-direction: column; gap: 6px; min-height: 0; flex: 1; }
 .tb-score { display: grid; gap: 5px; }
 .tb-row { display: grid; grid-template-columns: 10px 70px 1fr 24px 22px; align-items: center; gap: 7px; font-size: 12.5px; }
 .tb-row i:first-child { width: 10px; height: 10px; border-radius: 50%; }

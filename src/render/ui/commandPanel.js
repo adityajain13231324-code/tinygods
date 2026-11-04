@@ -224,6 +224,10 @@ export function createCommandPanel(root, ctx) {
   }
 
   function build(game) {
+    const scrollTop = currentTb ? panel.querySelector('.sheet-body')?.scrollTop ?? 0 : 0;
+    const active = panel.contains(document.activeElement) ? document.activeElement : null;
+    const focusedLabel = active?.tagName === 'BUTTON' ? active.textContent : null;
+    const focusedIndex = focusedLabel === null ? -1 : [...panel.querySelectorAll('button')].filter(b => b.textContent === focusedLabel).indexOf(active);
     const inputDraft = currentTb?.pending() ?? '';
     const typing = currentTb?.root.contains(document.activeElement);
     panel.replaceChildren();
@@ -380,7 +384,11 @@ export function createCommandPanel(root, ctx) {
     };
     foot.append(submit);
     finishSheet(panel, `Plan orders · ${FACTIONS[ctx.seat].name}`, foot);
-    if (typing) queueMicrotask(() => tb.focus());
+    const body = panel.querySelector('.sheet-body');
+    body.scrollTop = scrollTop;
+    if (typing) tb.focus();
+    else if (focusedLabel) [...panel.querySelectorAll('button')].filter(b => b.textContent === focusedLabel)[focusedIndex]?.focus({ preventScroll: true });
+    body.scrollTop = scrollTop;
   }
 
   /**

@@ -286,7 +286,7 @@ function frame(frameSeconds) {
   if (tboard) {
     const below = cmdPanel && panelOn && sideDock ? cmdPanel.offsetTop + cmdPanel.offsetHeight + 10 : (document.getElementById('topbar')?.offsetHeight || 40) + 12;
     uiRoot.style.setProperty('--boardTop', `${below}px`);
-    tboard.classList.toggle('tight', window.innerHeight - below - 12 < 150 || !sideDock || game.phase === 'ended');
+    tboard.classList.toggle('tight', window.innerHeight - below - 12 < 66 || !sideDock || game.phase === 'ended');
   }
   uiRoot.style.setProperty('--topH', `${(document.getElementById('topbar')?.offsetHeight || 40) + 10}px`);
   camera.insetTop = document.getElementById('topbar')?.offsetHeight + 6 || 46;
