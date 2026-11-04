@@ -6,6 +6,7 @@ import { CARD_DEFS } from '../sim/cards.js';
 import { castPower, hotspot } from '../sim/powers.js';
 import { groupOf } from '../sim/villager.js';
 import { shuffle } from '../sim/rng.js';
+import { cardUnlockError } from '../sim/availability.js';
 
 /**
  * A bot's guesses for the turn's highlights. It reasons only from what any player can see:
@@ -88,7 +89,7 @@ const FRIENDLY = ["treaty", "matchmaker"]; // aimed at a rival you would rather 
 
 /** Which card (if any) a bot plays this turn. Uses only its own hand and public numbers. */
 export function botCard(game, seat) {
-  const hand = game.hand[seat];
+  const hand = game.hand[seat].filter(id => !cardUnlockError(game, id));
   if (!hand.length) return null;
   const rng = game.botRng;
   const personality = game.seats[seat].personality ?? "chaos";

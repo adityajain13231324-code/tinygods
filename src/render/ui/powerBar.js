@@ -6,6 +6,7 @@ import { css, el } from './dom.js';
 import { createTypeBox } from './typeBox.js';
 import { POWER_CATS } from './cardStyle.js';
 import { finishSheet } from './sheet.js';
+import { powerUnlockError } from '../../sim/availability.js';
 
 /**
  * The live-miracle bar, shown while the town acts. Pick a power and click the map, or just type
@@ -91,6 +92,9 @@ export function createPowerBar(root, ctx, game, camera, stage) {
     for (let i = 0; i < POWERS.perTurn; i++) pips.append(el('i', i < left ? 'on' : ''));
     head.append(el('b', '', 'Powers'), pips, el('span', 'sub', selected ? POWER_DEFS[selected].hint : 'Pick a power, then click the map. Unused power is lost.'));
     panel.append(head);
+    const earlyLock = powerUnlockError(game, 'fireball');
+    if (earlyLock) panel.append(el('div', 'sub', earlyLock));
+    type.root.querySelector('input').placeholder = earlyLock ? 'Or type a miracle: "heal my weakest", "fog on the plaza"' : 'Or type a miracle: "fireball the Tides", "earthquake", "heal my weakest"';
 
     const row = el('div', 'powergrid');
     for (const [id, def] of Object.entries(POWER_DEFS)) {
@@ -98,7 +102,9 @@ export function createPowerBar(root, ctx, game, camera, stage) {
       b.style.setProperty('--cat', POWER_CATS[id]);
       b.title = def.blurb;
       const used = game.usedPowers[ctx.seat].includes(id);
-      b.disabled = left < def.cost || used;
+      const locked = powerUnlockError(game, id);
+      b.disabled = left < def.cost || used || !!locked;
+      if (locked) { b.title = `${def.name}: ${locked}`; b.setAttribute('aria-label', `${def.name}: ${locked}`); }
       if (used) { b.classList.add('used'); b.title = `${def.name}: already used this turn`; }
       const cost = el('span', 'pt-cost');
       for (let i = 0; i < def.cost; i++) cost.append(el('i'));

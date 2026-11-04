@@ -359,6 +359,7 @@ export const TURN = {
   // most, but rival kills and correct guesses count, so pure hiding does not win):
   maxTurns: 20,
   peaceTurns: 2, // days 1 and 2 are peaceful: nobody starts a fight, and violent orders and miracles are locked
+  damagingAreaTurn: 5, // damaging area miracles and Time Bomb unlock on day 5
   suddenDeathTurn: 4, // from here on the whole town gets angrier every turn, so matches do end
   capScore: { perLiving: 1, perRivalKill: 0.8, perPoint: 0.5 },
   suddenDeathAggression: 15,
@@ -400,6 +401,9 @@ export const TENSION = {
   easeRate: 1.5,
   settleRate: 0.8,
   basePerTurn: 2, // background tension grows each turn
+  earlyBasePerTurn: 1,
+  earlyUntilTurn: 4, // day 4 resumes the normal tension curve
+  earlyResponse: 0.75,
   suddenDeathBase: 25,
 };
 

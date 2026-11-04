@@ -10,7 +10,7 @@ import { describeDeath, buildRecap } from '../src/sim/events.js';
 import { buildStory } from '../src/sim/story.js';
 
 const fresh = () => createGame({ seed: 41, seats: Array.from({ length: 4 }, (_, i) => ({ name: `P${i}`, kind: 'human' })) });
-function live(g = fresh()) { g.turn = g.world.turn = 3; g.world.peaceful = false; g.power.fill(3); for (let s = 0; s < 4; s++) submitOrders(g,s,[]); updateGame(g,0); return g; }
+function live(g = fresh()) { g.turn = g.world.turn = 5; g.world.peaceful = false; g.power.fill(3); for (let s = 0; s < 4; s++) submitOrders(g,s,[]); updateGame(g,0); return g; }
 
 test('state comparison catches opinions, hands, powers and each RNG, excludes presentation', () => {
   const a = fresh(), b = fresh();
@@ -52,8 +52,8 @@ test('multiple bombs retain exact owners and bombs still kill after their factio
   w.time=13; updateBombs(w);
   const e=w.events.find(e=>e.type==='kill'&&e.victimId===victim.id);
   assert.equal(e.killerFaction,2); assert.equal(e.killerId,-1);
-  assert.equal(attributeKill(g,3,e).seat,2);
-  assert.equal(attributeKill(g,3,e).kind,'recorded');
+  assert.equal(attributeKill(g,5,e).seat,2);
+  assert.equal(attributeKill(g,5,e).kind,'recorded');
   assert.match(describeDeath(w,e),/Time Bomb/);
   assert.doesNotMatch(describeDeath(w,e),/Sprouts/);
 });
@@ -68,21 +68,21 @@ test('Fireball provenance differs from a same-turn bomb, with allied immunity un
   const e=w.events.find(e=>e.type==='kill');
   assert.equal(e.weapon,'fireball'); assert.equal(e.source.seat,3);
   assert.equal(own.hp,60); assert.ok(Math.hypot(own.kx,own.ky)>0);
-  assert.equal(attributeKill(g,3,e).seat,3);
+  assert.equal(attributeKill(g,5,e).seat,3);
   assert.match(describeDeath(w,e),/fireball/);
 });
 
 test('historical death identities survive defection and explanations qualify inference', () => {
   const g=live(), w=g.world, killer=w.villagers[0], victim=w.villagers.find(v=>v.faction===1);
-  const e={type:'kill',turn:3,time:1,killerId:killer.id,victimId:victim.id,killerFaction:0,victimFaction:1,weapon:'bat',witnesses:1,x:900,y:500,place:'plaza',beliefs:[]};
+  const e={type:'kill',turn:5,time:1,killerId:killer.id,victimId:victim.id,killerFaction:0,victimFaction:1,weapon:'bat',witnesses:1,x:900,y:500,place:'plaza',beliefs:[]};
   w.events.push(e); killer.faction=2; victim.faction=3;
   g.truth[0].orders=[{verb:'hate',target:{kind:'group',id:1},strength:2}];
   assert.match(describeDeath(w,e),/Embers.*Tides/);
   assert.doesNotMatch(describeDeath(w,e),/Sprouts|Sparks/);
-  assert.match(attributeKill(g,3,e).reason,/Possible influence/);
-  g.allHighlights=buildHighlights(g,3);g.winner=0;g.winReason='Last faction standing';
-  assert.match(buildRecap(w,3,[1,1,1,1]).headlines[0],/Embers.*Tides/);
+  assert.match(attributeKill(g,5,e).reason,/Possible influence/);
+  g.allHighlights=buildHighlights(g,5);g.winner=0;g.winReason='Last faction standing';
+  assert.match(buildRecap(w,5,[1,1,1,1]).headlines[0],/Embers.*Tides/);
   assert.match(buildStory(g).join(' '),/spending, not responsibility/);
   g.truth[0].orders=[];
-  assert.match(attributeKill(g,3,e).reason,/does not establish/);
+  assert.match(attributeKill(g,5,e).reason,/does not establish/);
 });

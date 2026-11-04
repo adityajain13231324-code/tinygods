@@ -4,6 +4,7 @@ import { formLoveBonds } from './bonds.js';
 import { switchSides } from './loyalty.js';
 import { groupOf } from './villager.js';
 import { shuffle } from './rng.js';
+import { cardUnlockError } from './availability.js';
 
 // Cards: each dawn every leader is dealt a hand and may play ONE (free, secret). They are the
 // moves orders can't do, and each one is meant to change the turn in a way you can see.
@@ -47,7 +48,8 @@ export function validateCard(game, seat, card) {
   if (typeof card !== 'object' || Array.isArray(card) || typeof card.id !== 'string' || !Object.hasOwn(CARD_DEFS, card.id)) return { ok: false, error: 'Unknown card' };
   const def = CARD_DEFS[card.id];
   if (!game.hand[seat]?.includes(card.id)) return { ok: false, error: `You do not hold ${def.name} this turn` };
-  if (game.world.peaceful && ['bomb', 'kidnap'].includes(card.id)) return { ok: false, error: `${def.name} is locked: the town is at peace until day ${TURN.peaceTurns + 1}` };
+  const locked = cardUnlockError(game, card.id);
+  if (locked) return { ok: false, error: locked };
   if (def.needs === 'place' && !PLACES.some((p) => p.id === card.place)) return { ok: false, error: `${def.name} needs a place` };
   if (def.needs === 'group') {
     if (!Number.isInteger(card.group) || card.group < 0 || card.group > 4) return { ok: false, error: `${def.name} needs a faction` };

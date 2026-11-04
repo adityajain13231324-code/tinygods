@@ -7,6 +7,13 @@
   --good: #7fd68a;
   --bad: #ff8f7a;
 }
+.victory-banner { position: relative; overflow: hidden; isolation: isolate; text-align: center; padding: 22px 14px; margin-bottom: 16px; border: 2px solid var(--victor); border-radius: 14px; background: linear-gradient(135deg, #1b291e, #34422b); }
+.victory-banner > b { display: block; color: var(--victor); font-size: clamp(24px, 5vw, 36px); }
+.victory-crown { color: var(--accent); font-size: 52px; line-height: 1; }
+.victory-confetti { position: absolute; inset: 0; pointer-events: none; z-index: -1; }
+.victory-confetti i { position: absolute; top: -14px; width: 8px; height: 13px; background: var(--victor); animation: victory-fall 2.6s var(--delay) ease-in both; }
+.victory-confetti i:nth-child(even) { background: var(--accent); }
+@keyframes victory-fall { to { transform: translateY(250px) rotate(var(--tilt)); opacity: 0; } }
 
 #ui [hidden] { display: none !important; }
 #ui { position: fixed; inset: 0; pointer-events: none; color: var(--ink); font-size: 14px; }

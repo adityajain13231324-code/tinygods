@@ -101,6 +101,18 @@ export function createRecap(root, ctx) {
       ? (youWon ? `You win! The ${winner.name} rule the town.` : `${winnerSeat.name} wins the town! (the ${winner.name})`)
       : `The ${winner.name} win.`);
     title.style.color = css(winner.color);
+    const victory = el('div', 'victory-banner');
+    victory.style.setProperty('--victor', css(winner.color));
+    victory.append(el('div', 'victory-crown', '♛'), el('b', '', `${winner.name.toUpperCase()} VICTORY`), el('div', 'sub', game.winReason === 'Last faction standing' ? 'The last faction standing. The town is yours.' : game.winReason));
+    const confetti = el('div', 'victory-confetti');
+    confetti.setAttribute('aria-hidden', 'true');
+    for (let i = 0; i < 24; i++) {
+      const piece = el('i');
+      piece.style.cssText = `left:${(i * 43) % 100}%;--delay:${(i % 6) * 0.13}s;--tilt:${i * 47}deg`;
+      confetti.append(piece);
+    }
+    victory.append(confetti);
+    card.append(victory);
     card.append(title, el('div', 'sub', `${game.winReason}, after ${game.turn} turns.`));
     card.append(standings(game.recap.living));
 

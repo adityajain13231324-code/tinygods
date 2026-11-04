@@ -17,7 +17,8 @@ export function updateTension(world, dt) {
     else if (v.brewId >= 0) glaring++;
   }
   world.drama *= Math.exp(-dt / TENSION.dramaFadeSeconds);
-  const target = Math.min(100, attackers * TENSION.perFighter + fleeing * TENSION.perFleer + glaring * TENSION.perGlarer + world.drama + world.baseTension);
+  const early = world.turn < TENSION.earlyUntilTurn ? TENSION.earlyResponse : 1;
+  const target = Math.min(100, (attackers * TENSION.perFighter + fleeing * TENSION.perFleer + glaring * TENSION.perGlarer + world.drama + world.baseTension) * early);
   world.tension += (target - world.tension) * Math.min(1, dt * TENSION.easeRate);
 }
 

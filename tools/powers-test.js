@@ -16,6 +16,7 @@ function dawn(seed) {
     updateGame(g, 1);
   }
   while (g.phase !== 'command') updateGame(g, 1);
+  g.turn = g.world.turn = 5; // effect fixture after damaging-area unlock
   return g;
 }
 function town(seed) {

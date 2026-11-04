@@ -212,7 +212,7 @@ function beginTurn(game) {
     game.cardRumors[seat] = [];
   }
   game.suddenDeath = game.turn >= TURN.suddenDeathTurn;
-  world.baseTension = (game.turn - 1) * TENSION.basePerTurn + (game.suddenDeath ? TENSION.suddenDeathBase : 0);
+  world.baseTension = (game.turn - 1) * (game.turn < TENSION.earlyUntilTurn ? TENSION.earlyBasePerTurn : TENSION.basePerTurn) + (game.suddenDeath ? TENSION.suddenDeathBase : 0);
   // Planning/presentation time is not simulation time. Every client starts dawn with
   // the same rested heat; render frame rate, cutscene choices and waiting cannot alter it.
   world.tension = world.baseTension;

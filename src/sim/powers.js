@@ -4,6 +4,7 @@ import { goToPlace, startAttack, startIdle } from './brain.js';
 import { blast } from './combat.js';
 import { groupOf, isFirearm, effectiveWeapon } from './villager.js';
 import { shoveFrom, shoveToward } from './shove.js';
+import { powerUnlockError } from './availability.js';
 
 // God powers: live miracles used while the town acts. Each costs Power points (they refill every
 // turn, unspent points are lost). Like orders they are secret: the town sees what happens, not who did it.
@@ -47,7 +48,8 @@ export function validatePower(game, seat, id, args = {}) {
   if (args === null || typeof args !== 'object' || Array.isArray(args)) return { ok: false, error: 'Invalid power target' };
   const def = POWER_DEFS[id];
   if (game.phase !== 'sim') return { ok: false, error: 'Powers work while the town acts' };
-  if (game.world.peaceful) return { ok: false, error: `Miracles unlock on day ${TURN.peaceTurns + 1}. The town is still at peace.` };
+  const locked = powerUnlockError(game, id);
+  if (locked) return { ok: false, error: locked };
   if (game.eliminated[seat]) return { ok: false, error: 'Your faction has fallen' };
   if (game.usedPowers?.[seat]?.includes(id)) return { ok: false, error: `${def.name} has already been used this turn. Each miracle works once per turn.` };
   if ((game.power[seat] ?? 0) < def.cost) return { ok: false, error: `Not enough power (${def.name} costs ${def.cost})` };

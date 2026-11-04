@@ -2,6 +2,7 @@ import { FACTIONS, GROUP_NAMES, PLACES } from '../config/content.js';
 import { CARD_DEFS } from './cards.js';
 import { POWER_DEFS, hotspot } from './powers.js';
 import { describeOrder } from './orders.js';
+import { cardUnlockError, powerUnlockError } from './availability.js';
 
 // The typing box, no AI involved: plain word lists, phrase rules and a little grammar.
 // A sentence is split into clauses ("send three of my villagers to the armory and arm up"),
@@ -507,7 +508,8 @@ function fail(message, game, seat, ctx = {}) {
       `my brawlers attack the ${rv(0)}`, `run away from everyone`, `ambush at the ${place(2)}`, `bully the ${rv(1)}`, `push the ${rv(0)} away`, `grab ${foe(0)} and drag them to the pond`, `spy on the ${rv(1)}`, `hate the ${rv(0)} really hard`, `accuse the ${rv(1)}`, 'recruit a neutral', `raid the ${rv(0)} armory`];
   const suggestions = [...list];
   for (const s of pickMany(bank, 8, round * 5)) if (suggestions.length < Math.max(4, list.length ? 5 : 4) && !suggestions.includes(s)) suggestions.push(s);
-  return { ok: false, message, suggestions: suggestions.slice(0, 6) };
+  const available = suggestions.filter(s => !(/\b(bomb|dynamite)\b/i.test(s) && cardUnlockError(game, 'bomb')) && !(/\b(lightning|fireball|earthquake)\b/i.test(s) && powerUnlockError(game, 'fireball')));
+  return { ok: false, message, suggestions: available.slice(0, 6) };
 }
 
 // ---- turning a parsed power into a real cast -----------------------------------------

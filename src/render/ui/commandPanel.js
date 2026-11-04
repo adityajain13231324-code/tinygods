@@ -8,6 +8,7 @@ import { isGhost } from '../../sim/turn.js';
 import { el } from './dom.js';
 import { createTypeBox } from './typeBox.js';
 import { finishSheet } from './sheet.js';
+import { cardUnlockError, powerUnlockError } from '../../sim/availability.js';
 
 /**
  * The player's dawn panel: a card to play (optional) and one box to say what the villagers
@@ -63,6 +64,8 @@ export function createCommandPanel(root, ctx) {
         nextStaged.push(order);
         notes.push(plainOrder(order));
       } else if (a.kind === 'card') {
+        const locked = cardUnlockError(game, a.card.id);
+        if (locked) return { ok: false, message: locked, suggestions: [] };
         if (ghost) return { ok: false, message: 'Ghosts cannot play cards.', suggestions: [] };
         if (!game.hand[ctx.seat].includes(a.card.id)) {
           return { ok: false, message: `You do not hold ${a.label} this turn. Your hand: ${game.hand[ctx.seat].map((id) => CARD_DEFS[id].name).join(', ')}.`, suggestions: [] };
@@ -70,6 +73,8 @@ export function createCommandPanel(root, ctx) {
         nextCard = a.card;
         notes.push(`Card ready: ${describeCard(a.card)}.`);
       } else {
+        const locked = powerUnlockError(game, a.power.id);
+        if (locked) return { ok: false, message: locked, suggestions: [] };
         if (game.world.peaceful) return { ok: false, message: `Miracles unlock on day ${TURN.peaceTurns + 1}. The town is still at peace.`, suggestions: [] };
         if (ctx.queuedPowers.length + queue.length >= 3) return { ok: false, message: 'Three miracles are already queued.', suggestions: [] };
         queue.push({ ...a.power, label: a.label });
@@ -341,7 +346,10 @@ export function createCommandPanel(root, ctx) {
         tile.style.setProperty('--cat', cat.color);
         tile.style.setProperty('--i', String(i));
         tile.title = def.blurb;
-        tile.append(el('span', 'gc-cat', cat.name), el('span', 'gc-icon', look.icon), el('span', 'gc-name', def.name), el('span', 'gc-free', 'free'));
+        const locked = cardUnlockError(game, id);
+        tile.disabled = !!locked;
+        if (locked) tile.title = locked;
+        tile.append(el('span', 'gc-cat', cat.name), el('span', 'gc-icon', look.icon), el('span', 'gc-name', def.name), el('span', 'gc-free', locked ?? 'free'));
         tile.onclick = () => {
           ctx.sound?.('card');
           card = card?.id === id ? null : { id, group: def.needs === 'group' ? null : undefined, place: def.needs === 'place' ? null : undefined };
