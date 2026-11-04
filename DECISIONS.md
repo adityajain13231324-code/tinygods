@@ -1,3 +1,7 @@
+# Current repair note (2026-11-04)
+
+The sections below are historical design iterations and include superseded numbers/rules. Current rules are in README.md and src/config/tunables.js. The evaluation repair scope, new regressions and balance evidence are described in FIX-NOTES.md. There is currently no guessing phase.
+
 # Decisions
 
 Choices made where the master prompt was ambiguous. Change any of these any time.

@@ -1,64 +1,55 @@
-// How much is each card worth? Seat 0 (an opportunist bot) plays the same card every turn, against three
-// shuffled bots, and we compare its win rate with playing no card at all.
-//   node tools/card-value.js [matches]
-import { createGame, submitOrders, updateGame, skipRecap } from '../src/sim/turn.js';
-import { botDecide } from '../src/bots/bot.js';
-import { CARD_IDS, CARD_DEFS } from '../src/sim/cards.js';
+// Matched seeds and rotating test seats. Never manufactures a hand or re-runs bot orders.
+// node tools/card-value.js [matches per policy] [comma-separated card IDs, optional]
+import assert from 'node:assert/strict';
+import { pathToFileURL } from 'node:url';
+import { createGame, updateGame, skipRecap } from '../src/sim/turn.js';
+import { CARD_IDS, CARD_DEFS, validateCard } from '../src/sim/cards.js';
 import { PERSONALITY_NAMES } from '../src/bots/personalities.js';
 import { shuffle, mulberry32 } from '../src/sim/rng.js';
 import { livingByFaction } from '../src/sim/win.js';
 
-const N = Number(process.argv[2] ?? 200);
-
-function play(match, cardId) {
-  const types = shuffle(mulberry32(match * 31), PERSONALITY_NAMES);
-  const seats = [{ name: 'T', kind: 'bot', personality: 'opportunist' }, ...[0, 1, 2].map((i) => ({ name: 'b', kind: 'bot', personality: types[i] }))];
-  const g = createGame({ seed: match, seats, cosmetics: false });
-  let guard = 0;
-  while (g.phase !== 'ended' && guard++ < 200000) {
-    if (g.phase === 'command') {
-      // A real hand holds any one card about 4 times in 17 (about 24% of turns), so play it that often, not every turn.
-      const holds = mulberry32(match * 7919 + g.turn)() < 0.24;
-      if (cardId && !g.eliminated[0] && g.turn > 2 && holds) {
-        // replace the test seat's bot choice with a forced card
-        g.pending[0] = null;
-        g.hand[0] = [cardId];
-        const living = livingByFaction(g.world);
-        const rivals = [1, 2, 3].filter((s) => living[s] > 0).sort((a, b) => living[b] - living[a]);
-        const def = CARD_DEFS[cardId];
-        let card = { id: cardId };
-        if (def.needs === 'group') card.group = rivals[0] ?? 1;
-        if (def.needs === 'place') {
-          let best = g.world.places[0];
-          let bestN = -1;
-          for (const p of g.world.places) {
-            const n = g.world.villagers.filter((v) => v.alive && v.faction > 0 && Math.hypot(v.x - p.x, v.y - p.y) < p.radius + 60).length
-              - 2 * g.world.villagers.filter((v) => v.alive && v.faction === 0 && Math.hypot(v.x - p.x, v.y - p.y) < p.radius + 60).length;
-            if (n > bestN) { bestN = n; best = p; }
-          }
-          card.place = best.id;
-        }
-        const orders = botDecide(g, 0);
-        const r = submitOrders(g, 0, orders, card);
-        if (!r.ok) submitOrders(g, 0, orders);
+export function playCardTrial(match, cardId) {
+  const seat=(match-1)%4;
+  const types=shuffle(mulberry32(match*31),PERSONALITY_NAMES);
+  const seats=Array.from({length:4},(_,i)=>({name:'Bot',kind:'bot',personality:i===seat?'opportunist':types[(i+1)%types.length]}));
+  const g=createGame({seed:match,seats,cosmetics:false});
+  const hands=[];
+  let guard=0;
+  while(g.phase!=='ended'&&guard++<200000) {
+    if(g.phase==='command') {
+      // createGame/beginTurn already ran identical bot decision calls in both arms.
+      // Change only the chosen card. Every other automatically chosen card is removed.
+      g.cardPending[seat]=null;
+      const hand=g.hand[seat].slice();
+      let card=null;
+      if(cardId&&hand.includes(cardId)&&!g.eliminated[seat]) {
+        card={id:cardId};
+        const def=CARD_DEFS[cardId], living=livingByFaction(g.world);
+        if(def.needs==='group') card.group=[0,1,2,3].filter(s=>s!==seat&&living[s]>0).sort((a,b)=>living[b]-living[a])[0]??(seat+1)%4;
+        if(def.needs==='place') card.place=g.world.places.map(p=>({p,n:g.world.villagers.filter(v=>v.alive&&v.faction!==seat&&Math.hypot(v.x-p.x,v.y-p.y)<p.radius+60).length})).sort((a,b)=>b.n-a.n)[0].p.id;
+        if(!validateCard(g,seat,card).ok)card=null;
       }
-      updateGame(g, 30);
-    } else if (g.phase === 'recap') skipRecap(g);
-    else updateGame(g, 0.05);
+      g.cardPending[seat]=card;
+      hands.push({turn:g.turn,hand,played:card?.id??null});
+      updateGame(g,g.commandSeconds);
+    } else if(g.phase==='recap')skipRecap(g);
+    else updateGame(g,0.05);
   }
-  return g.winner === 0;
+  assert.equal(g.phase,'ended','trial must finish');
+  const played=g.truth.filter(t=>t.seat===seat&&t.card).map(t=>t.card.id);
+  assert.ok(played.every(id=>id===cardId),'only requested card may be played');
+  assert.ok(hands.every(h=>!h.played||h.hand.includes(h.played)),'every card must come from a real hand');
+  return {seed:match,seat,winner:g.winner,won:g.winner===seat,turns:g.turn,played:played.length,hands};
 }
 
-const base = (() => { let w = 0; for (let m = 1; m <= N; m++) if (play(m, null)) w++; return w / N; })();
-console.log(`no card (opportunist bot, seat 0): ${(100 * base).toFixed(1)}% over ${N} matches\n`);
-const rows = [];
-for (const id of CARD_IDS) {
-  let w = 0;
-  for (let m = 1; m <= N; m++) if (play(m, id)) w++;
-  rows.push([id, w / N]);
-}
-rows.sort((a, b) => b[1] - a[1]);
-for (const [id, p] of rows) {
-  const d = (100 * (p - base)).toFixed(1);
-  console.log(`${CARD_DEFS[id].name.padEnd(16)} ${(100 * p).toFixed(1).padStart(5)}%   ${d >= 0 ? '+' : ''}${d} points`);
+if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href) {
+  const n=Number(process.argv[2]??80), ids=process.argv[3]?.split(',')??CARD_IDS;
+  assert.ok(Number.isInteger(n)&&n>0);assert.ok(ids.every(id=>CARD_IDS.includes(id)));
+  const base=Array.from({length:n},(_,i)=>playCardTrial(i+1,null));
+  const wins=rows=>rows.filter(r=>r.won).length;
+  console.log(JSON.stringify({method:'paired real hands, rotating seat, no rerun of botDecide; baseline plays zero cards in test seat',matches:n,baselineWins:wins(base),baselinePlays:base.reduce((s,r)=>s+r.played,0)}));
+  for(const id of ids) {
+    const rows=Array.from({length:n},(_,i)=>playCardTrial(i+1,id));
+    console.log(JSON.stringify({id,wins:wins(rows),deltaWins:wins(rows)-wins(base),plays:rows.reduce((s,r)=>s+r.played,0),pairedBetter:rows.filter((r,i)=>r.won&&!base[i].won).length,pairedWorse:rows.filter((r,i)=>!r.won&&base[i].won).length,rows}));
+  }
 }

@@ -1,5 +1,7 @@
 # Tiny Gods audit report
 
+> Historical audit. Its Rally/card-value results used a flawed benchmark, its guessing-phase discussion is obsolete, and several bugs below predate later changes. Do not use it as the current game contract. See FIX-NOTES.md, TESTING.md and the separate 2026-11-04 evaluation/repair evidence.
+
 Date: 2026-11-03. Method: build, headless tools, 500 simulated matches, and a live pass in the built-in browser (desktop 800x600 pane and 375x812 phone emulation). No game code was changed.
 
 **Scope honesty:** this was a fast pass. Things marked *verified* I ran or saw. Things marked *suspected* come from reading code or output. **Not tested this pass:** pass-and-play, audio, replay and guess phases, every one of the 14 powers in the browser, cutscenes beyond the title, FPS on the HP Pavilion, 20-match memory growth, keyboard/screen-reader accessibility. Those need a second pass.
