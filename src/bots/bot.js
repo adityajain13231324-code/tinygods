@@ -66,6 +66,12 @@ export function botDecide(game, seat) {
   const d = difficultyOf(game, seat);
   let out = legal.map((o) => ({ ...o, strength: Math.min(o.strength, d.maxStrength) }));
   if (d.orderSkip) out = out.filter(() => game.botRng() >= d.orderSkip);
+  // Hard bots spend what is left on a third order: more weapons in more hands.
+  if (d.extraArm && out.length < 3 && !out.some((o) => o.verb === 'arm')) {
+    const left = game.influence[seat] - out.reduce((n, o) => n + o.strength, 0);
+    const extra = { verb: 'arm', target: null, strength: Math.min(2, left) };
+    if (left >= 1 && validateOrders([...out, extra], game.influence[seat], game.world, game.verbsLastTurn[seat]).ok) out.push(extra);
+  }
   return out;
 }
 

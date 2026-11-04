@@ -440,7 +440,7 @@ export const POWERS = {
 export const DIFFICULTY = {
   easy: { label: 'Easy', influence: -1, orderSkip: 0.4, maxStrength: 2, cardRate: 0.3, powerSkip: 0.8, offence: false, blurb: 'Bots hesitate, skip orders and rarely use cards or miracles.' },
   normal: { label: 'Normal', influence: 0, orderSkip: 0, maxStrength: 3, cardRate: 0.7, powerSkip: 0.35, offence: true, blurb: 'A fair fight. Bots follow their personalities.' },
-  hard: { label: 'Hard', influence: 2, orderSkip: 0, maxStrength: 3, cardRate: 0.95, powerSkip: 0.1, offence: true, blurb: 'Bots never waste a turn, play cards nearly every dawn and cast miracles all the time.' },
+  hard: { label: 'Hard', extraArm: true, influence: 2, orderSkip: 0, maxStrength: 3, cardRate: 0.95, powerSkip: 0.1, offence: true, blurb: 'Bots never waste a turn, play cards nearly every dawn and cast miracles all the time.' },
 };
 
 export const EVENTS = {

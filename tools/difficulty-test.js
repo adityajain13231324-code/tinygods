@@ -4,7 +4,7 @@ import { createGame, runToEnd } from '../src/sim/turn.js';
 import { mulberry32, shuffle } from '../src/sim/rng.js';
 import { PERSONALITY_NAMES } from '../src/bots/personalities.js';
 const N = Number(process.argv[2] ?? 200);
-for (const level of ['easy', 'normal', 'hard']) {
+for (const level of (process.argv[3] ? [process.argv[3]] : ['easy', 'normal', 'hard'])) {
   let wins = 0;
   let turns = 0;
   for (let m = 1; m <= N; m++) {
