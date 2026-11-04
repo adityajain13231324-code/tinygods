@@ -4,7 +4,9 @@
 // Exits with code 1 on any mismatch.
 import { createGame, humanSeats, submitOrders } from '../src/sim/turn.js';
 import { parseCommand } from '../src/sim/parser.js';
-import { Lockstep, stateHash } from '../src/net/lockstep.js';
+import { Lockstep, stateHash, authoritativeState } from '../src/net/lockstep.js';
+import { Replay } from '../src/render/replay.js';
+import { isDeepStrictEqual } from 'node:util';
 import { mulberry32 } from '../src/sim/rng.js';
 
 const MATCHES = Number(process.argv[2] ?? 6);
@@ -33,9 +35,12 @@ function playMatch(seed, humans, dropSeat = -1) {
     }));
   }
   let desyncs = 0;
+  const replays = games.map(g => new Replay({ game: g, camera: { cut() {}, hold: 0 } }));
+  const watched = new Set();
   nodes.forEach((n, s) => {
     n.hooks.onDesync = () => desyncs++;
     n.hooks.onLastCall = () => { if (games[s].pending[s] === null) n.submit([]); }; // time is up: hand in what you have
+    n.hooks.beforeNext = () => replays[s].stop();
   });
 
   let guard = 0;
@@ -54,6 +59,11 @@ function playMatch(seed, humans, dropSeat = -1) {
       if (dropSeat === s && dropped) continue;
       const g = games[s];
       const n = nodes[s];
+      if (g.phase === 'recap' && s % 2 === 1 && g.highlights.length && !watched.has(`${s}:${g.turn}`)) {
+        watched.add(`${s}:${g.turn}`);
+        replays[s].play(g.highlights[0]);
+        replays[s].update(0.13);
+      }
       // players act at random moments
       if (g.phase === 'command' && g.pending[s] === null && rnd() < 0.02) {
         const parsed = parseCommand(PHRASES[Math.floor(rnd() * PHRASES.length)], g, s);
@@ -70,7 +80,9 @@ function playMatch(seed, humans, dropSeat = -1) {
   }
   const alive = [...Array(humans).keys()].filter((s) => !(dropSeat === s && dropped));
   const finals = alive.map((s) => ({ seat: s, phase: games[s].phase, turn: games[s].turn, winner: games[s].winner, hash: stateHash(games[s]), kills: games[s].world.events.filter((e) => e.type === 'kill').length }));
-  const same = finals.every((f) => f.hash === finals[0].hash && f.turn === finals[0].turn && f.winner === finals[0].winner && f.kills === finals[0].kills);
+  replays.forEach(r => r.stop());
+  const states = alive.map(s => authoritativeState(games[s]));
+  const same = finals.every((f) => f.turn === finals[0].turn && f.winner === finals[0].winner && f.kills === finals[0].kills) && states.every(s => isDeepStrictEqual(s, states[0]));
   return { finals, same, desyncs, ended: finals.every((f) => f.phase === 'ended') };
 }
 

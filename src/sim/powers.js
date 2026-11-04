@@ -30,7 +30,7 @@ export const POWER_DEFS = {
   earthquake: { name: 'Earthquake', icon: '🌋', cost: POWERS.earthquake.cost, needs: 'none', hint: 'Cast at once: the whole town shakes.', blurb: 'Every fight stops, everyone is shoved in a random direction, the whole town panics.' },
   // violence
   lightning: { name: 'Lightning', icon: '⚡', cost: POWERS.lightning.cost, needs: 'point', hint: 'Click a spot to strike it.', blurb: 'A bolt that throws everyone nearby back and scatters a brawl. Hurts little.' },
-  fireball: { name: 'Fireball', icon: '🔥', cost: POWERS.fireball.cost, needs: 'point', hint: 'Click a spot: a small, deadly blast.', blurb: 'A small explosion that hurts and flings whoever stands there, friend or foe.' },
+  fireball: { name: 'Fireball', icon: '🔥', cost: POWERS.fireball.cost, needs: 'point', hint: 'Click a spot: a small, deadly blast.', blurb: 'Damages rivals and neutrals. Flings everyone nearby, including your own villagers, who take no damage.' },
   weapon: { name: 'Arm', icon: '🗡️', cost: POWERS.weapon.cost, needs: 'villager', hint: 'Click one of YOUR villagers to arm them.', blurb: 'Hand one of your villagers a weapon (pan, bat, knife or gun) on the spot, ready to use. Does not touch the armory shelf.' },
   disarm: { name: 'Disarm', icon: '🪓', cost: POWERS.disarm.cost, needs: 'point', hint: 'Click a spot: weapons fly out of hands.', blurb: 'Everyone near the spot drops their weapon and is shoved away.' },
 };
@@ -41,7 +41,7 @@ const dist = (a, x, y) => Math.hypot(a.x - x, a.y - y);
  * Cast a power. `args` depends on the power: {x, y} | {villagerId} | {villagerId, group, good?} | {villagerId, placeId}.
  * @returns {{ok: true, message: string} | {ok: false, error: string}}
  */
-export function castPower(game, seat, id, args = {}) {
+export function validatePower(game, seat, id, args = {}) {
   if (typeof id !== 'string' || !Object.hasOwn(POWER_DEFS, id)) return { ok: false, error: 'Unknown power' };
   if (!Number.isInteger(seat) || seat < 0 || seat >= game.seats.length) return { ok: false, error: 'Invalid seat' };
   if (args === null || typeof args !== 'object' || Array.isArray(args)) return { ok: false, error: 'Invalid power target' };
@@ -56,6 +56,29 @@ export function castPower(game, seat, id, args = {}) {
   const v = Number.isInteger(args.villagerId) ? world.villagers[args.villagerId] : null;
   if (def.needs.startsWith('villager') && (!v || !v.alive)) return { ok: false, error: 'Pick a living villager' };
   if (def.needs === 'point' && !(Number.isFinite(args.x) && Number.isFinite(args.y))) return { ok: false, error: 'Pick a spot on the map' };
+  if (def.needs === 'point' && (args.x < 0 || args.x > WORLD.width || args.y < 0 || args.y > WORLD.height)) return { ok: false, error: 'Pick a spot inside the town' };
+  if (id === 'whisper' && (!Number.isInteger(args.group) || args.group < 0 || args.group > 4)) return { ok: false, error: 'Whisper about which faction?' };
+  if (id === 'whisper' && args.group === groupOf(v)) return { ok: false, error: `${v.name} knows their own group too well to be fooled` };
+  if (id === 'gust' && !world.places.some((p) => p.id === args.placeId)) return { ok: false, error: 'Blow them toward which place?' };
+  if (id === 'weapon' && v.faction !== seat) return { ok: false, error: 'You can only arm your own villagers.' };
+  if (id === 'weapon' && effectiveWeapon(v) !== 'none') return { ok: false, error: `${v.name} is already armed.` };
+  if (args.good !== undefined && typeof args.good !== 'boolean') return { ok: false, error: 'Choose a good or bad whisper' };
+  return { ok: true };
+}
+
+export function normalizePowerArgs(id, args = {}) {
+  const needs = POWER_DEFS[id].needs;
+  if (needs === 'none') return {};
+  if (needs === 'point') return { x: args.x, y: args.y };
+  return { villagerId: args.villagerId, ...(needs === 'villager+group' ? { group: args.group, good: args.good ?? false } : {}), ...(needs === 'villager+place' ? { placeId: args.placeId } : {}) };
+}
+
+export function castPower(game, seat, id, args = {}) {
+  const check = validatePower(game, seat, id, args);
+  if (!check.ok) return check;
+  const def = POWER_DEFS[id];
+  const { world } = game;
+  const v = Number.isInteger(args.villagerId) ? world.villagers[args.villagerId] : null;
 
   let message = '';
   switch (id) {
@@ -191,7 +214,7 @@ export function castPower(game, seat, id, args = {}) {
       break;
     }
     case 'fireball': {
-      const n = blast(world, seat, args.x, args.y, POWERS.fireball.radius, { minDamage: POWERS.fireball.minDamage, maxDamage: POWERS.fireball.maxDamage, minKnock: 300, maxKnock: 600 });
+      const n = blast(world, seat, args.x, args.y, POWERS.fireball.radius, { minDamage: POWERS.fireball.minDamage, maxDamage: POWERS.fireball.maxDamage, minKnock: 300, maxKnock: 600, source: { kind: 'power', id, seat, actionId: `${world.turn}:${seat}:power:${id}` } });
       message = n ? `The fireball hit ${n} villager${n === 1 ? '' : 's'}.` : 'The fireball burned an empty patch.';
       break;
     }

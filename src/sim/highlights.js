@@ -2,6 +2,7 @@ import { FACTIONS, GROUP_NAMES, PLACES } from '../config/content.js';
 import { HIGHLIGHT, POPULATION } from '../config/tunables.js';
 import { groupOf } from './villager.js';
 import { livingByFaction } from './win.js';
+import { describeDeath } from './events.js';
 
 // After each sim phase: pick the most dramatic moments, and work out (secretly) whose order
 // caused each one. Players then guess; the truth is revealed after the guess.
@@ -17,9 +18,10 @@ const label = (v) => (v.faction >= 0 ? FACTIONS[v.faction].name : 'neutral');
  * @returns {{seat: number, reason: string, weight: number}}
  */
 export function attributeKill(game, turn, e) {
+  if (e.source && Number.isInteger(e.source.seat)) return { seat: e.source.seat, reason: `Recorded cause: ${seatName(e.source.seat)} ${e.source.id === 'fireball' ? 'cast Fireball' : 'planted the Time Bomb'}`, weight: 10, kind: 'recorded' };
   const killer = game.world.villagers[e.killerId];
   const victimGroup = e.victimFaction >= 0 ? e.victimFaction : 4;
-  const killerGroup = groupOf(killer);
+  const killerGroup = e.killerFaction >= 0 ? e.killerFaction : 4;
   const scores = new Array(POPULATION.factions).fill(0);
   const why = new Array(POPULATION.factions).fill('');
 
@@ -30,10 +32,6 @@ export function attributeKill(game, turn, e) {
       scores[s] += 2;
       if (!why[s]) why[s] = `${seatName(s)} prophesied doom for the ${GROUP_NAMES[victimGroup]}`;
     }
-    if (entry.card?.id === 'bomb' && e.weapon === 'bomb') {
-      scores[s] += 6;
-      why[s] = `${seatName(s)} planted a bomb`;
-    }
     for (const x of entry.extras ?? []) {
       if (x.kind === 'power' && x.villagerId === e.killerId && (x.id === 'whisper' || x.id === 'gust')) {
         scores[s] += x.id === 'whisper' ? 3 : 1.5;
@@ -43,14 +41,14 @@ export function attributeKill(game, turn, e) {
     for (const o of entry.orders) {
       if (o.verb === 'hate' && o.target.id === victimGroup) {
         // Their villagers were told to hate the victim's group: direct cause if the killer is theirs.
-        const w = killer.faction === s ? 3 : killer.faction === -1 ? 2 : 0;
+        const w = e.killerFaction === s ? 3 : e.killerFaction === -1 ? 2 : 0;
         if (w > scores[s]) why[s] = `${seatName(s)} ordered hatred of the ${GROUP_NAMES[victimGroup]}`;
         scores[s] += w;
       } else if (o.verb === 'hate' && o.target.id === killerGroup && killerGroup !== s) {
         // The killer's group was hated by someone else, so the killer was probably defending itself.
         scores[s] += 2;
         if (!why[s]) why[s] = `${seatName(s)}'s hatred of the ${GROUP_NAMES[killerGroup]} provoked the fight`;
-      } else if (o.verb === 'arm' && killer.faction === s && e.weapon !== 'none') {
+      } else if (o.verb === 'arm' && e.killerFaction === s && !['none', 'bomb', 'fireball'].includes(e.weapon)) {
         scores[s] += 1;
         if (!why[s]) why[s] = `${seatName(s)}'s arming order put a weapon in the killer's hand`;
       } else if (o.verb === 'fear' && o.target.id === killerGroup && killerGroup !== s) {
@@ -61,7 +59,7 @@ export function attributeKill(game, turn, e) {
   }
 
   // A believed rumor about the victim's group can be what set the killer off.
-  for (const r of killer.believed) {
+  for (const r of e.beliefs ?? killer?.believed ?? []) {
     if (r.kind === 'accuse' && r.group === victimGroup && r.turn <= turn) {
       scores[r.seat] += 2.5;
       if (!why[r.seat]) why[r.seat] = `${seatName(r.seat)}'s rumor about the ${GROUP_NAMES[victimGroup]} had spread`;
@@ -76,11 +74,8 @@ export function attributeKill(game, turn, e) {
       best = s;
     }
   });
-  if (best >= 0) return { seat: best, reason: why[best], weight: bestScore };
-  if (killer.faction >= 0) {
-    return { seat: killer.faction, reason: `${seatName(killer.faction)} villagers were acting on grudges that had built up`, weight: 0.5 };
-  }
-  return { seat: -1, reason: 'The town snapped on its own: no order set it off', weight: 0.5 };
+  if (best >= 0) return { seat: best, reason: `Possible influence: ${why[best]}. The log does not prove what started the fight`, weight: bestScore, kind: 'inferred' };
+  return { seat: -1, reason: 'The log does not establish which order or grudge started the fight', weight: 0.5, kind: 'unknown' };
 }
 
 /** Pick this turn's top highlights. Returns plain data (safe to keep for the whole match). */
@@ -138,8 +133,7 @@ export function buildHighlights(game, turn) {
       }
     }
     const seat = [...votes.entries()].sort((a, b) => b[1] - a[1])[0][0];
-    const reasonForSeat = seat === -1 ? 'The town snapped on its own: no order set it off'
-      : attributeKillsFor(game, turn, events, seat) ?? reason;
+    const reasonForSeat = (events.length > 1 ? 'One contribution to this scene: ' : '') + (attributeKillsFor(game, turn, events, seat) ?? reason);
 
     const killers = events.map((e) => e.killerFaction);
     const killerFaction = mode(killers);
@@ -148,9 +142,7 @@ export function buildHighlights(game, turn) {
     if (events.length >= 3) title = `${events.length} villagers fell at the ${place}`;
     else if (events.length === 2) title = `Two villagers fell at the ${place}`;
     else {
-      const k = world.villagers[first.killerId];
-      const v = world.villagers[first.victimId];
-      title = `${k.name} (${label(k)}) took down ${v.name} (${label(v)}) at the ${place}`;
+      title = describeDeath(world, first);
     }
     if (events.includes(firstBloodEvent)) title = `First blood: ${title}`;
     if (events.some((e) => wiped.has(e))) title = `The last of a faction fell. ${title}`;
@@ -167,13 +159,13 @@ export function buildHighlights(game, turn) {
   if (shots.length > 0 && !kills.some((k) => shots.some((s) => s.place === k.place))) {
     const first = shots[0];
     const shooter = world.villagers[first.shooterId];
-    const seat = shooter.faction;
+    const seat = first.shooterFaction ?? shooter.faction;
     out.push({
       turn, title: `Gunfire near the ${placeName(first.place)}`,
       score: HIGHLIGHT.shotBase + HIGHLIGHT.perShot * shots.length, kills: 0, killerFaction: seat,
       x: first.x, y: first.y, t0: first.time - HIGHLIGHT.lead, t1: shots.at(-1).time + HIGHLIGHT.tail,
       truthSeat: seat >= 0 ? seat : -1,
-      reason: seat >= 0 ? `${seatName(seat)} armed its villagers and a gun went off` : 'A neutral with a gun panicked',
+      reason: seat >= 0 ? `Recorded event: a ${seatName(seat)} villager fired. The log does not establish which order caused it` : 'Recorded event: a neutral fired a gun',
     });
   }
 

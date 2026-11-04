@@ -155,21 +155,20 @@ function gunshot(world, shooter, weapon, target, hit) {
   world.drama += TENSION.gunshotDrama;
   world.events.push({
     type: 'gunshot', turn: world.turn, time: world.time, weapon,
-    shooterId: shooter.id, x: shooter.x, y: shooter.y, place: nearestPlace(world, shooter.x, shooter.y).id,
+    shooterId: shooter.id, shooterFaction: shooter.faction, x: shooter.x, y: shooter.y, place: nearestPlace(world, shooter.x, shooter.y).id,
     targetId: target.id, tx: target.x, ty: target.y, hit, // so the renderer can draw the shot
     facing: shooter.facing,
   });
 }
 
 /**
- * An explosion at (x, y): hurts and flings everyone inside radius r, friend or foe, with damage and
- * knockback fading toward the edge. The blast is credited to the planter's faction: the nearest
- * living villager of that seat "did it". Used by time bombs and fireballs.
+ * An explosion flings everyone inside its radius and damages other factions and neutrals.
+ * Its recorded source owns the damage. A nearby allied villager is only a credit proxy.
  */
-export function blast(world, seat, x, y, r, { minDamage = 14, maxDamage = 60, minKnock = 380, maxKnock = 800 } = {}) {
+export function blast(world, seat, x, y, r, { minDamage = 14, maxDamage = 60, minKnock = 380, maxKnock = 800, source = { kind: 'card', id: 'bomb', seat, actionId: `${world.turn}:${seat}:card:bomb` } } = {}) {
   const owners = world.villagers.filter((v) => v.alive && v.faction === seat);
   const planter = owners.sort((p, q) => Math.hypot(p.x - x, p.y - y) - Math.hypot(q.x - x, q.y - y))[0];
-  world.events.push({ type: 'explosion', turn: world.turn, time: world.time, x, y, r });
+  world.events.push({ type: 'explosion', turn: world.turn, time: world.time, x, y, r, source: { ...source } });
   let hit = 0;
   for (const v of world.villagers) {
     if (!v.alive) continue;
@@ -190,9 +189,7 @@ export function blast(world, seat, x, y, r, { minDamage = 14, maxDamage = 60, mi
     v.hitFromX = x;
     v.hitFromY = y;
     if (v.hp <= 0) {
-      const credit = planter && planter !== v ? planter : world.villagers.find((o) => o.alive && o !== v);
-      if (credit) kill(world, credit, v, 'bomb');
-      else v.hp = 1;
+      kill(world, planter ?? null, v, source.id === 'fireball' ? 'fireball' : 'bomb', source);
     }
   }
   world.drama += TENSION.gunshotDrama * 2;
@@ -205,11 +202,11 @@ export function updateBombs(world) {
     const b = world.bombs[i];
     if (world.time < b.at) continue;
     world.bombs.splice(i, 1);
-    blast(world, b.seat, b.x, b.y, b.r, { minDamage: 30, maxDamage: 130 }); // a bomb can finish a healthy villager at the centre; a fireball cannot
+    blast(world, b.seat, b.x, b.y, b.r, { minDamage: 30, maxDamage: 130, source: b.source }); // a bomb can finish a healthy villager at the centre; a fireball cannot
   }
 }
 
-function kill(world, killer, victim, weapon) {
+function kill(world, killer, victim, weapon, source = null) {
   victim.alive = false;
   victim.hp = 0;
   victim.state = 'dead';
@@ -217,9 +214,10 @@ function kill(world, killer, victim, weapon) {
   victim.vx = 0;
   victim.vy = 0;
   victim.diedAt = world.time;
-  killer.kills++;
+  if (killer) killer.kills++;
 
-  const gk = groupOf(killer);
+  const killerFaction = source?.seat ?? killer.faction;
+  const gk = source?.seat ?? groupOf(killer);
   const gv = groupOf(victim);
 
   // Witnesses: this is the escalation loop. Anyone who liked the victim turns on the killer's group.
@@ -232,7 +230,7 @@ function kill(world, killer, victim, weapon) {
     if (w.opinion[gv] > COMBAT.witnessLikeThreshold) {
       w.opinion[gk] = Math.max(-100, w.opinion[gk] - COMBAT.witnessOpinionHit);
       w.fear[gk] = Math.min(100, w.fear[gk] + COMBAT.witnessFear);
-      w.grievance[killer.id] += w.tolerance * GRIEVANCE.witnessGain;
+      if (killer) w.grievance[killer.id] += w.tolerance * GRIEVANCE.witnessGain;
       // Shock: frozen in grief for a few seconds (unless already in the thick of it).
       if (w.state !== 'attack' && w.state !== 'flee') {
         w.state = 'mourn';
@@ -244,8 +242,8 @@ function kill(world, killer, victim, weapon) {
     } else if (w.opinion[gk] > 20) {
       w.aggression = Math.min(100, w.aggression + COMBAT.witnessAggression);
     }
-    if (w.faction === -1 && killer.faction >= 0) {
-      w.trust[killer.faction] = Math.max(0, w.trust[killer.faction] - COMBAT.witnessTrustHit);
+    if (w.faction === -1 && killerFaction >= 0) {
+      w.trust[killerFaction] = Math.max(0, w.trust[killerFaction] - COMBAT.witnessTrustHit);
     }
   }
 
@@ -258,20 +256,22 @@ function kill(world, killer, victim, weapon) {
       mourner.targetId = victim.id;
       mourner.timer = BOND.griefSeconds;
       mourner.purpose = null;
-      mourner.grievance[killer.id] += mourner.tolerance * BOND.griefGrievance;
+      if (killer) mourner.grievance[killer.id] += mourner.tolerance * BOND.griefGrievance;
       mourner.aggression = Math.min(100, mourner.aggression + BOND.griefAggression);
       mourner.opinion[gk] = Math.max(-100, mourner.opinion[gk] - BOND.griefOpinion);
-      world.events.push({ type: 'bondBroken', turn: world.turn, time: world.time, mournerId: mourner.id, lostId: victim.id, killerId: killer.id });
+      world.events.push({ type: 'bondBroken', turn: world.turn, time: world.time, mournerId: mourner.id, lostId: victim.id, killerId: killer?.id ?? -1, killerFaction, source });
     }
   }
 
   world.drama += TENSION.killDrama;
   world.events.push({
     type: 'kill', turn: world.turn, time: world.time, weapon, witnesses,
-    killerId: killer.id, victimId: victim.id,
-    killerFaction: killer.faction, victimFaction: victim.faction,
+    killerId: killer?.id ?? -1, victimId: victim.id,
+    killerFaction, victimFaction: victim.faction,
     x: victim.x, y: victim.y,
     place: nearestPlace(world, victim.x, victim.y).id,
-    chain: chainFor(world, killer, victim), // how it got to this (for the on-screen explanation)
+    chain: source ? null : chainFor(world, killer, victim),
+    beliefs: killer?.believed.map(r => ({ ...r })) ?? [],
+    ...(source ? { source: { ...source } } : {}),
   });
 }

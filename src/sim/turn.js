@@ -213,6 +213,10 @@ function beginTurn(game) {
   }
   game.suddenDeath = game.turn >= TURN.suddenDeathTurn;
   world.baseTension = (game.turn - 1) * TENSION.basePerTurn + (game.suddenDeath ? TENSION.suddenDeathBase : 0);
+  // Planning/presentation time is not simulation time. Every client starts dawn with
+  // the same rested heat; render frame rate, cutscene choices and waiting cannot alter it.
+  world.tension = world.baseTension;
+  world.drama = 0;
 
   const living = livingByFaction(world);
 

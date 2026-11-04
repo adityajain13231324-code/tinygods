@@ -1,6 +1,7 @@
 import { FACTIONS, PLACES } from '../config/content.js';
 import { DRAMA, WORLD } from '../config/tunables.js';
 import { livingByFaction } from '../sim/win.js';
+import { describeDeath } from '../sim/events.js';
 
 const placeName = (id) => PLACES.find((p) => p.id === id)?.name ?? id;
 const label = (v) => (v.faction >= 0 ? FACTIONS[v.faction].name : 'neutral');
@@ -100,12 +101,12 @@ export class Director {
     const coolEnough = world.time - this.lastCut >= DRAMA.cutCooldown;
     // Keep the board out of the way: if the kill is in the top of town, the board goes to the bottom.
     const at = e.y < WORLD.height * 0.42 ? 'bottom' : 'top';
-    const what = `${killer.name} (${label(killer)}) took down ${victim.name} (${label(victim)}) at the ${place}.`;
-    const detail = howItGotHere(killer, e.chain);
+    const what = `${describeDeath(world, e)}.`;
+    const detail = e.source ? 'An explosion struck here. Its owner remains secret until the final reveal.' : howItGotHere(killer, e.chain);
 
     const cut = (zoom, hold) => {
       this.camera.cut(e.x, e.y - 14, { zoom, hold });
-      this.spotlight.show(killer, victim, this.clock(), hold);
+      if (killer && !e.source) this.spotlight.show(killer, victim, this.clock(), hold);
       this.lastCut = world.time;
     };
 
@@ -118,7 +119,7 @@ export class Director {
       const name = FACTIONS[e.victimFaction].name.toUpperCase();
       this.board.show({
         kicker: 'BREAKING NEWS', title: `THE ${name} HAVE FALLEN`,
-        text: `${victim.name} was the last of them, struck down by ${killer.name} (${label(killer)}) at the ${place}.`,
+        text: `${victim.name} was the last of them. ${what}`,
         detail, big: true, seconds: DRAMA.hold + 1.2, at,
       });
       cut(DRAMA.zoom, DRAMA.hold + 0.4);

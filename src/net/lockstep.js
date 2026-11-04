@@ -1,4 +1,8 @@
-import { castPower } from '../sim/powers.js';
+import { castPower, normalizePowerArgs, validatePower } from '../sim/powers.js';
+import { normalizeOrder } from '../sim/orders.js';
+import { normalizeCard } from '../sim/cards.js';
+import { stateHash } from '../sim/state.js';
+export { stateHash, authoritativeState } from '../sim/state.js';
 import { botDecide, botCard } from '../bots/bot.js';
 import { isGhost, skipRecap, submitOrders, updateGame, validateSubmission } from '../sim/turn.js';
 import { SIM } from '../config/tunables.js';
@@ -25,15 +29,6 @@ const GO_GRACE = 2.2; // seconds the host waits after the last call for late sub
 const MAX_BEHIND = 0.5; // seconds of stored-up time a browser may spend catching up
 
 const clone = (x) => JSON.parse(JSON.stringify(x));
-
-/** A fingerprint of the town, to prove every browser sees the same thing. */
-export function stateHash(game) {
-  let h = Math.imul(game.turn, 7919);
-  for (const v of game.world.villagers) {
-    h = (Math.imul(h, 31) + Math.round(v.x * 10) + Math.imul(Math.round(v.y * 10), 7) + Math.imul(Math.round(v.hp * 10), 13) + (v.alive ? 1 : 0) + v.faction * 3) | 0;
-  }
-  return h;
-}
 
 export class Lockstep {
   /**
@@ -77,7 +72,7 @@ export class Lockstep {
   submit(orders, card = null) {
     const r = submitOrders(this.game, this.mySeat, orders, card);
     if (!r.ok) return r;
-    const m = { t: 'sub', turn: this.game.turn, orders: clone(orders), card: card ? clone(card) : null };
+    const m = { t: 'sub', turn: this.game.turn, orders: clone(this.game.pending[this.mySeat]), card: clone(this.game.cardPending[this.mySeat]) };
     if (this.isHost) this.subs[this.mySeat] = { orders: m.orders, card: m.card };
     else this.sendToHost(m);
     return r;
@@ -85,9 +80,10 @@ export class Lockstep {
 
   /** A live miracle. The result is optimistic: every browser applies it at the same tick, or none does. */
   cast(id, args = {}) {
-    const m = { t: 'cast', turn: this.game.turn, id, args: clone(args) };
-    if (this.game.phase !== 'sim') return { ok: false, error: 'Powers work while the town acts' };
-    if (this.isHost) this.stamp(this.mySeat, m);
+    const valid = validatePower(this.game, this.mySeat, id, args);
+    if (!valid.ok) return valid;
+    const m = { t: 'cast', turn: this.game.turn, id, args: normalizePowerArgs(id, args) };
+    if (this.isHost) return this.stamp(this.mySeat, m);
     else this.sendToHost(m);
     return { ok: true, message: 'The miracle is on its way...' };
   }
@@ -110,20 +106,27 @@ export class Lockstep {
 
   /** @param {number|null} fromSeat who sent it (the host knows; guests pass null) */
   onMessage(fromSeat, m) {
-    if (!m || typeof m.t !== 'string') return;
+    if (!m || typeof m !== 'object' || Array.isArray(m) || typeof m.t !== 'string') return;
     if (!this.isHost) {
       this.inbox.push(m);
       return;
     }
     const g = this.game;
+    if (!Number.isInteger(fromSeat) || g.seats[fromSeat]?.kind !== 'human' || this.left.has(fromSeat)) return;
+    if (!Number.isInteger(m.turn) || m.turn < g.turn - 1 || m.turn > g.turn + 1) return;
     switch (m.t) {
       case 'sub':
-        if (m.turn > g.turn || (m.turn === g.turn && g.phase !== 'command' && this.goSent !== g.turn)) this.early.push({ seat: fromSeat, m });
+        if (!Array.isArray(m.orders) || m.orders.length > 3) return;
+        if (m.turn > g.turn || (m.turn === g.turn && g.phase !== 'command' && this.goSent !== g.turn)) {
+          // At most one next-turn packet per connected seat, not an unbounded future queue.
+          this.early = this.early.filter((e) => e.seat !== fromSeat);
+          this.early.push({ seat: fromSeat, m });
+        }
         else this.acceptSub(fromSeat, m);
         break;
       case 'cast': this.stamp(fromSeat, m); break;
       case 'next': if (m.turn === g.turn) this.readyNext.add(fromSeat); break;
-      case 'hash': this.checkHash(fromSeat, m.turn, m.h); break;
+      case 'hash': if (Number.isInteger(m.h)) this.checkHash(fromSeat, m.turn, m.h); break;
       default: break;
     }
   }
@@ -134,14 +137,19 @@ export class Lockstep {
     const g = this.game;
     if (m.turn !== g.turn || g.phase !== 'command' || this.goSent === g.turn || seat === null) return;
     if (!validateSubmission(g, seat, m.orders, m.card).ok) return;
-    this.subs[seat] = { orders: clone(m.orders), card: m.card ? clone(m.card) : null };
+    if (this.subs[seat]) return; // first accepted submission is final, like the local API
+    this.subs[seat] = { orders: m.orders.map((o) => normalizeOrder(o, g.world)), card: normalizeCard(m.card) };
   }
 
   /** Give a miracle its place in time: before the next tick nobody has run yet. */
   stamp(seat, m) {
     const g = this.game;
-    if (m.turn !== g.turn || g.phase !== 'sim' || !Number.isInteger(seat)) return;
-    this.emit({ t: 'cmd', turn: g.turn, tick: this.hzSent, seat, id: String(m.id), args: m.args ?? {} });
+    if (m.turn !== g.turn || g.phase !== 'sim') return { ok: false, error: 'Powers work while the town acts' };
+    const valid = validatePower(g, seat, m.id, m.args);
+    if (!valid.ok) return valid;
+    if ([...this.inbox, ...this.cmds].some((c) => c.t === 'cmd' && c.turn === g.turn && c.seat === seat && c.id === m.id)) return { ok: false, error: 'That miracle is already on its way' };
+    this.emit({ t: 'cmd', turn: g.turn, tick: this.hzSent, seat, id: m.id, args: normalizePowerArgs(m.id, m.args) });
+    return { ok: true, message: 'The miracle is on its way...' };
   }
 
   required() {
@@ -225,6 +233,7 @@ export class Lockstep {
   }
 
   checkHash(seat, turn, h) {
+    for (const key of Object.keys(this.hashes)) if (Number(key) < this.game.turn - 1) delete this.hashes[key];
     const row = (this.hashes[turn] ??= {});
     row[seat] = h;
     const vals = Object.values(row);

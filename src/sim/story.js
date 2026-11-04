@@ -1,5 +1,7 @@
 import { FACTIONS, PLACES } from '../config/content.js';
 import { POPULATION } from '../config/tunables.js';
+import { describeDeath } from './events.js';
+import { attributeKill } from './highlights.js';
 
 // End-of-match summaries built from what actually happened: a five-line Town Story,
 // some stats, and a share text. Plain templates, no AI.
@@ -37,11 +39,8 @@ export function buildStory(game) {
   // 1. How the peace ended.
   const first = world.events.find((e) => e.type === 'kill');
   if (first) {
-    const k = world.villagers[first.killerId];
-    const v = world.villagers[first.victimId];
-    const cause = game.allHighlights.find((h) => h.title.startsWith('First blood'));
-    lines.push(`The town was at peace until turn ${first.turn}, when ${k.name} of the ${label(k)} took down ${v.name} of the ${label(v)} at the ${placeName(first.place)}.`
-      + (cause ? ` Behind it: ${cause.reason}.` : ''));
+    const cause = attributeKill(game, first.turn, first);
+    lines.push(`The first death came on turn ${first.turn}: ${describeDeath(world, first)}. ${cause.reason}.`);
   } else {
     lines.push('Not one villager fell. The town stayed peaceful to the very end.');
   }
@@ -62,9 +61,9 @@ export function buildStory(game) {
 
   // 4. Who made the most trouble.
   if (s.mostTrouble >= 0) {
-    lines.push(`Most of the trouble came from the ${name(s.mostTrouble)}, who spent ${s.trouble[s.mostTrouble]} points of influence on hatred.`);
+    lines.push(`The ${name(s.mostTrouble)} spent the most influence on Hate orders: ${s.trouble[s.mostTrouble]}. This measures spending, not responsibility for every death.`);
   } else {
-    lines.push('Nobody ordered anyone to hate anyone. The violence grew out of the town itself.');
+    lines.push('Nobody issued a Hate order. Other orders, cards, miracles and personal grudges can still cause violence.');
   }
 
   // 5. The ending.
@@ -80,7 +79,7 @@ export function shareText(game, mySeat, url) {
   const total = game.stats.guessTotal[mySeat];
   return [
     `Tiny Gods: ${won ? `I led the ${name(mySeat)} to victory` : `the ${name(game.winner)} won and I lost`} after ${game.turn} turns.`,
-    `${s.deaths} villagers fell.${s.mostTrouble >= 0 ? ` Most trouble: the ${name(s.mostTrouble)}.` : ''}`,
+    `${s.deaths} villagers fell.${s.mostTrouble >= 0 ? ` Most influence spent on Hate: the ${name(s.mostTrouble)}.` : ''}`,
     total ? `I guessed ${right}/${total} causes right.` : '',
     `Secretly nudge a peaceful town into war, then argue about whose fault it was. ${url}`,
   ].filter(Boolean).join(' ');

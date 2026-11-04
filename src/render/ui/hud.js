@@ -3,6 +3,7 @@ import { TURN } from '../../config/tunables.js';
 import { describeOrder } from '../../sim/orders.js';
 import { livingByFaction } from '../../sim/win.js';
 import { POWER_DEFS } from '../../sim/powers.js';
+import { describeDeath } from '../../sim/events.js';
 import { clock, css, el, setText } from './dom.js';
 
 const MARKS = { triangle: '▲', wave: '≈', leaf: '❀', star: '★' };
@@ -166,11 +167,10 @@ export function createHud(root, ctx) {
       while (feedIndex < events.length) {
         const e = events[feedIndex++];
         if (e.type === 'kill') {
-          const k = game.world.villagers[e.killerId];
-          const v = game.world.villagers[e.victimId];
-          const line = el('div', '', `${k.name} (${tag(k)}) downed ${v.name} (${tag(v)})`);
+          const text = describeDeath(game.world, e);
+          const line = el('div', '', text);
           addFeed(feed, line);
-          logLine(e.turn, '⚔️', `${k.name} (${tag(k)}) downed ${v.name} (${tag(v)}) at the ${placeName(e.place)}`);
+          logLine(e.turn, e.source ? '💥' : '⚔️', text);
         } else if (e.type === 'gunshot') {
           addFeed(feed, el('div', 'shot', `Gunshot at the ${PLACES.find((p) => p.id === e.place).name}!`));
           logLine(e.turn, '🔫', `Gunshot at the ${placeName(e.place)}`);

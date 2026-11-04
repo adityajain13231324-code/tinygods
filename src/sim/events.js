@@ -6,6 +6,16 @@ const placeName = (id) => PLACES.find((p) => p.id === id)?.name ?? id;
 const factionName = (f) => (f >= 0 && f < FACTIONS.length ? FACTIONS[f].name : 'neutral'); // group 4 is the neutrals
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
+// Public news describes the visible death without exposing a secret miracle/card owner.
+export function describeDeath(world, e) {
+  const victim = world.villagers[e.victimId];
+  const where = `at the ${placeName(e.place)}`;
+  const who = `${victim.name} (${factionName(e.victimFaction)})`;
+  if (e.source || e.weapon === 'bomb' || e.weapon === 'fireball') return `${e.source?.id === 'fireball' || e.weapon === 'fireball' ? 'A fireball' : 'A Time Bomb'} killed ${who} ${where}`;
+  const killer = world.villagers[e.killerId];
+  return `${killer?.name ?? 'Someone'} (${factionName(e.killerFaction)}) took down ${who} ${where}`;
+}
+
 /**
  * @param {object} world
  * @param {number} turn
@@ -33,9 +43,7 @@ export function buildRecap(world, turn, living) {
     if (group.length >= 3) headlines.push(`Wide fight at the ${place}. ${plural(group.length, victims)} down.`);
     else if (group.length === 2) headlines.push(`Brawl at the ${place}: ${plural(2, victims)} fell.`);
     else {
-      const killer = world.villagers[first.killerId];
-      const victim = world.villagers[first.victimId];
-      headlines.push(`${killer.name} (${factionName(killer.faction)}) took down ${victim.name} (${factionName(victim.faction)}) at the ${place}.`);
+      headlines.push(`${describeDeath(world, first)}.`);
     }
   }
 
@@ -50,14 +58,14 @@ export function buildRecap(world, turn, living) {
     const e = bonds[0];
     const a = world.villagers[e.aId];
     const b = world.villagers[e.bId];
-    const pair = `${a.name} (${factionName(a.faction)}) and ${b.name} (${factionName(b.faction)})`;
+    const pair = `${a.name} (${factionName(e.aFaction)}) and ${b.name} (${factionName(e.bFaction)})`;
     headlines.push(bonds.length === 1 ? `${pair} have become inseparable.` : `${bonds.length} new pairs formed, among them ${pair}.`);
   }
   for (const e of events.filter((ev) => ev.type === 'bondBroken').slice(0, 2)) {
     const m = world.villagers[e.mournerId];
     const l = world.villagers[e.lostId];
     const k = world.villagers[e.killerId];
-    headlines.push(`${m.name} lost ${l.name} to ${k.name} (${factionName(k.faction)}) and swears revenge.`);
+    headlines.push(e.source ? `${m.name} lost ${l.name} in an explosion and grieves.` : `${m.name} lost ${l.name} to ${k?.name ?? 'an attacker'} (${factionName(e.killerFaction)}) and swears revenge.`);
   }
   // Rumors: public that one is going around, but never who started it.
   for (const e of events.filter((ev) => ev.type === 'rumorStart').slice(0, 2)) {

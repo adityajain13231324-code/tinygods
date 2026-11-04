@@ -19,7 +19,6 @@ import { Replay } from './render/replay.js';
 import { Mixer } from './audio/mixer.js';
 import { createGame, isGhost, runToEnd, skipRecap, submitOrders, updateGame } from './sim/turn.js';
 import { createPassScreen } from './render/ui/passScreen.js';
-import { settleTension } from './sim/tension.js';
 import { castPower } from './sim/powers.js';
 import { Lockstep } from './net/lockstep.js';
 import { getOnline, makeSeats } from './net/online.js';
@@ -328,7 +327,6 @@ function frame(frameSeconds) {
     else if (game.phase === 'sim') gameDt = dt * ctx.speed * camera.timeScale;
     updateGame(game, gameDt);
   }
-  if (game.phase !== 'sim' && !ctx.paused) settleTension(game.world, dt);
 
   director.update(game);
 
@@ -384,17 +382,6 @@ if (net) {
       frame(step);
       left -= step;
     }
-  }, 250);
-}
-
-// A hidden tab stops drawing frames, which would freeze the whole room if it is the host's. Keep the clock going.
-if (net) {
-  setInterval(() => {
-    if (!document.hidden) return;
-    const now = performance.now();
-    const dtReal = Math.min(1.5, (now - lastNow) / 1000);
-    lastNow = now;
-    net.update(dtReal);
   }, 250);
 }
 

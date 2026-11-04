@@ -210,8 +210,9 @@ export function applyCard(game, seat, card) {
     }
     case 'bomb': { // blast damage is set in combat.js updateBombs
       const p = world.places.find((q) => q.id === card.place);
-      world.bombs.push({ x: p.x + (world.rng() - 0.5) * p.radius * 0.6, y: p.y + (world.rng() - 0.5) * p.radius * 0.6, r: 120, at: world.time + 12, seat });
-      world.events.push({ type: 'bombPlanted', turn: world.turn, time: world.time, x: p.x, y: p.y });
+      const source = { kind: 'card', id: 'bomb', seat, actionId: `${world.turn}:${seat}:card:bomb` };
+      world.bombs.push({ x: p.x + (world.rng() - 0.5) * p.radius * 0.6, y: p.y + (world.rng() - 0.5) * p.radius * 0.6, r: 120, at: world.time + 12, seat, source });
+      world.events.push({ type: 'bombPlanted', turn: world.turn, time: world.time, x: p.x, y: p.y, source });
       note(`a bomb ticks at the ${p.name}. It goes off 12 seconds into the turn.`);
       break;
     }
