@@ -629,6 +629,7 @@ html, body { touch-action: manipulation; }
 .hud-controls summary, .roster-btn { padding: 7px 10px; border-radius: 8px; color: var(--ink); background: #35412f; border: 1px solid var(--panel-edge); cursor: pointer; }
 .hud-controls > .speed { position: absolute; z-index: 20; right: 0; top: 42px; display: flex; flex-wrap: wrap; gap: 6px; width: 240px; padding: 10px; background: #1c241a; border: 1px solid var(--panel-edge); border-radius: 12px; box-shadow: 0 6px 20px #0008; }
 .hud-controls:not([open]) > .speed { display: none; }
+#ui:not(.cs-on) #topbar:has(.hud-controls[open]) { z-index: 20; }
 button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
 .roster-detail { text-align: left; line-height: 1.5; }
 .roster-detail p { margin: 6px 0; }

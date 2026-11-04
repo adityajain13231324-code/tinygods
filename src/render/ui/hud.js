@@ -58,6 +58,7 @@ export function createHud(root, ctx) {
   for (const b of tools.querySelectorAll('button')) b.setAttribute('aria-label', b.title);
   const controls = el('details', 'hud-controls');
   controls.append(el('summary', '', 'Controls'), tools);
+  controls.addEventListener('keydown', e => { if (e.key === 'Escape') { controls.open = false; controls.querySelector('summary').focus(); e.stopPropagation(); } });
   const roster = el('button', 'roster-btn', 'Villagers');
   let currentGame;
   roster.onclick = () => { if (currentGame) showRoster(currentGame, ctx); };
