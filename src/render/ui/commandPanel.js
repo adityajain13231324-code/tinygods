@@ -7,6 +7,7 @@ import { parseCommand } from '../../sim/parser.js';
 import { isGhost } from '../../sim/turn.js';
 import { el } from './dom.js';
 import { createTypeBox } from './typeBox.js';
+import { finishSheet } from './sheet.js';
 
 /**
  * The player's dawn panel: a card to play (optional) and one box to say what the villagers
@@ -46,7 +47,7 @@ export function createCommandPanel(root, ctx) {
     if (!r.ok) return r;
     let skipped = null;
     const notes = [];
-    const rules = [game.influence[ctx.seat], game.world, game.verbsLastTurn[ctx.seat], ghost];
+    const rules = [game.influence[ctx.seat], game.world, game.verbsLastTurn[ctx.seat], ghost, ctx.seat];
     const nextStaged = staged.slice();
     let nextCard = card;
     const queue = [];
@@ -206,7 +207,7 @@ export function createCommandPanel(root, ctx) {
     const order = draftOrder(game);
     add.disabled = !order;
     add.onclick = () => {
-      const check = validateOrders([...staged, order], game.influence[ctx.seat], game.world, game.verbsLastTurn[ctx.seat], ghost);
+      const check = validateOrders([...staged, order], game.influence[ctx.seat], game.world, game.verbsLastTurn[ctx.seat], ghost, ctx.seat);
       if (!check.ok) { menuError = check.error; build(game); return; }
       staged.push(order);
       typedNote = plainOrder(order);
@@ -223,6 +224,8 @@ export function createCommandPanel(root, ctx) {
   }
 
   function build(game) {
+    const inputDraft = currentTb?.pending() ?? '';
+    const typing = currentTb?.root.contains(document.activeElement);
     panel.replaceChildren();
     const left = influenceLeft(game);
     const ghost = isGhost(game, ctx.seat);
@@ -249,9 +252,11 @@ export function createCommandPanel(root, ctx) {
     const tb = createTypeBox({
       placeholder: ghost ? 'Whisper, e.g. "love the Tides" or "party at the pond"' : 'e.g. "send three villagers to the armory, scare the Tides"',
       handle: (text) => handleTyped(text, game, ghost),
+      label: 'Secret order to add to your plan',
     });
     panel.append(tb.root);
     currentTb = tb;
+    tb.setDraft(inputDraft);
     if (typedNote) tb.say(typedNote, typedBad);
 
     // A bar of one-click commands right under the box: they type themselves for you.
@@ -293,7 +298,7 @@ export function createCommandPanel(root, ctx) {
         const dial = el('span', 'dial');
         const set = (n) => {
           const next = staged.map((x, j) => (j === i ? { ...x, strength: n } : x));
-          const check = validateOrders(next, game.influence[ctx.seat], game.world, game.verbsLastTurn[ctx.seat], ghost);
+          const check = validateOrders(next, game.influence[ctx.seat], game.world, game.verbsLastTurn[ctx.seat], ghost, ctx.seat);
           if (!check.ok) { typedNote = check.error; typedBad = true; build(game); return; }
           staged = next;
           typedNote = plainOrder(staged[i]) + ` (strength ${n})`;
@@ -366,11 +371,16 @@ export function createCommandPanel(root, ctx) {
     }
 
     const foot = el('div', 'foot');
-    foot.append(el('span', 'sub', `Spare influence carries over, up to ${INFLUENCE.carryCap}`));
+    foot.append(el('span', 'sub', `${left} influence left · ${staged.length}/3 orders${stagedCard() ? ' + card' : ''}`));
     const submit = el('button', 'go', staged.length || stagedCard() ? `Submit${staged.length ? ` ${staged.length} order${staged.length > 1 ? 's' : ''}` : ''}` : 'Pass this turn');
-    submit.onclick = () => ctx.submit(staged, stagedCard());
+    submit.onclick = () => {
+      if (!commitPending(game).ok) { build(game); return; }
+      const result = ctx.submit(staged, stagedCard());
+      if (!result.ok) { typedNote = result.error; typedBad = true; build(game); }
+    };
     foot.append(submit);
-    panel.append(foot);
+    finishSheet(panel, `Plan orders · ${FACTIONS[ctx.seat].name}`, foot);
+    if (typing) queueMicrotask(() => tb.focus());
   }
 
   /**
@@ -382,13 +392,15 @@ export function createCommandPanel(root, ctx) {
     const text = currentTb?.pending();
     if (text) {
       const r = handleTyped(text, game, ghost);
-      if (r.ok || r.clear) currentTb.say('');
+      if (r.ok || r.clear) { currentTb.setDraft(''); currentTb.say(''); }
+      else { typedNote = r.message; typedBad = true; return { ok: false }; }
     }
     const order = draftOrder(game);
-    if (order && validateOrders([...staged, order], game.influence[ctx.seat], game.world, game.verbsLastTurn[ctx.seat], ghost).ok) {
+    if (order && validateOrders([...staged, order], game.influence[ctx.seat], game.world, game.verbsLastTurn[ctx.seat], ghost, ctx.seat).ok) {
       staged.push(order);
       draft = { verb: null, target: null, who: null, strength: 1 };
     }
+    return { ok: true };
   }
 
   return {
@@ -407,6 +419,8 @@ export function createCommandPanel(root, ctx) {
         staged = [];
         card = null;
         typedNote = '';
+        currentTb = null;
+        panel.classList.remove('expanded');
         draft = { verb: null, target: null, who: null, strength: 1 };
         menuError = '';
         ctx.queuedPowers.length = 0;
@@ -421,7 +435,7 @@ export function createCommandPanel(root, ctx) {
       if (!lastGame) return [];
       commitPending(lastGame);
       const ghost = isGhost(lastGame, ctx.seat);
-      const rules = [lastGame.influence[ctx.seat], lastGame.world, lastGame.verbsLastTurn[ctx.seat], ghost];
+      const rules = [lastGame.influence[ctx.seat], lastGame.world, lastGame.verbsLastTurn[ctx.seat], ghost, ctx.seat];
       const out = []; // keep every order that is legal, even if one next to it is not
       for (const o of staged) if (validateOrders([...out, o], ...rules).ok) out.push(o);
       return out;

@@ -5,18 +5,20 @@ import { el } from './dom.js';
  * When the game cannot make sense of the text it shows what it understood and clickable
  * phrases to try, so typing again is one click away.
  */
-export function createTypeBox({ placeholder, handle }) {
+export function createTypeBox({ placeholder, handle, label = 'Command', action = 'Add to plan' }) {
   const root = el('div', 'typebox');
   const form = el('div', 'typeform');
   const mark = el('span', 'typemark', '✎');
   const input = el('input');
   input.type = 'text';
   input.placeholder = placeholder;
+  input.setAttribute('aria-label', label);
   input.maxLength = 120;
   input.autocomplete = 'off';
   input.spellcheck = false;
-  const send = el('button', 'go', 'Do it ⏎');
+  const send = el('button', 'go', action);
   const msg = el('div', 'typemsg');
+  msg.setAttribute('role', 'status');
   const chips = el('div', 'typechips');
   form.append(mark, input, send);
   root.append(form, msg, chips);
@@ -53,5 +55,5 @@ export function createTypeBox({ placeholder, handle }) {
     e.stopPropagation(); // typing must not trigger the camera's + - 0 keys
     if (e.key === 'Enter') run();
   });
-  return { root, say, focus: () => input.focus(), pending: () => input.value.trim() };
+  return { root, say, focus: () => input.focus(), pending: () => input.value.trim(), setDraft: text => { input.value = text; } };
 }

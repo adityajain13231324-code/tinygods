@@ -104,6 +104,7 @@ export function describeOrder(order) {
 /** An order as a plain sentence: "3 villagers will go to the Armory." */
 export function plainOrder(order) {
   const s = order.subject;
+  if (order.verb === 'arm') return `Up to ${Math.min(s?.kind === 'count' ? s.n : Infinity, order.strength * ORDERS.armPerStrength)} of your selected villagers will try to fetch weapons. The armory needs stock and time to reach.`;
   const who = !s || s.kind === 'all' ? 'Everyone' : s.kind === 'count' ? `${s.n} villager${s.n > 1 ? 's' : ''}`
     : s.kind === 'trait' ? `Your ${s.trait}s` : (s.names?.join(' & ') ?? 'Named villagers');
   const t = order.target ? targetName(order.target) : '';

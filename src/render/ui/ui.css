@@ -616,3 +616,43 @@ html, body { touch-action: manipulation; }
 .menu2-overlay { background: rgba(6, 12, 8, 0.72); backdrop-filter: blur(3px); }
 
 .ptile.used { opacity: 0.4; text-decoration: line-through; }
+
+/* Compact sheets protect the town on phones and tablets. */
+.sheet-body { display: flex; flex-direction: column; gap: 8px; min-height: 0; flex: 1 1 auto; overflow-y: auto; overflow-x: hidden; }
+#command, #powerbar { overflow: hidden; }
+#command .foot, .powerfoot { flex: none; }
+.sheet-body > * { flex-shrink: 0; }
+.sheet-toggle { display: none; }
+.powerfoot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 13px; }
+.powerfoot > span { flex: 1 1 100%; color: var(--accent); }
+.hud-controls { position: relative; pointer-events: auto; }
+.hud-controls summary, .roster-btn { padding: 7px 10px; border-radius: 8px; color: var(--ink); background: #35412f; border: 1px solid var(--panel-edge); cursor: pointer; }
+.hud-controls > .speed { position: absolute; z-index: 20; right: 0; top: 42px; display: flex; flex-wrap: wrap; gap: 6px; width: 240px; padding: 10px; background: #1c241a; border: 1px solid var(--panel-edge); border-radius: 12px; box-shadow: 0 6px 20px #0008; }
+.hud-controls:not([open]) > .speed { display: none; }
+button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+.roster-detail { text-align: left; line-height: 1.5; }
+.roster-detail p { margin: 6px 0; }
+@media (max-width: 919px) {
+  #command, #powerbar { bottom: max(8px, env(safe-area-inset-bottom)); width: calc(100vw - 16px); padding: 8px 10px; max-height: 46dvh; gap: 6px; overflow: hidden; background: #1c241af5; }
+  #command .sheet-body, #powerbar .sheet-body { overflow-y: auto; overscroll-behavior: contain; padding: 3px; scrollbar-width: thin; }
+  #command:not(.expanded) .sheet-body, #powerbar:not(.expanded) .sheet-body { display: none; }
+  .sheet-toggle { display: block; width: 100%; min-height: 44px; flex: none; text-align: left; font-weight: 800 !important; color: var(--accent); background: #35412f; border: 1px solid var(--panel-edge); border-radius: 8px; padding: 8px 10px; }
+  #command .foot, .powerfoot { flex: none; }
+  #command .foot .go { flex: 1; }
+  #ui button, #ui summary, .menu button, .menu2-overlay button { min-height: 44px; }
+  #command .staged button { min-width: 36px; padding: 7px; }
+  #command .staged .dialbtn { min-width: 36px; }
+  #topbar { padding: 5px 8px; gap: 5px 8px; font-size: 12px; }
+  #topbar .turn { font-size: 14px; }
+  #topbar .meter { display: none; }
+  #topbar .chip { font-size: 11px; padding: 3px 7px; }
+  #topbar .speed:has(> button) { margin-left: auto; }
+  #myorders { display: none; }
+  .set-row { flex-wrap: wrap; gap: 8px; }
+  .set-seg { flex-wrap: wrap; }
+  .netpanel { bottom: auto; top: var(--topH, 100px); right: 8px; font-size: 11px; padding: 5px; min-width: 0; }
+  #feed { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+}

@@ -258,7 +258,7 @@ function manageSeats(dt) {
     seatKey = key;
     ctx.seat = next;
     ctx.passReady = false;
-    seatTimer = game.phase === 'command' ? 40 : 20;
+    seatTimer = game.commandSeconds;
     pass.show({ name: game.seats[next].name, seat: next, kind: game.phase, onReady() { ctx.passReady = true; pass.hide(); } });
   }
   if (ctx.passReady) {

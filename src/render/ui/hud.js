@@ -4,6 +4,7 @@ import { describeOrder } from '../../sim/orders.js';
 import { livingByFaction } from '../../sim/win.js';
 import { POWER_DEFS } from '../../sim/powers.js';
 import { describeDeath } from '../../sim/events.js';
+import { showRoster } from './roster.js';
 import { clock, css, el, setText } from './dom.js';
 
 const MARKS = { triangle: '▲', wave: '≈', leaf: '❀', star: '★' };
@@ -54,6 +55,12 @@ export function createHud(root, ctx) {
   homeBtn.title = 'Back to the main menu';
   homeBtn.onclick = () => { if (confirm('Leave this match and go back to the menu?')) location.href = location.pathname; };
   tools.append(pauseBtn, muteBtn, bloodBtn, csBtn, calmBtn, fpsBtn, homeBtn);
+  for (const b of tools.querySelectorAll('button')) b.setAttribute('aria-label', b.title);
+  const controls = el('details', 'hud-controls');
+  controls.append(el('summary', '', 'Controls'), tools);
+  const roster = el('button', 'roster-btn', 'Villagers');
+  let currentGame;
+  roster.onclick = () => { if (currentGame) showRoster(currentGame, ctx); };
 
   // Tension meter: drives the music layers too.
   const meter = el('span', 'meter');
@@ -67,7 +74,7 @@ export function createHud(root, ctx) {
   myOrders.id = 'myorders';
   const goal = el('span', 'goal', '🎯 Last faction standing wins');
   goal.title = 'You win when every other faction has no living villagers left. Hover any villager to see how it feels.';
-  topbar.append(turn, phase, timer, alert, goal, chipsBox, meter, speed, tools, myOrders);
+  topbar.append(turn, phase, timer, alert, goal, chipsBox, meter, speed, roster, controls, myOrders);
 
   const feed = el('div');
   feed.id = 'feed';
@@ -118,6 +125,7 @@ export function createHud(root, ctx) {
 
   return {
     update(game) {
+      currentGame = game;
       setText(turn, `Turn ${game.turn}`);
       setText(phase, PHASE_LABEL[game.phase]);
       setText(timer, game.phase === 'sim' ? clock((game.simSeconds ?? TURN.simSeconds) - game.simElapsed) : game.phase === 'ended' ? '' : clock(game.timer));
@@ -144,7 +152,7 @@ export function createHud(root, ctx) {
       const tension = Math.round(game.world.tension);
       meterFill.style.width = `${tension}%`;
       meterFill.style.background = tension < 35 ? '#7fd68a' : tension < 65 ? '#ffd36b' : '#ff7a5a';
-      speed.style.visibility = game.phase === 'sim' && !ctx.online ? 'visible' : 'hidden';
+      speed.hidden = game.phase !== 'sim' || !!ctx.online;
       pauseBtn.hidden = !!ctx.online; // everybody shares one clock online
 
       const mine = game.truth.filter((t) => t.turn === game.turn && t.seat === ctx.seat).at(-1);

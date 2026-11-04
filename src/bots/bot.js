@@ -60,7 +60,7 @@ export function botDecide(game, seat) {
   // Bots obey the same rules as humans (Hate cooldown, influence...): keep only what is legal.
   const legal = [];
   for (const o of wanted) {
-    if (validateOrders([...legal, o], game.influence[seat], game.world, game.verbsLastTurn[seat]).ok) legal.push(o);
+    if (validateOrders([...legal, o], game.influence[seat], game.world, game.verbsLastTurn[seat], false, seat).ok) legal.push(o);
   }
   // Difficulty: easy bots hesitate (skip orders, push less hard); normal and hard play it all.
   const d = difficultyOf(game, seat);
@@ -70,7 +70,7 @@ export function botDecide(game, seat) {
   if (d.extraArm && out.length < 3 && !out.some((o) => o.verb === 'arm')) {
     const left = game.influence[seat] - out.reduce((n, o) => n + o.strength, 0);
     const extra = { verb: 'arm', target: null, strength: Math.min(2, left) };
-    if (left >= 1 && validateOrders([...out, extra], game.influence[seat], game.world, game.verbsLastTurn[seat]).ok) out.push(extra);
+    if (left >= 1 && validateOrders([...out, extra], game.influence[seat], game.world, game.verbsLastTurn[seat], false, seat).ok) out.push(extra);
   }
   return out;
 }

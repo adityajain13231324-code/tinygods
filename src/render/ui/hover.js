@@ -1,8 +1,9 @@
 import { Graphics } from 'pixi.js';
-import { ACTIVITY_TEXT, FACTIONS, GROUP_NAMES } from '../../config/content.js';
+import { FACTIONS } from '../../config/content.js';
 import { VILLAGER } from '../../config/tunables.js';
 import { groupOf } from '../../sim/villager.js';
 import { css, el } from './dom.js';
+import { villagerInfo } from './villagerInfo.js';
 import { heart, lookOfGroup } from '../villagerView.js';
 
 const LOVE_LINE = 45; // opinion at or above this (for another group) draws a green line
@@ -23,83 +24,12 @@ export function createHover(uiRoot, linesLayer, stage, game) {
   let hovered = null;
   let cardKey = '';
 
-  const name = (v) => `${v.name} (${v.faction >= 0 ? FACTIONS[v.faction].name : 'neutral'})`;
-
-  function doing(v) {
-    const other = v.targetId !== null ? game.world.villagers[v.targetId] : null;
-    switch (v.state) {
-      case 'attack': return `Fighting ${name(other)}`;
-      case 'flee': return 'Running for their life';
-      case 'mourn': return `Mourning ${other ? other.name : 'a friend'}`;
-      case 'guard': return 'Guarding';
-      case 'seek': return `Heading over to chat with ${other.name}`;
-      case 'talk':
-        if (v.expression === 'love') return `Hugging ${other.name}`;
-        if (v.expression === 'angry') return `Arguing with ${other.name}`;
-        return `Chatting with ${other.name}`;
-      case 'wander': return v.purpose === 'arm' ? 'Going to the Armory' : v.purpose === 'follow' ? 'Heading to their post' : 'Strolling about';
-      default: return (v.activity && ACTIVITY_TEXT[v.activity]) || 'Relaxing';
-    }
-  }
-
-  function feelings(v) {
-    const own = groupOf(v);
-    const rows = [];
-    for (let g = 0; g < v.opinion.length; g++) {
-      if (g !== own) rows.push([g, v.opinion[g]]);
-    }
-    rows.sort((a, b) => a[1] - b[1]);
-    const out = [];
-    const worst = rows[0];
-    const best = rows[rows.length - 1];
-    if (worst[1] < -15) out.push(`Hates ${GROUP_NAMES[worst[0]]} (${Math.round(worst[1])})`);
-    if (best[1] > 15) out.push(`Likes ${GROUP_NAMES[best[0]]} (+${Math.round(best[1])})`);
-    let afraid = -1;
-    for (let g = 0; g < v.fear.length; g++) if (v.fear[g] > 20 && (afraid < 0 || v.fear[g] > v.fear[afraid])) afraid = g;
-    if (afraid >= 0) out.push(`Afraid of ${GROUP_NAMES[afraid]} (${Math.round(v.fear[afraid])})`);
-    return out.length ? out : ['No strong feelings'];
-  }
-
-  // Temperament is secret until the villager shows it (or carries a shotgun for all to see).
-  const TRAITS_TEXT = {
-    brawler: 'Hothead: picks fights fast, hard to scare off',
-    coward: 'Coward: runs at the first shove',
-    gunslinger: 'Gunslinger: a shotgun and nerves of steel',
-    peacemaker: 'Peacemaker: breaks up fights',
-    medic: 'Medic: heals the hurt, never starts a fight',
-    bodyguard: 'Bodyguard: defends their friend, not rattled by guns',
-    wildcard: 'Wildcard: unpredictable temper',
-  };
-
-  function temperament(v) {
-    if (v.trait && (v.revealed || v.trait === 'gunslinger')) return TRAITS_TEXT[v.trait];
-    return v.revealed ? 'Temperament: ordinary' : 'Temperament: not seen yet';
-  }
-
-  const moodText = (v) => (v.mood < -0.5 ? 'Having a bad day' : v.mood > 0.5 ? 'In a good mood' : '');
-
   function buildCard(v) {
-    const weapon = v.weapon === 'none' ? 'bare fists'
-      : v.weapon === 'gun' ? `pistol (${v.ammo} bullets)`
-        : v.weapon === 'shotgun' ? `shotgun (${v.ammo} shells)` : v.weapon;
-    const key = [v.name, v.partnerId, v.activity, Math.ceil(v.hp), v.state, v.targetId, v.expression, v.weapon, v.ammo, v.revealed, v.mood > 0.5, v.mood < -0.5, v.opinion.map(Math.round).join(), v.fear.map(Math.round).join()].join('|');
+    const info = villagerInfo(game, v);
+    const key = JSON.stringify(info);
     if (key === cardKey) return;
     cardKey = key;
-    card.replaceChildren();
-    const head = el('div', 'hc-head');
-    const dot = el('i');
-    dot.style.background = css(lookOfGroup(groupOf(v)).color);
-    head.append(dot, el('b', '', v.name), el('span', '', ` · ${v.faction >= 0 ? FACTIONS[v.faction].name : 'Neutral'}`));
-    card.append(head);
-    card.append(el('div', 'hc-line', `HP ${Math.ceil(v.hp)}/100 · ${weapon}`));
-    card.append(el('div', 'hc-line hc-doing', doing(v)));
-    card.append(el('div', 'hc-line hc-trait', temperament(v)));
-    if (moodText(v)) card.append(el('div', 'hc-line', moodText(v)));
-    if (v.partnerId >= 0) {
-      const p = game.world.villagers[v.partnerId];
-      card.append(el('div', 'hc-line hc-partner', `Bonded with ${p.name} (${p.faction >= 0 ? FACTIONS[p.faction].name : 'neutral'})`));
-    }
-    for (const f of feelings(v)) card.append(el('div', 'hc-line hc-feel', f));
+    card.replaceChildren(el('b', 'hc-head', info.title), ...info.lines.map(line => el('div', 'hc-line', line)));
   }
 
   function drawLines(view) {

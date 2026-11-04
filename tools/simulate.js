@@ -80,7 +80,7 @@ async function main() {
   report(results, args, performance.now() - started);
 }
 
-const pct = (n, total) => `${((n / total) * 100).toFixed(1)}%`;
+const pct = (n, total) => total ? `${((n / total) * 100).toFixed(1)}%` : 'N/A (no observations)';
 const avg = (arr) => (arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0);
 
 function report(results, args, ms) {
@@ -112,11 +112,11 @@ function report(results, args, ms) {
   console.log(`\nfirst-killed faction went on to win: ${pct(comeback, firstHit.length)}   (25% = kills don't decide it)`);
   console.log(`snowball (biggest living-count lead at a turn end): ${avg(results.map((r) => r.maxLead)).toFixed(1)} villagers`);
 
-  console.log('\nguessing game (bots guess from public info; blind guessing would score 20%):');
+  console.log('\nHighlight diagnostics (the current game has no guessing phase):');
   console.log(`  highlights per match:                   ${(sum('highlights') / n).toFixed(1)}`);
   console.log(`  bot guesses that were right:            ${pct(sum('guessRight'), sum('guessTotal'))}`);
-  console.log(`  highlights whose true cause was "nobody": ${pct(sum('nobody'), sum('highlights'))}`);
-  console.log(`  highlights where the killer's own faction was the cause: ${pct(sum('killerWasCause'), sum('highlights'))}   (if near 100% the guess is too obvious)`);
+  console.log(`  highlights with unknown influence:       ${pct(sum('nobody'), sum('highlights'))}`);
+  console.log(`  attribution seat matches killer faction: ${pct(sum('killerWasCause'), sum('highlights'))} (includes qualified inference)`);
 
   if (args.bots === 'mixed') {
     console.log('\nwin rate by personality (when that personality played):');

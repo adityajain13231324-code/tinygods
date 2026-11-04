@@ -5,6 +5,7 @@ import { POWER_DEFS } from '../../sim/powers.js';
 import { css, el } from './dom.js';
 import { createTypeBox } from './typeBox.js';
 import { POWER_CATS } from './cardStyle.js';
+import { finishSheet } from './sheet.js';
 
 /**
  * The live-miracle bar, shown while the town acts. Pick a power and click the map, or just type
@@ -26,6 +27,7 @@ export function createPowerBar(root, ctx, game, camera, stage) {
   let noteBad = false;
 
   const type = createTypeBox({
+    label: 'Live miracle command', action: 'Cast miracle',
     placeholder: 'Or type a miracle: "fireball the Tides", "earthquake", "heal my weakest"',
     handle(text) {
       const r = parseCommand(text, game, ctx.seat);
@@ -108,6 +110,7 @@ export function createPowerBar(root, ctx, game, camera, stage) {
           return;
         }
         selected = selected === id ? null : id;
+        panel.classList.toggle('expanded', selected === 'whisper' || selected === 'gust');
         say(selected ? def.blurb : '');
         shownKey = '';
       };
@@ -147,6 +150,17 @@ export function createPowerBar(root, ctx, game, camera, stage) {
 
     panel.append(type.root);
     type.say(note, noteBad);
+    const foot = el('div', 'powerfoot');
+    foot.append(el('span', '', selected ? `${POWER_DEFS[selected].name}: ${POWER_DEFS[selected].hint}` : `${left} power left · Choose a miracle or type one`));
+    if (selected) {
+      const aim = el('button', 'go', 'Aim on map');
+      aim.disabled = selected === 'whisper' && group === null;
+      aim.onclick = () => { panel.classList.remove('expanded'); shownKey = ''; };
+      const cancel = el('button', 'go ghost', 'Cancel');
+      cancel.onclick = () => { selected = null; shownKey = ''; };
+      foot.append(aim, cancel);
+    }
+    finishSheet(panel, `Miracles · ${left} power`, foot);
   }
 
   const hintFor = (id) => ({

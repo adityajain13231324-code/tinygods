@@ -177,7 +177,7 @@ export class Camera {
       this.apply();
     });
     window.addEventListener('keydown', (e) => {
-      if (e.target instanceof HTMLInputElement || e.ctrlKey || e.metaKey) return;
+      if (e.target.closest?.('input, select, textarea, [role="dialog"]') || e.ctrlKey || e.metaKey) return;
       const w = this.app.screen.width / 2;
       const h = this.app.screen.height / 2;
       if (e.key === '+' || e.key === '=') this.zoomAt(1.25, w, h);

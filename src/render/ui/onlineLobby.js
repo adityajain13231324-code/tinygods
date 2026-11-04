@@ -44,6 +44,7 @@ export function showOnlineLobby(menuRoot, modal, presetCode = '', rematch = null
   const nameInput = el('input');
   nameInput.maxLength = 14;
   nameInput.placeholder = 'Your name';
+  nameInput.setAttribute('aria-label', 'Your online name');
   nameInput.value = rematch?.name || read();
   nameInput.className = 'lobby-input';
 
@@ -66,6 +67,7 @@ export function showOnlineLobby(menuRoot, modal, presetCode = '', rematch = null
     const code = el('input');
     code.className = 'lobby-input lobby-code';
     code.placeholder = 'CODE';
+    code.setAttribute('aria-label', 'Room code');
     code.maxLength = 5;
     code.value = presetCode;
     code.oninput = () => { code.value = cleanCode(code.value); };

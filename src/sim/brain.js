@@ -65,6 +65,12 @@ function think(world, v) {
 }
 
 function decide(world, v) {
+  // Read Stand Down before the combat branch can return. Immediate danger may still
+  // trigger self-defence, but an existing voluntary chase must stop on the next thought.
+  if (v.fx.standdown) {
+    v.calmUntil = Math.max(v.calmUntil, world.time + 6);
+    if (v.state === 'attack' && !v.panic) startIdle(world, v, 'stand down');
+  }
   updateGrievance(world, v);
   if (reactToDanger(world, v)) return;
 
@@ -262,7 +268,7 @@ function updateGrievance(world, v) {
 }
 
 const ratio = (v, o) => v.grievance[o.id] / v.tolerance;
-const cantStart = (v) => v.trait === 'medic' || v.hp < COMBAT.woundedHp; // healers and the badly hurt never start fights
+const cantStart = (v) => v.fx.standdown || v.trait === 'medic' || v.hp < COMBAT.woundedHp; // calm, healers and the badly hurt never start fights
 
 /** Which weapons am I willing to use against this opponent? 0 fists, 1 melee, 2 firearms. */
 function escalationFor(v, target) {

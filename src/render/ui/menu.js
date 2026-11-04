@@ -3,6 +3,7 @@ import { FACTIONS } from '../../config/content.js';
 import { DIFFICULTY } from '../../config/tunables.js';
 import { css, el } from './dom.js';
 import { ACHIEVEMENTS, loadStats } from '../../stats.js';
+import { activateDialog } from './dialog.js';
 
 const read = (key) => {
   try { return localStorage.getItem(key); } catch { return null; }
@@ -95,7 +96,7 @@ export function showMenu() {
     b.append(head, el('span', 'menu2-sub', sub));
     const go = () => onClick?.();
     b.addEventListener('click', (e) => { if (!e.target.closest('.menu2-diff')) go(); });
-    b.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target === b) go(); });
+    b.addEventListener('keydown', (e) => { if (['Enter', ' '].includes(e.key) && e.target === b) { e.preventDefault(); go(); } });
     modes.append(b);
     return b;
   };
@@ -183,7 +184,8 @@ export function showMenu() {
     choice('tinygods.orderSecs', 'Time for orders', 'How long you have each dawn to give orders. Whatever you typed is sent when it runs out.', [['30', '30 s'], ['45', '45 s'], ['60', '1 min'], ['90', '1½ min']], '45');
     choice('tinygods.simSecs', 'Time the town acts', 'How long each day plays out before the news.', [['32', '32 s'], ['45', '45 s'], ['60', '1 min']], '45');
     choice('tinygods.newsSecs', 'Time for the news', 'How long the news stays up before the next day starts by itself.', [['10', '10 s'], ['20', '20 s'], ['40', '40 s']], '20');
-    list.append(el('p', 'sub', 'Online games always use one shared clock (45 s orders).'));
+    list.append(el('p', 'sub', 'Pass and play gives each player the selected order time. Online, the host chooses the shared clocks in the lobby.'));
+    list.append(el('p', 'sub', Object.values(DIFFICULTY).map(d => `${d.label}: ${d.blurb}`).join(' ')));
     dlg.card.append(list);
   }
 
@@ -211,6 +213,7 @@ export function showMenu() {
         const input = el('input');
         input.value = names[i];
         input.maxLength = 14;
+        input.setAttribute('aria-label', `Player ${i + 1} name (${f.name})`);
         input.oninput = () => { names[i] = input.value; };
         row.append(dot, el('span', '', f.name), input);
         fields.append(row);
@@ -257,8 +260,7 @@ export function showMenu() {
     close.style.float = 'right';
     document.body.append(overlay);
     overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
-    const onKey = (e) => { if (e.key === 'Escape') { overlay.remove(); window.removeEventListener('keydown', onKey); } };
-    window.addEventListener('keydown', onKey);
+    activateDialog(overlay, card);
     return { card, overlay };
   }
 }
