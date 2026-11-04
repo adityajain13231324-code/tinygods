@@ -7,6 +7,7 @@ import { css, el } from './dom.js';
 // host presses Start, everybody's menu closes and the same game boots in every browser.
 
 const NAME_KEY = 'tinygods.onlineName';
+const hostDifficulty = () => { try { const d = localStorage.getItem('tinygods.difficulty'); return ['easy', 'normal', 'hard'].includes(d) ? d : 'normal'; } catch { return 'normal'; } };
 const read = () => { try { return localStorage.getItem(NAME_KEY) ?? ''; } catch { return ''; } };
 const write = (v) => { try { localStorage.setItem(NAME_KEY, v); } catch { /* storage can be blocked */ } };
 
@@ -30,9 +31,9 @@ export function showOnlineLobby(menuRoot, modal, presetCode = '') {
   nameInput.value = read();
   nameInput.className = 'lobby-input';
 
-  function begin(role, mySeat, seed, names) {
+  function begin(role, mySeat, seed, names, difficulty = 'normal') {
     started = true;
-    setOnline({ role, room, mySeat, seed, names });
+    setOnline({ role, room, mySeat, seed, names, difficulty });
     menuRoot.remove();
     overlay.remove();
     import('../../main.js');
@@ -80,13 +81,14 @@ export function showOnlineLobby(menuRoot, modal, presetCode = '') {
     card.replaceChildren(card.firstChild);
     card.append(el('h2', '', 'Your room'));
     const status = el('p', 'sub', 'Opening a room…');
+    const diffNote = el('p', 'sub', `Bots will play on ${hostDifficulty()} (change it in Settings on the main menu).`);
     const codeBox = el('div', 'lobby-codebox');
     const list = el('div');
     const start = el('button', 'go', 'Start the game');
     start.disabled = true;
     const copy = el('button', 'go ghost', 'Copy invite link');
     const err = el('p', 'lobby-err');
-    card.append(status, codeBox, list, el('div', 'btns'), err);
+    card.append(status, diffNote, codeBox, list, el('div', 'btns'), err);
     card.lastChild.previousSibling.append(start, copy);
     let url = '';
     let latest = [];
@@ -110,8 +112,8 @@ export function showOnlineLobby(menuRoot, modal, presetCode = '') {
     };
     start.onclick = () => {
       if (latest.length < 2) return;
-      const { seed, names } = room.start();
-      begin('host', 0, seed, names);
+      const { seed, names, difficulty } = room.start(hostDifficulty());
+      begin('host', 0, seed, names, difficulty);
     };
   }
 
@@ -129,7 +131,7 @@ export function showOnlineLobby(menuRoot, modal, presetCode = '') {
         status.textContent = 'You are in. Waiting for the host to start the game…';
         list.replaceChildren(playerList(players, room.seat));
       },
-      onStart({ seed, names, seat }) { begin('guest', seat, seed, names); },
+      onStart({ seed, names, seat, difficulty }) { begin('guest', seat, seed, names, difficulty); },
       onError(text) {
         status.textContent = '';
         err.textContent = text;

@@ -1,4 +1,4 @@
-import { ARMORY, POWERS, GHOST, COMBAT, FEVER, GRIEVANCE, STORM, WORLD, INFLUENCE, NOTORIETY, POPULATION, REPLAY, SIM, TENSION, TURN } from '../config/tunables.js';
+import { ARMORY, DIFFICULTY, POWERS, GHOST, COMBAT, FEVER, GRIEVANCE, STORM, WORLD, INFLUENCE, NOTORIETY, POPULATION, REPLAY, SIM, TENSION, TURN } from '../config/tunables.js';
 import { buildHighlights } from './highlights.js';
 import { applyLoyalty } from './loyalty.js';
 import { Recorder } from './recorder.js';
@@ -11,6 +11,7 @@ import { buildRecap } from './events.js';
 import { mulberry32 } from './rng.js';
 import { botDecide, botGuesses, botCard, botPowers } from '../bots/bot.js';
 import { applyCard, dealHand, describeCard, validateCard } from './cards.js';
+import { rollEvent } from './townEvents.js';
 
 // The phase manager. Pure data + functions, no rendering, so it runs headless in Node.
 //
@@ -29,7 +30,7 @@ const TICK = 1 / SIM.tickHz;
  * @param {{seed?: number, seats: {name: string, kind: 'human'|'bot', personality?: string}[]}} opts
  *   seats[i] leads faction i.
  */
-export function createGame({ seed = 1, seats, cosmetics = true }) {
+export function createGame({ seed = 1, seats, cosmetics = true, difficulty = 'normal', commandSeconds = TURN.commandSeconds }) {
   const world = createWorld(seed, { cosmetics });
   const game = {
     seed,
@@ -37,6 +38,11 @@ export function createGame({ seed = 1, seats, cosmetics = true }) {
     seats,
     botRng: mulberry32((seed ^ 0x9e3779b9) >>> 0),
     cardRng: mulberry32((seed ^ 0x51ed270b) >>> 0), // its own stream: dealing cards never changes the town
+    eventRng: mulberry32((seed ^ 0x7e57ab1e) >>> 0), // and so does the town-event roll
+    event: null, // this dawn's town event, if any
+    lastEventId: null,
+    difficulty,
+    commandSeconds,
     power: new Array(POPULATION.factions).fill(0), // god power points left this turn
     hand: Array.from({ length: POPULATION.factions }, () => []), // this turn's three cards per seat
     cardPending: new Array(POPULATION.factions).fill(null), // the card each seat chose to play
@@ -174,7 +180,7 @@ export function skipRecap(game) {
 /** Run a whole match with no waiting. Used by tools/simulate.js and tests. */
 export function runToEnd(game) {
   while (game.phase !== 'ended') {
-    if (game.phase === 'command') updateGame(game, TURN.commandSeconds); // times out any missing humans
+    if (game.phase === 'command') updateGame(game, game.commandSeconds); // times out any missing humans
     else if (game.phase === 'recap' || game.phase === 'guess') skipRecap(game);
     else updateGame(game, TICK);
   }
@@ -192,7 +198,7 @@ function beginTurn(game) {
   world.peaceful = game.turn <= TURN.peaceTurns; // the first days are calm: nobody picks a fight
   world.armoryPool = world.armoryPool.map((n) => Math.min(ARMORY.poolSize, n + (game.turn > 1 ? ARMORY.refillPerTurn : 0))); // the armory restocks
   game.phase = 'command';
-  game.timer = TURN.commandSeconds;
+  game.timer = game.commandSeconds;
   game.simElapsed = 0;
   game.acc = 0;
   game.pending.fill(null);
@@ -228,6 +234,13 @@ function beginTurn(game) {
       + comebackBonus(living, seat) + game.bonusInfluence[seat];
     game.bonusInfluence[seat] = 0;
   }
+
+  // Bots on Easy get less influence, on Hard more (the one thing a human can't see being different).
+  game.seats.forEach((s, seat) => {
+    if (s.kind === 'bot' && !game.eliminated[seat]) game.influence[seat] = Math.max(1, game.influence[seat] + (DIFFICULTY[s.difficulty ?? game.difficulty]?.influence ?? 0));
+  });
+
+  rollEvent(game); // some dawns bring a town event (after influence, so Market Day counts)
 
   // Bots decide instantly, with the same order API as humans.
   game.seats.forEach((s, seat) => {

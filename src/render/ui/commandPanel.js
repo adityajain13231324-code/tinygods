@@ -28,6 +28,7 @@ export function createCommandPanel(root, ctx) {
   let menuError = '';
   let shownKey = '';
   let lastGame = null;
+  let currentTb = null; // the typing box on screen right now
 
   const influenceLeft = (game) => game.influence[ctx.seat] - staged.reduce((n, o) => n + o.strength, 0);
 
@@ -239,6 +240,8 @@ export function createCommandPanel(root, ctx) {
     pips.parentNode;
     head.lastChild.before(el('span', 'sub infnum', String(left)));
     panel.append(head);
+    if (game.event) panel.append(el('div', 'eventnote', `${game.event.icon} ${game.event.title}: ${game.event.text}`));
+    panel.append(el('div', 'autonote', 'Out of time? Whatever you have picked or typed is sent for you.'));
 
     // Two ways to give an order, side by side in plain sight: pick from the menu, or type it.
     panel.append(buildMenu(game, ghost));
@@ -248,6 +251,7 @@ export function createCommandPanel(root, ctx) {
       handle: (text) => handleTyped(text, game, ghost),
     });
     panel.append(tb.root);
+    currentTb = tb;
     if (typedNote) tb.say(typedNote, typedBad);
 
     // A bar of one-click commands right under the box: they type themselves for you.
@@ -369,6 +373,24 @@ export function createCommandPanel(root, ctx) {
     panel.append(foot);
   }
 
+  /**
+   * The timer ran out with something half done: a sentence typed but never sent, or an order
+   * picked in the menu but never added. Count them, so nothing the player did is thrown away.
+   */
+  function commitPending(game) {
+    const ghost = isGhost(game, ctx.seat);
+    const text = currentTb?.pending();
+    if (text) {
+      const r = handleTyped(text, game, ghost);
+      if (r.ok || r.clear) currentTb.say('');
+    }
+    const order = draftOrder(game);
+    if (order && validateOrders([...staged, order], game.influence[ctx.seat], game.world, game.verbsLastTurn[ctx.seat], ghost).ok) {
+      staged.push(order);
+      draft = { verb: null, target: null, who: null, strength: 1 };
+    }
+  }
+
   return {
     /** Called every frame; only rebuilds when the situation changes. */
     update(game) {
@@ -397,8 +419,12 @@ export function createCommandPanel(root, ctx) {
     /** The orders currently staged (used to auto-submit when the timer runs out). */
     stagedOrders() {
       if (!lastGame) return [];
-      const ok = validateOrders(staged, lastGame.influence[ctx.seat], lastGame.world, lastGame.verbsLastTurn[ctx.seat], isGhost(lastGame, ctx.seat)).ok;
-      return ok ? staged.slice() : [];
+      commitPending(lastGame);
+      const ghost = isGhost(lastGame, ctx.seat);
+      const rules = [lastGame.influence[ctx.seat], lastGame.world, lastGame.verbsLastTurn[ctx.seat], ghost];
+      const out = []; // keep every order that is legal, even if one next to it is not
+      for (const o of staged) if (validateOrders([...out, o], ...rules).ok) out.push(o);
+      return out;
     },
   };
 }

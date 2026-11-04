@@ -33,7 +33,10 @@ function playMatch(seed, humans, dropSeat = -1) {
     }));
   }
   let desyncs = 0;
-  nodes.forEach((n) => { n.hooks.onDesync = () => desyncs++; });
+  nodes.forEach((n, s) => {
+    n.hooks.onDesync = () => desyncs++;
+    n.hooks.onLastCall = () => { if (games[s].pending[s] === null) n.submit([]); }; // time is up: hand in what you have
+  });
 
   let guard = 0;
   let dropped = false;

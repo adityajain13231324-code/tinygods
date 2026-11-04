@@ -1,4 +1,4 @@
-import { POPULATION } from '../config/tunables.js';
+import { DIFFICULTY, POPULATION } from '../config/tunables.js';
 import { livingByFaction } from '../sim/win.js';
 import { validateOrders } from '../sim/orders.js';
 import { PERSONALITIES } from './personalities.js';
@@ -33,6 +33,9 @@ export function botGuesses(game, seat) {
   return out;
 }
 
+/** How hard this bot plays (per seat, else the game's setting). */
+export const difficultyOf = (game, seat) => DIFFICULTY[game.seats[seat].difficulty ?? game.difficulty] ?? DIFFICULTY.normal;
+
 /**
  * A bot's turn: same output a human produces (a list of orders).
  * It is only shown public information.
@@ -59,7 +62,11 @@ export function botDecide(game, seat) {
   for (const o of wanted) {
     if (validateOrders([...legal, o], game.influence[seat], game.world, game.verbsLastTurn[seat]).ok) legal.push(o);
   }
-  return legal;
+  // Difficulty: easy bots hesitate (skip orders, push less hard); normal and hard play it all.
+  const d = difficultyOf(game, seat);
+  let out = legal.map((o) => ({ ...o, strength: Math.min(o.strength, d.maxStrength) }));
+  if (d.orderSkip) out = out.filter(() => game.botRng() >= d.orderSkip);
+  return out;
 }
 
 // ---- Cards and powers --------------------------------------------------------------
@@ -79,7 +86,7 @@ export function botCard(game, seat) {
   if (!hand.length) return null;
   const rng = game.botRng;
   const personality = game.seats[seat].personality ?? "chaos";
-  if (rng() < 0.3) return null;
+  if (rng() > difficultyOf(game, seat).cardRate) return null;
   const prefs = CARD_PREFS[personality] ?? [];
   const id = prefs.find((c) => hand.includes(c)) ?? hand[Math.floor(rng() * hand.length)];
   const living = livingByFaction(game.world);
@@ -109,7 +116,8 @@ export function botPowers(game) {
   const rng = game.botRng;
   game.seats.forEach((s, seat) => {
     if (s.kind !== 'bot' || game.eliminated[seat] || game.power[seat] <= 0) return;
-    if (rng() < 0.35) return; // sometimes just watch
+    const d = difficultyOf(game, seat);
+    if (rng() < d.powerSkip) return; // sometimes just watch
     const mine = world.villagers.filter((v) => v.alive && v.faction === seat);
     const hurt = mine.filter((v) => v.hp < 45).sort((a, b) => a.hp - b.hp)[0];
     const spot = hotspot(world);
@@ -117,7 +125,7 @@ export function botPowers(game) {
     const personality = s.personality ?? 'chaos';
     if (hurt && rng() < 0.7 && castPower(game, seat, 'miracle', { villagerId: hurt.id }).ok) return;
     // Offence: a fireball or tornado on the biggest crowd of rivals that has none of mine in it.
-    if (personality === 'warmonger' || personality === 'opportunist' || personality === 'chaos') {
+    if (d.offence && (personality === 'warmonger' || personality === 'opportunist' || personality === 'chaos')) {
       const foes = world.villagers.filter((v) => v.alive && v.faction !== seat);
       const crowd = foes.map((m) => ({ m, n: foes.filter((o) => Math.hypot(o.x - m.x, o.y - m.y) < 90).length, own: mine.filter((o) => Math.hypot(o.x - m.x, o.y - m.y) < 130).length }))
         .filter((c) => c.own === 0).sort((p, q) => q.n - p.n)[0];
@@ -132,7 +140,7 @@ export function botPowers(game) {
     if ((personality === 'pacifist' || personality === 'gossip') && hotspot(world) && rng() < 0.25 && castPower(game, seat, 'rain', { x: hotspot(world).x, y: hotspot(world).y }).ok) return;
     if (spot && myFight && spot.n >= 3 && personality !== 'warmonger' && castPower(game, seat, 'lightning', { x: spot.x, y: spot.y }).ok) return;
     if (spot && personality === 'pacifist' && castPower(game, seat, 'fog', { x: spot.x, y: spot.y }).ok) return;
-    if (personality === 'warmonger' || personality === 'chaos' || personality === 'gossip') {
+    if (d.offence && (personality === 'warmonger' || personality === 'chaos' || personality === 'gossip')) {
       const living = livingByFaction(world);
       const rivals = [0, 1, 2, 3].filter((g) => g !== seat && living[g] > 0);
       if (rivals.length === 0) return;

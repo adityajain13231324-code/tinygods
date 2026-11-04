@@ -24,6 +24,8 @@ export class Camera {
     this.insetTop = 46; // px reserved for the top strip
     this.insetBottom = 0; // px reserved for the order panel (eased toward insetTarget)
     this.insetTarget = 0;
+    this.insetRight = 0; // px reserved for a side panel (desktop), eased toward insetRightTarget
+    this.insetRightTarget = 0;
     this.onTap = null; // (screenX, screenY) => void, set by main.js (power targeting)
     app.renderer.on('resize', () => this.apply());
     this.apply();
@@ -59,6 +61,8 @@ export class Camera {
     if (this.target === 0 && this.k < 0.01) this.k = 0;
     this.insetBottom += (this.insetTarget - this.insetBottom) * Math.min(1, dt * 6);
     if (Math.abs(this.insetTarget - this.insetBottom) < 0.5) this.insetBottom = this.insetTarget;
+    this.insetRight += (this.insetRightTarget - this.insetRight) * Math.min(1, dt * 6);
+    if (Math.abs(this.insetRightTarget - this.insetRight) < 0.5) this.insetRight = this.insetRightTarget;
     this.shake *= Math.exp(-dt * 9);
     this.apply();
   }
@@ -71,8 +75,9 @@ export class Camera {
     // never sits on top of it. Cinematic cuts still use the whole screen.
     const top = this.insetTop;
     const ah = Math.max(120, sh - top - this.insetBottom);
+    const aw = Math.max(200, sw - this.insetRight);
     const cy = top + ah / 2;
-    const base = Math.min(sw / W, ah / H);
+    const base = Math.min(aw / W, ah / H);
     const scale = base * (1 + (this.zoomMax - 1) * this.k);
 
     // Put the point of interest a bit below screen centre, so the news board that pops up
@@ -87,11 +92,11 @@ export class Camera {
     // The player's own view (wheel zoom and drag pan), which the cinematic cuts blend away from.
     this.base = base;
     const userScale = base * this.userZoom;
-    const uHalfW = sw / (2 * userScale);
+    const uHalfW = aw / (2 * userScale);
     const uHalfH = ah / (2 * userScale);
     this.userX = clamp(this.userX, Math.min(uHalfW, W / 2), Math.max(W - uHalfW, W / 2));
     this.userY = clamp(this.userY, Math.min(uHalfH, H / 2), Math.max(H - uHalfH, H / 2));
-    const baseX = sw / 2 - this.userX * userScale;
+    const baseX = aw / 2 - this.userX * userScale;
     const baseY = cy - this.userY * userScale;
     const zoomX = sw / 2 - fx * scale;
     const zoomY = sh / 2 - fy * scale;
@@ -112,10 +117,11 @@ export class Camera {
     const s0 = this.base * before;
     const s1 = this.base * next;
     const cy = this.insetTop + Math.max(120, this.app.screen.height - this.insetTop - this.insetBottom) / 2;
-    const wx = (sx - this.app.screen.width / 2) / s0 + this.userX;
+    const cx = Math.max(200, this.app.screen.width - this.insetRight) / 2;
+    const wx = (sx - cx) / s0 + this.userX;
     const wy = (sy - cy) / s0 + this.userY;
     this.userZoom = next;
-    this.userX = wx - (sx - this.app.screen.width / 2) / s1;
+    this.userX = wx - (sx - cx) / s1;
     this.userY = wy - (sy - cy) / s1;
     this.apply();
   }

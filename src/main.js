@@ -25,7 +25,7 @@ import { Lockstep } from './net/lockstep.js';
 import { getOnline, makeSeats } from './net/online.js';
 import { createNetPanel } from './render/ui/netPanel.js';
 import { el } from './render/ui/dom.js';
-import { DRAMA, SIM } from './config/tunables.js';
+import { DIFFICULTY, DRAMA, SIM } from './config/tunables.js';
 
 // ?seed=42 gives the same town every time; handy for bug reports and later for bot tests.
 const params = new URLSearchParams(location.search);
@@ -42,8 +42,16 @@ const seats = makeSeats(seed, humanNames);
 const humanSeats = online ? [online.mySeat] : seats.map((st, i) => (st.kind === 'human' ? i : -1)).filter((i) => i >= 0);
 const hotseat = !online && humanSeats.length > 1;
 
-const game = createGame({ seed, seats });
+const wanted = online ? online.difficulty : params.get('difficulty');
+const difficulty = DIFFICULTY[wanted] ? wanted : 'normal';
+const game = createGame({ seed, seats, difficulty, commandSeconds: online ? 45 : undefined });
 const { app, world: stage } = await createApp(document.getElementById('game'));
+// Frame-rate cap (menu > Settings, or the button in the top bar): Auto follows the screen, or 60 / 30.
+const FPS_CYCLE = ['0', '60', '30'];
+const fpsKey = 'tinygods.fps';
+const readFps = () => { try { return FPS_CYCLE.includes(localStorage.getItem(fpsKey)) ? localStorage.getItem(fpsKey) : '0'; } catch { return '0'; } };
+const applyFps = () => { app.ticker.maxFPS = Number(readFps()) || 0; };
+applyFps();
 const camera = new Camera(app, stage);
 camera.attachInput(app.canvas);
 const replay = new Replay({ game, camera });
@@ -83,6 +91,12 @@ const ctx = {
   togglePause() { if (!online) ctx.paused = !ctx.paused; },
   toggleMute() { audio.start(); return audio.toggleMute(); },
   isMuted: () => audio.muted,
+  fpsLabel: () => (readFps() === '0' ? 'Auto' : readFps()),
+  cycleFps() {
+    const next = FPS_CYCLE[(FPS_CYCLE.indexOf(readFps()) + 1) % FPS_CYCLE.length];
+    try { localStorage.setItem(fpsKey, next); } catch { /* ignore */ }
+    applyFps();
+  },
   toggleBlood() {
     VillagerView.bloodEnabled = !VillagerView.bloodEnabled;
     try { localStorage.setItem('tinygods.blood', VillagerView.bloodEnabled ? '1' : '0'); } catch { /* ignore */ }
@@ -134,6 +148,10 @@ let net = null;
 if (online) {
   const hooks = {
     beforeNext: () => replay.stop(),
+    onLastCall: () => {
+      const mayAct = !game.eliminated[ctx.seat] || isGhost(game, ctx.seat);
+      if (game.phase === 'command' && game.pending[ctx.seat] === null && mayAct) ctx.submit(command.stagedOrders(), command.stagedCard());
+    },
     onLeft: (seat) => board.show({ kicker: 'PLAYER LEFT', title: `${game.seats[seat].name} LEFT`, text: 'A bot takes over their faction from the next dawn.' }),
     onDesync: () => board.show({ kicker: 'WARNING', title: 'OUT OF SYNC', text: 'Two browsers disagree about the town. Finish the match or rejoin; please report this.' }),
   };
@@ -177,9 +195,11 @@ const director = new Director({ camera, board, effects, audio, spotlight, clock:
 // Our own wall clock instead of Pixi's ticker delta, which caps a frame at 100 ms and would
 // turn a slow machine into slow motion.
 const TICK = 1 / SIM.tickHz;
+const SIDE_DOCK_MIN_WIDTH = 920; // keep in step with the media query in ui.css
 let lastNow = performance.now();
 let lastPhase = null;
 let crowdTimer = 0;
+let shownEvent = 0;
 
 // Pass-and-play: decide whose turn it is at the screen, show the "pass the device" card, and
 // give each player their own timer (the game's own 30 s timer would cut everybody off together).
@@ -229,7 +249,11 @@ function frame(frameSeconds) {
   const dt = Math.min(frameSeconds, SIM.maxFrameSeconds);
   animTime += dt;
   const cmdPanel = [document.getElementById('command'), document.getElementById('powerbar')].find((p) => p && !p.hidden);
-  camera.insetTarget = cmdPanel && ['command', 'sim'].includes(game.phase) ? cmdPanel.offsetHeight + 14 : 0;
+  const panelOn = cmdPanel && ['command', 'sim'].includes(game.phase);
+  const sideDock = window.innerWidth >= SIDE_DOCK_MIN_WIDTH; // wide screens: the panel sits beside the town, not over it
+  camera.insetTarget = panelOn && !sideDock ? cmdPanel.offsetHeight + 14 : 0;
+  camera.insetRightTarget = panelOn && sideDock ? cmdPanel.offsetWidth + 24 : 0;
+  uiRoot.style.setProperty('--topH', `${(document.getElementById('topbar')?.offsetHeight || 40) + 10}px`);
   camera.insetTop = document.getElementById('topbar')?.offsetHeight + 6 || 46;
   camera.update(dt);
 
@@ -297,6 +321,12 @@ function frame(frameSeconds) {
     audio.setCrowd(game.world.villagers.filter((v) => v.alive).length / game.world.villagers.length);
   }
 
+  // A town event is announced once, at the dawn it happens.
+  if (game.phase === 'command' && game.event && shownEvent !== game.turn && !cutscenes.active) {
+    shownEvent = game.turn;
+    board.show({ kicker: 'TOWN EVENT', title: `${game.event.icon} ${game.event.title.toUpperCase()}`, text: game.event.text });
+  }
+
   hover.update();
   hud.update(game);
   command.update(game);
@@ -318,6 +348,17 @@ if (net) {
       frame(step);
       left -= step;
     }
+  }, 250);
+}
+
+// A hidden tab stops drawing frames, which would freeze the whole room if it is the host's. Keep the clock going.
+if (net) {
+  setInterval(() => {
+    if (!document.hidden) return;
+    const now = performance.now();
+    const dtReal = Math.min(1.5, (now - lastNow) / 1000);
+    lastNow = now;
+    net.update(dtReal);
   }, 250);
 }
 

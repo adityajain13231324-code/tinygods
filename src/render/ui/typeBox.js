@@ -53,5 +53,5 @@ export function createTypeBox({ placeholder, handle }) {
     e.stopPropagation(); // typing must not trigger the camera's + - 0 keys
     if (e.key === 'Enter') run();
   });
-  return { root, say, focus: () => input.focus() };
+  return { root, say, focus: () => input.focus(), pending: () => input.value.trim() };
 }

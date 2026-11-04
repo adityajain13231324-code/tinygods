@@ -21,7 +21,7 @@ import { SIM } from '../config/tunables.js';
 const TICK = 1 / SIM.tickHz;
 const LEAD = 4; // the host lets everyone run this many ticks ahead of its own clock
 const HZ_EVERY = 2; // announce a new horizon every 2 ticks (10 messages a second)
-const GO_GRACE = 0.8; // seconds the host waits after the dawn timer for late submissions
+const GO_GRACE = 2.2; // seconds the host waits after the last call for late submissions
 const MAX_BEHIND = 0.5; // seconds of stored-up time a browser may spend catching up
 
 const clone = (x) => JSON.parse(JSON.stringify(x));
@@ -59,6 +59,8 @@ export class Lockstep {
     this.readyNext = new Set();
     this.goSent = -1;
     this.nextSent = -1;
+    this.lastCall = -1;
+    this.tickAcc = 0;
     this.simClock = 0;
     this.hzSent = 0;
     this.left = new Set();
@@ -174,6 +176,11 @@ export class Lockstep {
           for (const e of this.early) (e.m.turn === g.turn ? this.acceptSub(e.seat, e.m) : e.m.turn > g.turn ? rest.push(e) : null);
           this.early = rest;
         }
+        // Time is up: tell everybody to hand in whatever they have, then wait a moment for it to arrive.
+        if (g.timer <= 0 && this.lastCall !== g.turn && this.goSent !== g.turn) {
+          this.lastCall = g.turn;
+          this.emit({ t: 'lastcall', turn: g.turn });
+        }
         if (this.goSent !== g.turn) {
           const need = this.required();
           if (need.every((s) => this.subs[s]) || g.timer <= -GO_GRACE) this.sendGo();
@@ -201,6 +208,12 @@ export class Lockstep {
         break;
       }
       default: break;
+    }
+    // Keep every browser's countdown on the host's clock.
+    this.tickAcc += dt;
+    if (this.tickAcc >= 1 && (g.phase === 'command' || g.phase === 'recap')) {
+      this.tickAcc = 0;
+      this.emit({ t: 'tick', turn: g.turn, phase: g.phase, timer: g.timer });
     }
     // Tell everybody who is done (the top-bar chips).
     const info = { t: 'status', turn: g.turn, submitted: g.phase === 'command' ? Object.keys(this.subs).map(Number) : [], ready: g.phase === 'recap' ? [...this.readyNext] : [] };
@@ -231,12 +244,13 @@ export class Lockstep {
 
   classify(m) {
     const g = this.game;
-    if (m.t === 'go' || m.t === 'next' || m.t === 'hz' || m.t === 'cmd') {
+    if (m.t === 'go' || m.t === 'next' || m.t === 'hz' || m.t === 'cmd' || m.t === 'lastcall') {
       if (g.turn > m.turn) return 'drop';
       if (g.turn < m.turn) return 'wait';
     }
     switch (m.t) {
-      case 'go': return g.phase === 'command' ? 'now' : 'drop';
+      case 'go':
+      case 'lastcall': return g.phase === 'command' ? 'now' : 'drop';
       case 'next': return g.phase === 'recap' ? 'now' : g.phase === 'sim' ? 'wait' : 'drop';
       case 'hz':
       case 'cmd': return g.phase === 'sim' ? 'now' : g.phase === 'command' ? 'wait' : 'drop';
@@ -288,6 +302,8 @@ export class Lockstep {
         break;
       }
       case 'hz': this.horizon = Math.max(this.horizon, m.n); break;
+      case 'lastcall': this.hooks.onLastCall?.(); break;
+      case 'tick': if (m.turn === g.turn && m.phase === g.phase && !this.isHost) g.timer = m.timer; break;
       case 'cmd': this.cmds.push(m); break;
       case 'next':
         this.hooks.beforeNext?.();

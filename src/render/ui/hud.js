@@ -45,10 +45,13 @@ export function createHud(root, ctx) {
   const calmBtn = el('button', '', '🧘');
   calmBtn.title = 'Calm view: hide speech bubbles, thoughts and stains';
   calmBtn.onclick = () => ctx.toggleCalm();
+  const fpsBtn = el('button', 'fpsbtn', ctx.fpsLabel());
+  fpsBtn.title = 'Frame rate: Auto (your screen) / 60 / 30. Click to change.';
+  fpsBtn.onclick = () => { ctx.cycleFps(); fpsBtn.textContent = ctx.fpsLabel(); };
   const homeBtn = el('button', '', '🏠');
   homeBtn.title = 'Back to the main menu';
   homeBtn.onclick = () => { if (confirm('Leave this match and go back to the menu?')) location.href = location.pathname; };
-  tools.append(pauseBtn, muteBtn, bloodBtn, csBtn, calmBtn, homeBtn);
+  tools.append(pauseBtn, muteBtn, bloodBtn, csBtn, calmBtn, fpsBtn, homeBtn);
 
   // Tension meter: drives the music layers too.
   const meter = el('span', 'meter');

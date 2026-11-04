@@ -90,14 +90,14 @@ export function hostRoom({ name, onChange, onError }) {
   open();
 
   /** Close the lobby and tell everyone the seed. Seats follow join order (Embers, Tides, Sprouts, Sparks). */
-  room.start = () => {
+  room.start = (difficulty = 'normal') => {
     const seed = Math.floor(Math.random() * 1e6) + 1;
     room.players.sort((a, b) => a.seat - b.seat);
     room.players.forEach((p, i) => { p.seat = i; });
     const names = room.players.map((p) => p.name);
     room.started = true;
-    for (const p of room.players) if (p.conn?.open) p.conn.send({ t: 'start', seed, names, seat: p.seat });
-    return { seed, names };
+    for (const p of room.players) if (p.conn?.open) p.conn.send({ t: 'start', seed, names, seat: p.seat, difficulty });
+    return { seed, names, difficulty };
   };
   /** Wire the running Lockstep to this room (host side). */
   room.attach = (lockstep) => { room.lockstep = lockstep; };
@@ -129,7 +129,7 @@ export function joinRoom({ code, name, onLobby, onStart, onError, onClose }) {
         case 'welcome': room.seat = msg.seat; break;
         case 'lobby': onLobby?.(msg.players); break;
         case 'full': fail(msg.started ? 'That game has already started.' : 'That room is full (4 players).'); break;
-        case 'start': room.started = true; onStart?.({ seed: msg.seed, names: msg.names, seat: msg.seat }); break;
+        case 'start': room.started = true; onStart?.({ seed: msg.seed, names: msg.names, seat: msg.seat, difficulty: msg.difficulty }); break;
         default: room.lockstep?.onMessage(null, msg);
       }
     });

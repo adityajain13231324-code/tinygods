@@ -482,3 +482,81 @@ html, body { touch-action: manipulation; }
 .netrow .netstate.done { color: #7fd68a; }
 .netwarn { color: #ffb36b; margin-top: 4px; }
 @media (max-width: 700px) { .netpanel { top: auto; bottom: 8px; right: 8px; font-size: 11.5px; } }
+
+/* ======== side dock: on wide screens the order / power panels sit beside the town, never over it ======== */
+@media (min-width: 920px) {
+  #command, #powerbar {
+    left: auto; right: 12px; bottom: auto; top: var(--topH, 58px); transform: none;
+    width: min(400px, 31vw); max-height: calc(100vh - var(--topH, 58px) - 14px); overflow-y: auto; overflow-x: hidden;
+    animation: panel-in-side 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.05);
+    scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.25) transparent;
+  }
+  @keyframes panel-in-side { from { transform: translateX(28px); opacity: 0; } }
+  .netpanel { right: auto; left: 12px; top: auto; bottom: 12px; }
+}
+
+.autonote { color: var(--muted); font-size: 11.5px; margin: -2px 0 0; }
+
+/* ======== main menu, second edition ======== */
+.menu2 { background: radial-gradient(ellipse 80% 60% at 30% 20%, #4c8f45 0%, #26472b 55%, #14231a 100%); }
+.menu2::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse at center, transparent 55%, rgba(0, 0, 0, 0.45)); }
+.menu2-wrap { position: relative; z-index: 1; width: min(1040px, 100%); display: grid; grid-template-columns: 1.05fr 1fr; gap: clamp(20px, 4vw, 56px); align-items: center; }
+.menu2-hero { text-align: left; animation: menu2-in 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.menu2-hero h1 { margin: 6px 0 8px; font-size: clamp(44px, 7.4vw, 88px); line-height: 0.95; letter-spacing: 0.06em; font-weight: 900; text-shadow: 0 4px 0 rgba(0, 0, 0, 0.35), 0 10px 40px rgba(0, 0, 0, 0.4); }
+.menu2-tag { color: #ffe6a8; font-size: clamp(15px, 1.6vw, 19px); line-height: 1.45; margin: 0 0 16px; max-width: 30em; }
+.menu2-logo { display: flex; gap: 10px; }
+.menu2-logo i { width: 30px; height: 30px; border: 3px solid; display: block; animation: menu2-bob 2.6s ease-in-out infinite; box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35); }
+.menu2-logo i.s0 { border-radius: 50%; } .menu2-logo i.s1 { border-radius: 7px; } .menu2-logo i.s2 { border-radius: 50% 50% 8px 8px; }
+.menu2-pills { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+.menu2-pills span { padding: 4px 12px; border-radius: 999px; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.16); font-size: 13px; }
+.menu2-links { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+.menu2-link { padding: 9px 16px; border-radius: 12px; border: 2px solid rgba(255, 255, 255, 0.18); background: rgba(0, 0, 0, 0.22); color: var(--ink); font: inherit; font-weight: 700; cursor: pointer; transition: transform 0.15s, background 0.15s, border-color 0.15s; }
+.menu2-link:hover { transform: translateY(-2px); background: rgba(255, 255, 255, 0.14); border-color: var(--accent); }
+.menu2-record { color: var(--muted); font-size: 13px; margin: 0 0 6px; }
+.menu2-foot { color: rgba(255, 255, 255, 0.45); font-size: 12px; margin: 0; }
+.menu2-modes { display: grid; gap: 12px; }
+.menu2-card { position: relative; padding: 14px 18px; border-radius: 16px; cursor: pointer; text-align: left;
+  background: linear-gradient(180deg, rgba(34, 46, 34, 0.9), rgba(20, 30, 22, 0.94)); border: 2px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.35); backdrop-filter: blur(8px);
+  transition: transform 0.18s cubic-bezier(0.2, 0.9, 0.3, 1.2), border-color 0.18s, box-shadow 0.18s;
+  animation: menu2-in 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.menu2-card:hover, .menu2-card:focus-visible { transform: translateY(-3px) scale(1.012); border-color: var(--accent); box-shadow: 0 14px 34px rgba(0, 0, 0, 0.45); outline: none; }
+.menu2-card:active { transform: scale(0.99); }
+.menu2-card.primary { border-color: rgba(255, 211, 107, 0.7); background: linear-gradient(180deg, rgba(70, 62, 28, 0.92), rgba(36, 34, 18, 0.96)); padding: 18px 20px 16px; }
+.menu2-card-head { display: flex; align-items: center; gap: 12px; }
+.menu2-card-head b { font-size: 19px; }
+.menu2-icon { width: 40px; height: 40px; display: grid; place-items: center; font-size: 22px; border-radius: 12px; background: rgba(255, 255, 255, 0.1); flex: none; }
+.menu2-card.primary .menu2-icon { background: rgba(255, 211, 107, 0.2); }
+.menu2-sub { display: block; margin: 6px 0 0 52px; color: var(--muted); font-size: 13.5px; line-height: 1.4; }
+.menu2-diff { display: flex; align-items: center; gap: 6px; margin: 12px 0 0 52px; flex-wrap: wrap; }
+.menu2-diff > span { color: var(--muted); font-size: 13px; margin-right: 2px; }
+.menu2-diff button, .set-seg button { padding: 5px 13px; border-radius: 999px; border: 2px solid rgba(255, 255, 255, 0.18); background: rgba(0, 0, 0, 0.25); color: var(--ink); font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; transition: background 0.15s, border-color 0.15s; }
+.menu2-diff button:hover, .set-seg button:hover { background: rgba(255, 255, 255, 0.15); }
+.menu2-diff button.on, .set-seg button.on { border-color: var(--accent); background: rgba(255, 211, 107, 0.22); }
+.menu2-diffblurb { display: block; margin: 6px 0 0 52px; color: rgba(255, 255, 255, 0.55); font-size: 12px; }
+.menu2-play { margin: 14px 0 0 52px; padding: 11px 34px; border-radius: 12px; border: 0; background: var(--accent); color: #2a2208; font: inherit; font-size: 16px; font-weight: 900; cursor: pointer; box-shadow: 0 5px 0 #b48a1d, 0 10px 22px rgba(0, 0, 0, 0.35); transition: transform 0.12s, box-shadow 0.12s; }
+.menu2-play:hover { transform: translateY(-2px); box-shadow: 0 7px 0 #b48a1d, 0 14px 26px rgba(0, 0, 0, 0.4); }
+.menu2-play:active { transform: translateY(3px); box-shadow: 0 2px 0 #b48a1d; }
+.menu2-overlay { z-index: 50; animation: menu2-fade 0.2s ease both; }
+.menu2-overlay .card { animation: menu2-in 0.3s cubic-bezier(0.2, 0.9, 0.3, 1.1) both; max-height: calc(100vh - 32px); overflow: auto; }
+.set-list { display: grid; gap: 4px; margin-top: 10px; }
+.set-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 10px 4px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); cursor: pointer; }
+.set-text { display: flex; flex-direction: column; gap: 2px; text-align: left; }
+.set-row input[type=checkbox] { width: 22px; height: 22px; accent-color: var(--accent); flex: none; }
+.set-seg { display: flex; gap: 6px; flex: none; }
+@keyframes menu2-in { from { opacity: 0; transform: translateY(18px); } }
+@keyframes menu2-fade { from { opacity: 0; } }
+@keyframes menu2-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+@media (max-width: 820px) {
+  .menu2 { align-items: flex-start; }
+  .menu2-wrap { grid-template-columns: 1fr; gap: 18px; padding-top: 8px; }
+  .menu2-hero { text-align: center; }
+  .menu2-logo, .menu2-pills, .menu2-links { justify-content: center; }
+  .menu2-tag { margin-left: auto; margin-right: auto; }
+  .menu2-sub, .menu2-diff, .menu2-diffblurb, .menu2-play { margin-left: 0; }
+}
+@media (prefers-reduced-motion: reduce) { .menu2 *, .menu2-overlay, .menu2-overlay * { animation: none !important; transition: none !important; } }
+
+.fpsbtn { min-width: 40px; font-size: 12px; font-weight: 800; }
+
+.eventnote { font-size: 12.5px; padding: 6px 10px; border-radius: 10px; background: rgba(255, 211, 107, 0.14); border: 1px solid rgba(255, 211, 107, 0.4); }
