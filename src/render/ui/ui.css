@@ -640,8 +640,8 @@ button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-v
   #command .foot, .powerfoot { flex: none; }
   #command .foot .go { flex: 1; }
   #ui button, #ui summary, .menu button, .menu2-overlay button { min-height: 44px; }
-  #command .staged button { min-width: 36px; padding: 7px; }
-  #command .staged .dialbtn { min-width: 36px; }
+  #command .staged button { min-width: 44px; padding: 7px; }
+  #command .staged .dialbtn { min-width: 44px; }
   #topbar { padding: 5px 8px; gap: 5px 8px; font-size: 12px; }
   #topbar .turn { font-size: 14px; }
   #topbar .meter { display: none; }

@@ -262,7 +262,7 @@ function manageSeats(dt) {
     pass.show({ name: game.seats[next].name, seat: next, kind: game.phase, onReady() { ctx.passReady = true; pass.hide(); } });
   }
   if (ctx.passReady) {
-    seatTimer -= dt;
+    if (!ctx.paused) seatTimer -= dt;
     VillagerView.highlightSeat = game.phase === 'command' ? ctx.seat : -1;
     game.timer = Math.max(seatTimer, 1); // shown in the top bar; also keeps the shared timer from ending the phase
     if (seatTimer <= 0) {
