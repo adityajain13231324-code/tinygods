@@ -454,6 +454,7 @@ export const POWERS = {
   enrage: { cost: 1 },
   aegis: { cost: 1, seconds: 16 },
   disarm: { cost: 2, radius: 115 },
+  weapon: { cost: 1 }, // hands one of your own villagers a weapon
   sleep: { cost: 1, seconds: 8 },
 };
 

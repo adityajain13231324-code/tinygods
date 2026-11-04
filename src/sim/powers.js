@@ -1,8 +1,8 @@
-import { POWERS, TURN, WORLD } from '../config/tunables.js';
+import { ARMORY, POWERS, TURN, WEAPONS, WORLD } from '../config/tunables.js';
 import { GROUP_NAMES } from '../config/content.js';
 import { goToPlace, startAttack, startIdle } from './brain.js';
 import { blast } from './combat.js';
-import { groupOf } from './villager.js';
+import { groupOf, isFirearm, effectiveWeapon } from './villager.js';
 import { shoveFrom, shoveToward } from './shove.js';
 
 // God powers: live miracles used while the town acts. Each costs Power points (they refill every
@@ -31,6 +31,7 @@ export const POWER_DEFS = {
   // violence
   lightning: { name: 'Lightning', icon: '⚡', cost: POWERS.lightning.cost, needs: 'point', hint: 'Click a spot to strike it.', blurb: 'A bolt that throws everyone nearby back and scatters a brawl. Hurts little.' },
   fireball: { name: 'Fireball', icon: '🔥', cost: POWERS.fireball.cost, needs: 'point', hint: 'Click a spot: a small, deadly blast.', blurb: 'A small explosion that hurts and flings whoever stands there, friend or foe.' },
+  weapon: { name: 'Arm', icon: '🗡️', cost: POWERS.weapon.cost, needs: 'villager', hint: 'Click one of YOUR villagers to arm them.', blurb: 'Hand one of your villagers a weapon (pan, bat, knife or gun) on the spot, ready to use. Does not touch the armory shelf.' },
   disarm: { name: 'Disarm', icon: '🪓', cost: POWERS.disarm.cost, needs: 'point', hint: 'Click a spot: weapons fly out of hands.', blurb: 'Everyone near the spot drops their weapon and is shoved away.' },
 };
 
@@ -103,6 +104,17 @@ export function castPower(game, seat, id, args = {}) {
       v.vy = 0;
       message = `${v.name} fell asleep.`;
       break;
+    case 'weapon': {
+      if (v.faction !== seat) return { ok: false, error: 'You can only arm your own villagers.' };
+      if (effectiveWeapon(v) !== 'none') return { ok: false, error: `${v.name} is already armed.` };
+      v.weapon = v.trait === 'gunslinger' ? ARMORY.gunslingerWeapon : ARMORY.weapons[Math.floor(world.rng() * ARMORY.weapons.length)];
+      v.ammo = isFirearm(v.weapon) ? WEAPONS[v.weapon].maxAmmo : 0;
+      v.armDone = true;
+      v.escalation = Math.max(v.escalation, 1); // ready to use it when a fight gets serious
+      world.events.push({ type: 'arm', turn: world.turn, time: world.time, villagerId: v.id });
+      message = `${v.name} is now armed with a ${v.weapon}.`;
+      break;
+    }
     case 'charm': {
       v.opinion[seat] = Math.min(100, v.opinion[seat] + POWERS.charm.opinion);
       if (v.faction === -1) v.trust[seat] = Math.min(1, v.trust[seat] + 0.4);

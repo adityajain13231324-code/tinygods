@@ -282,7 +282,8 @@ function parseClause(rawClause, game, seat) {
   const clause = rawClause.replace(STRENGTH_RE, ' ').trim();
   const raw = clause.replace(/[^a-z0-9' -]/g, ' ').split(/\s+/).filter(Boolean);
   const tokens = raw.filter((t) => !STOP.has(t) || OWN_WORDS.includes(t));
-  const id = findAction(tokens.length ? tokens : raw, game.phase);
+  let id = findAction(tokens.length ? tokens : raw, game.phase);
+  if (id === 'arm' && !game.world.peaceful && findNamed(raw, game).some((q) => q.faction === seat)) id = 'weapon';
   if (!id) {
     // No verb: if they named something, offer things to DO with it; otherwise explain and offer a mix.
     const g = findGroup(raw, seat);
@@ -571,6 +572,12 @@ export function resolvePower(game, seat, spec) {
       }
       if (!v) return { ok: false, error: 'Nobody fits.' };
       return { ok: true, id: spec.id, args: { villagerId: v.id } };
+    }
+    case 'weapon': {
+      let v = spec.villagerId !== undefined ? world.villagers[spec.villagerId] : null;
+      if (!v) v = alive.filter((q) => q.faction === seat && q.weapon === 'none').sort((a, b) => b.aggression - a.aggression)[0];
+      if (!v) return { ok: false, error: 'Everyone of yours is already armed.' };
+      return { ok: true, id: 'weapon', args: { villagerId: v.id } };
     }
     case 'miracle': {
       let v = spec.villagerId !== undefined ? world.villagers[spec.villagerId] : null;

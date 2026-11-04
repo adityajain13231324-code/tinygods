@@ -179,6 +179,19 @@ for (const id of ['rain', 'fog']) {
   castPower(g, 0, 'disarm', { x: 900, y: 500 });
   check(foes.every((v) => v.weapon === 'none'), 'disarm: weapons dropped');
 }
+// arm: gives one of your own villagers a weapon, refuses rivals and the already armed
+{
+  const g = town(45);
+  const mine = alive(g, 0)[0];
+  mine.weapon = 'none';
+  const r = castPower(g, 0, 'weapon', { villagerId: mine.id });
+  check(r.ok && mine.weapon !== 'none', `weapon: ${mine.name} now holds a ${mine.weapon}`);
+  check(mine.weapon === 'pan' || mine.weapon === 'bat' || mine.weapon === 'knife' || mine.weapon === 'gun' || mine.weapon === 'shotgun', 'weapon: it is a real weapon');
+  check(!castPower(g, 0, 'weapon', { villagerId: mine.id }).ok, 'weapon: refuses someone who is already armed');
+  const foe = alive(g, 1)[0];
+  foe.weapon = 'none';
+  check(!castPower(g, 0, 'weapon', { villagerId: foe.id }).ok && foe.weapon === 'none', 'weapon: refuses a rival villager');
+}
 // earthquake: every fight stops
 {
   const g = town(43);
