@@ -32,7 +32,6 @@ export function createCommandPanel(root, ctx) {
   let shownKey = '';
   let lastGame = null;
   let currentTb = null; // the typing box on screen right now
-  let quickTarget = 'all';
 
   const influenceLeft = (game) => game.influence[ctx.seat] - staged.reduce((n, o) => n + o.strength, 0);
 
@@ -273,30 +272,39 @@ export function createCommandPanel(root, ctx) {
     // A bar of one-click commands right under the box: they type themselves for you.
     if (!ghost) {
       const bar = el('div', 'quickbar');
-      const target = el('select','vsel');target.id='quick-target';target.setAttribute('aria-label','Quick suggestion target');
-      target.append(new Option('Everyone / all rivals','all'));
-      for(let f=0;f<5;f++)if(f!==ctx.seat&&game.world.villagers.some(v=>v.alive&&(v.faction<0?4:v.faction)===f))target.append(new Option(GROUP_NAMES[f],String(f)));
-      if(![...target.options].some(o=>o.value===String(quickTarget)))quickTarget='all';
-      target.value=String(quickTarget);
-      target.onchange=()=>{quickTarget=target.value==='all'?'all':Number(target.value);build(game);panel.querySelector('#quick-target').focus({preventScroll:true});};
-      bar.append(el('span', 'sub', 'Quick suggestions: strength 1. Choose a target.'),target);
-      for (const suggestion of quickSuggestions(game,ctx.seat,quickTarget,staged)) {
-        const {label,orders,cost,ok,error}=suggestion;
-        const q = el('button', 'quick', label);
-        q.setAttribute('aria-label',label);q.append(el('small','quick-cost',` · ${cost} influence / ${orders.length} order${orders.length>1?'s':''}`));
-        q.disabled=!ok;q.title=ok?`${cost} influence · ${orders.length} order${orders.length>1?'s':''}`:error;
+      bar.append(el('span', 'sub quick-heading', 'Quick actions'));
+      const makeButton = (suggestion, visibleLabel = suggestion.label) => {
+        const {label,orders,ok,error}=suggestion;
+        const q = el('button', 'quick', visibleLabel);
+        q.setAttribute('aria-label',label);
+        q.disabled=!ok;q.title=ok?label:error;
         q.onclick = () => {
           const check=validateOrders([...staged,...orders],game.influence[ctx.seat],game.world,game.verbsLastTurn[ctx.seat],ghost,ctx.seat);
           if(!check.ok){typedNote=check.error;typedBad=true;build(game);return;}
           staged.push(...orders);typedNote=orders.map(plainOrder).join(' ');typedBad=false;build(game);
         };
-        bar.append(q);
+        return q;
+      };
+      const common=el('div','quick-common');
+      for(const s of quickSuggestions(game,ctx.seat,'all',staged).filter(s=>!s.label.includes('Attack')))common.append(makeButton(s,s.label==='🏃 Run from everyone'?'🏃 Run away':s.label));
+      const hide={label:'🙈 Hide',orders:[{verb:'follow',target:{kind:'place',id:'houses'},strength:1}]};
+      const hideCheck=validateOrders([...staged,...hide.orders],game.influence[ctx.seat],game.world,game.verbsLastTurn[ctx.seat],ghost,ctx.seat);
+      common.append(makeButton({...hide,ok:hideCheck.ok,error:hideCheck.error}));bar.append(common);
+      for(let f=0;f<4;f++) {
+        if(f===ctx.seat||!game.world.villagers.some(v=>v.alive&&v.faction===f))continue;
+        const row=el('div','quick-faction');row.append(el('b','',FACTIONS[f].name));row.style.setProperty('--faction', '#'+FACTIONS[f].color.toString(16).padStart(6,'0'));
+        const suggestions=quickSuggestions(game,ctx.seat,f,staged);
+        for(const verb of ['Attack','Scare','Love','Run']) {
+          if(verb==='Attack'&&game.world.peaceful)continue;
+          const s=suggestions.find(s=>s.label.includes(verb));if(s)row.append(makeButton(s,verb));
+        }
+        bar.append(row);
       }
       panel.append(bar);
     }
 
     // Staged orders, the chosen card and queued miracles, all as removable chips.
-    if (staged.length || stagedCard() || ctx.queuedPowers.length) {
+    if (staged.length || ctx.queuedPowers.length) {
       const list = el('div', 'staged');
       const chip = (text, onRemove) => {
         const c = el('span', '', text);
@@ -336,7 +344,6 @@ export function createCommandPanel(root, ctx) {
         c.append(dial, x);
         list.append(c);
       });
-      if (stagedCard()) chip(`Card: ${describeCard(card)}`, () => { card = null; build(game); });
       ctx.queuedPowers.forEach((q, i) => chip(`${q.label} at dawn`, () => { ctx.queuedPowers.splice(i, 1); build(game); }));
       panel.append(list);
     }
@@ -355,7 +362,8 @@ export function createCommandPanel(root, ctx) {
         const locked = cardUnlockError(game, id);
         tile.disabled = !!locked;
         if (locked) tile.title = locked;
-        tile.append(el('span', 'gc-cat', cat.name), el('span', 'gc-icon', look.icon), el('span', 'gc-name', def.name), el('span', 'gc-free', locked ?? 'free'));
+        tile.setAttribute('aria-label',`${def.name}${locked ? ': '+locked : ''}`);
+        tile.append(el('span', 'gc-cat', cat.name), el('span', 'gc-icon', look.icon), el('span', 'gc-name', def.name), el('span', 'gc-free', locked ? id==='bomb'?'Day 5':'Day 3' : 'free'));
         tile.onclick = () => {
           ctx.sound?.('card');
           card = card?.id === id ? null : { id, group: def.needs === 'group' ? null : undefined, place: def.needs === 'place' ? null : undefined };
@@ -442,7 +450,6 @@ export function createCommandPanel(root, ctx) {
         card = null;
         typedNote = '';
         currentTb = null;
-        quickTarget = 'all';
         panel.classList.remove('expanded');
         draft = { verb: null, target: null, who: null, strength: 1 };
         menuError = '';

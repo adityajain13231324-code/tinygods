@@ -22,7 +22,6 @@
 .guide-scene text { fill: #fff0c5; font: 12px sans-serif; text-anchor: middle; }
 .how-guide > p { line-height: 1.6; color: var(--muted); }
 .guide-actions { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
-.quick-cost { color: var(--muted); font-size: 11px; }
 .quick:disabled { opacity: 0.45; cursor: not-allowed; }
 @media(max-width:560px) { .guide-steps { grid-template-columns: repeat(2,1fr); } }
 @keyframes victory-fall { to { transform: translateY(250px) rotate(var(--tilt)); opacity: 0; } }
@@ -463,6 +462,22 @@ html, body { touch-action: manipulation; }
 .quickbar { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
 .quick { padding: 3px 10px; border-radius: 999px; border: 1px solid rgba(255, 255, 255, 0.22); background: rgba(255, 255, 255, 0.08); color: var(--ink); font-size: 12.5px; cursor: pointer; }
 .quick:hover { background: rgba(255, 211, 107, 0.22); border-color: var(--accent); }
+#command .quickbar { display: grid; gap: 5px; }
+.quick-heading { font-size: 11px; }
+.quick-common { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 4px; }
+.quick-faction { display: flex; align-items: center; gap: 4px; }
+.quick-faction > b { width: 48px; flex: none; font-size: 11px; color: var(--faction); }
+#command .quick { min-width: 0; min-height: 30px; padding: 4px 5px; border-radius: 7px; font-size: 11px; line-height: 1.15; }
+.quick-faction .quick { flex: 1; }
+#command .hand { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 5px; padding: 8px 1px 6px; perspective: none; }
+#command .gcard { width: 100%; min-width: 0; height: 104px; padding: 17px 3px 6px; transform: none; animation: none; }
+#command .gcard:hover:not(:disabled), #command .gcard.on { transform: translateY(-3px); }
+#command .gcard:disabled { opacity: 0.5; cursor: not-allowed; }
+#command .gc-cat { font-size: 8px; letter-spacing: 0.04em; }
+#command .gc-icon { font-size: 23px; }
+#command .gc-name { font-size: 11px; overflow-wrap: anywhere; }
+#command .gc-free { font-size: 8px; letter-spacing: 0.04em; }
+@media(max-width:919px) { #command .quick { min-height: 44px; } }
 .infpips { display: inline-flex; gap: 4px; align-items: center; }
 .infpips i { width: 11px; height: 11px; border-radius: 50%; background: rgba(255, 255, 255, 0.12); border: 2px solid rgba(255, 255, 255, 0.28); box-sizing: border-box; }
 .infpips i.on { background: #7fd68a; border-color: #c8f5cf; box-shadow: 0 0 6px rgba(127, 214, 138, 0.6); }
