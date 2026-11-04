@@ -9,6 +9,7 @@ import { el } from './dom.js';
 import { createTypeBox } from './typeBox.js';
 import { finishSheet } from './sheet.js';
 import { cardUnlockError, powerUnlockError } from '../../sim/availability.js';
+import { quickSuggestions } from './quickSuggestions.js';
 
 /**
  * The player's dawn panel: a card to play (optional) and one box to say what the villagers
@@ -31,6 +32,7 @@ export function createCommandPanel(root, ctx) {
   let shownKey = '';
   let lastGame = null;
   let currentTb = null; // the typing box on screen right now
+  let quickTarget = 'all';
 
   const influenceLeft = (game) => game.influence[ctx.seat] - staged.reduce((n, o) => n + o.strength, 0);
 
@@ -270,20 +272,24 @@ export function createCommandPanel(root, ctx) {
 
     // A bar of one-click commands right under the box: they type themselves for you.
     if (!ghost) {
-      const living = [0, 1, 2, 3].map((f) => game.world.villagers.filter((v) => v.alive && v.faction === f).length);
-      const rivals = [0, 1, 2, 3].filter((f) => f !== ctx.seat && living[f] > 0);
-      const strongest = rivals.slice().sort((x, y) => living[y] - living[x])[0];
-      const weakest = rivals.slice().sort((x, y) => living[x] - living[y])[0];
-      const name = (f) => FACTIONS[f].name;
-      const quick = [['🗡️ Arm up', 'arm up'], ['🕊️ Stand down', 'everyone stand down'], ['🎉 Party', 'party at the plaza'], ['🛡️ Guard us', 'guard my people'], ['🙈 Hide', 'hide in the houses'], ['🏃 Run away', 'run away from everyone']];
-      if (strongest !== undefined) quick.push([`😱 Scare ${name(strongest)}`, `scare the ${name(strongest)}`], [`💞 Love ${name(strongest)}`, `love the ${name(strongest)}`]);
-      if (weakest !== undefined && !game.world.peaceful) quick.push([`⚔️ Attack ${name(weakest)}`, `attack the ${name(weakest)}`], [`👊 Shove ${name(weakest)}`, `shove the ${name(weakest)}`], [`🪤 Ambush ${name(weakest)}`, `ambush the ${name(weakest)} at the plaza`]);
       const bar = el('div', 'quickbar');
-      bar.append(el('span', 'sub', 'Quick:'));
-      for (const [label, text] of quick) {
+      const target = el('select','vsel');target.id='quick-target';target.setAttribute('aria-label','Quick suggestion target');
+      target.append(new Option('Everyone / all rivals','all'));
+      for(let f=0;f<5;f++)if(f!==ctx.seat&&game.world.villagers.some(v=>v.alive&&(v.faction<0?4:v.faction)===f))target.append(new Option(GROUP_NAMES[f],String(f)));
+      if(![...target.options].some(o=>o.value===String(quickTarget)))quickTarget='all';
+      target.value=String(quickTarget);
+      target.onchange=()=>{quickTarget=target.value==='all'?'all':Number(target.value);build(game);panel.querySelector('#quick-target').focus({preventScroll:true});};
+      bar.append(el('span', 'sub', 'Quick suggestions: strength 1. Choose a target.'),target);
+      for (const suggestion of quickSuggestions(game,ctx.seat,quickTarget,staged)) {
+        const {label,orders,cost,ok,error}=suggestion;
         const q = el('button', 'quick', label);
-        q.title = `Same as typing: "${text}"`;
-        q.onclick = () => { handleTyped(text, game, ghost); };
+        q.setAttribute('aria-label',label);q.append(el('small','quick-cost',` · ${cost} influence / ${orders.length} order${orders.length>1?'s':''}`));
+        q.disabled=!ok;q.title=ok?`${cost} influence · ${orders.length} order${orders.length>1?'s':''}`:error;
+        q.onclick = () => {
+          const check=validateOrders([...staged,...orders],game.influence[ctx.seat],game.world,game.verbsLastTurn[ctx.seat],ghost,ctx.seat);
+          if(!check.ok){typedNote=check.error;typedBad=true;build(game);return;}
+          staged.push(...orders);typedNote=orders.map(plainOrder).join(' ');typedBad=false;build(game);
+        };
         bar.append(q);
       }
       panel.append(bar);
@@ -436,6 +442,7 @@ export function createCommandPanel(root, ctx) {
         card = null;
         typedNote = '';
         currentTb = null;
+        quickTarget = 'all';
         panel.classList.remove('expanded');
         draft = { verb: null, target: null, who: null, strength: 1 };
         menuError = '';

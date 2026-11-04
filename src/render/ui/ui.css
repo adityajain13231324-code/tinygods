@@ -13,6 +13,18 @@
 .victory-confetti { position: absolute; inset: 0; pointer-events: none; z-index: -1; }
 .victory-confetti i { position: absolute; top: -14px; width: 8px; height: 13px; background: var(--victor); animation: victory-fall 2.6s var(--delay) ease-in both; }
 .victory-confetti i:nth-child(even) { background: var(--accent); }
+.how-guide { text-align: left; margin: 14px 0; }
+.menu2-overlay .card { color: var(--ink); }
+.guide-steps { display: grid; grid-template-columns: repeat(4,1fr); gap: 6px; }
+.guide-steps button { min-height: 44px; }
+.guide-scene { margin-top: 14px; border: 1px solid var(--panel-edge); border-radius: 14px; background: #16271e; }
+.guide-scene svg { width: 100%; display: block; }
+.guide-scene text { fill: #fff0c5; font: 12px sans-serif; text-anchor: middle; }
+.how-guide > p { line-height: 1.6; color: var(--muted); }
+.guide-actions { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.quick-cost { color: var(--muted); font-size: 11px; }
+.quick:disabled { opacity: 0.45; cursor: not-allowed; }
+@media(max-width:560px) { .guide-steps { grid-template-columns: repeat(2,1fr); } }
 @keyframes victory-fall { to { transform: translateY(250px) rotate(var(--tilt)); opacity: 0; } }
 
 #ui [hidden] { display: none !important; }

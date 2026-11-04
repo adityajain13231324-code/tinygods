@@ -1,4 +1,5 @@
 import { el } from './dom.js';
+import { newsEnabled } from './preferences.js';
 
 /**
  * The "news broadcast" board that pops up for big moments (first blood, a faction falling, a
@@ -24,6 +25,7 @@ export function createBoard(root) {
   return {
     /** @param {{kicker?: string, title: string, text?: string, detail?: string, big?: boolean, seconds?: number, at?: 'top'|'bottom'}} o */
     show({ kicker: k = 'BREAKING NEWS', title: t, text: body = '', detail: more = '', big = false, seconds = 4, at = 'top' }) {
+      if (!newsEnabled() && !/WARNING|PLAYER LEFT/.test(k)) return;
       if (!board.hidden && currentBig && !big) return; // don't bury a big board under a small one
       currentBig = big;
       kicker.textContent = k;

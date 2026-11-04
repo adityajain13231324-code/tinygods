@@ -4,6 +4,7 @@ import { DIFFICULTY } from '../../config/tunables.js';
 import { css, el } from './dom.js';
 import { ACHIEVEMENTS, loadStats } from '../../stats.js';
 import { activateDialog } from './dialog.js';
+import { createHowGuide } from './howGuide.js';
 
 const read = (key) => {
   try { return localStorage.getItem(key); } catch { return null; }
@@ -159,6 +160,7 @@ export function showMenu() {
     toggle('tinygods.muted', 'Sound', 'Hits, voices, ambience and music.', (v) => v !== '1', (on) => (on ? '0' : '1'));
     toggle('tinygods.blood', 'Cartoon blood', 'Splatters and stains in fights.', (v) => v !== '0', (on) => (on ? '1' : '0'));
     toggle('tinygods.cutscenes', 'Cutscenes', 'The news and day cards between turns.', (v) => v !== '0', (on) => (on ? '1' : '0'));
+    toggle('tinygods.news', 'News broadcasts', 'Breaking-news popups and TV news interludes. Turn recaps and important connection warnings remain available.', (v) => v !== '0', (on) => (on ? '1' : '0'));
 
     const choice = (key, label, hint, options, fallback) => {
       const row = el('div', 'set-row');
@@ -241,11 +243,13 @@ export function showMenu() {
     const dlg = modal();
     dlg.card.classList.add('wide');
     dlg.card.append(el('h2', '', 'How to play'));
+    dlg.card.append(createHowGuide());
+    const rules = el('details');rules.append(el('summary','','Full rules and tips'));dlg.card.append(rules);
     HOW_TO_PLAY.forEach(([title, body], i) => {
       const sec = el('div', 'how');
       sec.append(el('span', 'how-n', String(i + 1)), el('div', '', ''));
       sec.lastChild.append(el('b', '', title), el('p', '', body));
-      dlg.card.append(sec);
+      rules.append(sec);
     });
   }
 

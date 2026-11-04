@@ -3,6 +3,7 @@ import { WORLD } from '../config/tunables.js';
 import { buildStory } from '../sim/story.js';
 import { livingByFaction } from '../sim/win.js';
 import { el } from './ui/dom.js';
+import { newsEnabled } from './ui/preferences.js';
 
 // Cutscenes between turns, in the spirit of *We Become What We Behold*: a calm opening that
 // gets darker as the town does, a TV news broadcast that turns the turn's worst moments into
@@ -142,7 +143,7 @@ export class Cutscenes {
   startNews(done) {
     const g = this.game;
     const highlights = g.highlights.slice(0, 1); // one story, so the news stays short
-    if (!this.enabled || this.suppress || this.active || highlights.length === 0) {
+    if (!newsEnabled() || !this.enabled || this.suppress || this.active || highlights.length === 0) {
       done?.();
       return;
     }

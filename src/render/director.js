@@ -2,6 +2,7 @@ import { FACTIONS, PLACES } from '../config/content.js';
 import { DRAMA, WORLD } from '../config/tunables.js';
 import { livingByFaction } from '../sim/win.js';
 import { describeDeath } from '../sim/events.js';
+import { newsEnabled } from './ui/preferences.js';
 
 const placeName = (id) => PLACES.find((p) => p.id === id)?.name ?? id;
 const label = (v) => (v.faction >= 0 ? FACTIONS[v.faction].name : 'neutral');
@@ -90,6 +91,7 @@ export class Director {
     const victim = world.villagers[e.victimId];
     const place = placeName(e.place);
     this.kills++;
+    if (!newsEnabled()) return;
     this.camera.kick(DRAMA.shakeKill);
 
     this.recent.push(e);
