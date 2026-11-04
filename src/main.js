@@ -305,6 +305,22 @@ function frame(frameSeconds) {
   netPanel?.update();
 }
 
+// Online, the host's browser is the game clock, and requestAnimationFrame stops in a hidden tab:
+// everyone else would freeze. A timer (which still fires, throttled) keeps real time moving.
+if (net) {
+  setInterval(() => {
+    if (!document.hidden) return;
+    const now = performance.now();
+    let left = Math.min((now - lastNow) / 1000, 30);
+    lastNow = now;
+    while (left > 1e-3) {
+      const step = Math.min(left, SIM.maxFrameSeconds);
+      frame(step);
+      left -= step;
+    }
+  }, 250);
+}
+
 const fpsEl = document.getElementById('fps');
 let fpsTimer = 0;
 app.ticker.add(() => {

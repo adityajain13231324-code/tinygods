@@ -6,7 +6,20 @@ import Peer from 'peerjs';
 // passed to the Lockstep once the game has begun.
 
 const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O/1/I
-const ICE = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }, { urls: 'stun:global.stun.twilio.com:3478' }] };
+// STUN alone only connects browsers on friendly networks. TURN relays the game for players on
+// different wifi, mobile data or strict college/office networks (UDP, TCP and TLS on 443).
+// Set window.TG_ICE_SERVERS before the game loads to use your own TURN server instead.
+const ICE = {
+  iceServers: (typeof window !== 'undefined' && window.TG_ICE_SERVERS?.length) ? window.TG_ICE_SERVERS : [
+    { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302', 'stun:global.stun.twilio.com:3478'] },
+    {
+      urls: ['turn:openrelay.metered.ca:80', 'turn:openrelay.metered.ca:443', 'turn:openrelay.metered.ca:443?transport=tcp', 'turns:openrelay.metered.ca:443?transport=tcp'],
+      username: 'openrelayproject',
+      credential: 'openrelayproject',
+    },
+  ],
+  iceCandidatePoolSize: 4,
+};
 const MAX_PLAYERS = 4;
 
 const newCode = () => Array.from({ length: 5 }, () => ALPHABET[Math.floor(Math.random() * ALPHABET.length)]).join('');
@@ -99,7 +112,7 @@ export function joinRoom({ code, name, onLobby, onStart, onError, onClose }) {
   const peer = new Peer({ config: ICE, debug: 1 });
   let conn = null;
   const fail = (text) => { clearTimeout(timer); room.close(); onError?.(text); };
-  const timer = setTimeout(() => fail('Could not find that room. Check the code, and that the host still has the lobby open.'), 15000);
+  const timer = setTimeout(() => fail('Could not find that room. Check the code, and that the host still has the lobby open (different networks can take ~30s).'), 35000);
 
   peer.on('error', (e) => fail(e.type === 'peer-unavailable'
     ? 'No room with that code. Check it and try again.'
