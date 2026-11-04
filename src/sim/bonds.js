@@ -8,6 +8,7 @@ import { shuffle } from './rng.js';
 export const isFree = (v) => v.alive && v.partnerId < 0;
 
 export function createBond(world, a, b) {
+  if (a === b || !isFree(a) || !isFree(b)) return false;
   a.partnerId = b.id;
   b.partnerId = a.id;
   // They start to like each other's whole group, and have nothing against each other.
@@ -19,13 +20,14 @@ export function createBond(world, a, b) {
     type: 'bond', turn: world.turn, time: world.time,
     aId: a.id, bId: b.id, aFaction: a.faction, bFaction: b.faction,
   });
+  return true;
 }
 
 /** Ends the bond from either side (death, a falling-out). Returns the former partner or null. */
 export function breakBond(world, v) {
   const p = world.villagers[v.partnerId] ?? null;
   v.partnerId = -1;
-  if (p) p.partnerId = -1;
+  if (p?.partnerId === v.id) p.partnerId = -1;
   return p;
 }
 
@@ -40,20 +42,20 @@ export function formLoveBonds(world, seat, groupId, strength) {
   let made = 0;
   for (const a of mine) {
     if (made >= want) break;
+    if (!isFree(a)) continue; // Own-faction pools overlap; an earlier pair may include a.
     let best = null;
     let bestD = Infinity;
     for (const b of theirs) {
-      if (b === a) continue;
+      if (b === a || !isFree(b)) continue;
       const d = Math.hypot(a.x - b.x, a.y - b.y);
       if (d < bestD) {
         bestD = d;
         best = b;
       }
     }
-    if (!best) break;
-    createBond(world, a, best);
+    if (!best) continue;
+    if (createBond(world, a, best)) made++;
     theirs = theirs.filter((b) => b !== best);
-    made++;
   }
   return made;
 }

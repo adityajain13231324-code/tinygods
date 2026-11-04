@@ -2,9 +2,9 @@ import { REPLAY, SIM } from '../config/tunables.js';
 
 // Records the visible state of every villager ten times a second during the sim phase, so
 // the recap can replay a highlight. Only the fields the renderer needs are stored, as plain
-// numbers in one Float32Array per frame (60 villagers x 18 numbers x 4 bytes = 4 KB).
-// Replaying writes these back into the villagers, then restores the live state (see
-// render/replay.js), so the real simulation is never touched while a clip plays.
+// numbers in one Float32Array per frame (60 villagers x 20 numbers x 4 bytes = 4.8 KB).
+// Playback temporarily writes these into villagers while the sim is stopped. Replay
+// keeps a separate exact snapshot to restore the live state without Float32 rounding.
 
 const STATES = ['idle', 'wander', 'seek', 'talk', 'guard', 'attack', 'flee', 'mourn', 'dead'];
 const EXPRESSIONS = ['calm', 'happy', 'love', 'angry', 'scared', 'suspicious', 'sad', 'dead'];

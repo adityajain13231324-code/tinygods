@@ -42,8 +42,10 @@ const dist = (a, x, y) => Math.hypot(a.x - x, a.y - y);
  * @returns {{ok: true, message: string} | {ok: false, error: string}}
  */
 export function castPower(game, seat, id, args = {}) {
+  if (typeof id !== 'string' || !Object.hasOwn(POWER_DEFS, id)) return { ok: false, error: 'Unknown power' };
+  if (!Number.isInteger(seat) || seat < 0 || seat >= game.seats.length) return { ok: false, error: 'Invalid seat' };
+  if (args === null || typeof args !== 'object' || Array.isArray(args)) return { ok: false, error: 'Invalid power target' };
   const def = POWER_DEFS[id];
-  if (!def) return { ok: false, error: 'Unknown power' };
   if (game.phase !== 'sim') return { ok: false, error: 'Powers work while the town acts' };
   if (game.world.peaceful) return { ok: false, error: `Miracles unlock on day ${TURN.peaceTurns + 1}. The town is still at peace.` };
   if (game.eliminated[seat]) return { ok: false, error: 'Your faction has fallen' };
@@ -51,7 +53,7 @@ export function castPower(game, seat, id, args = {}) {
   if ((game.power[seat] ?? 0) < def.cost) return { ok: false, error: `Not enough power (${def.name} costs ${def.cost})` };
 
   const { world } = game;
-  const v = args.villagerId !== undefined ? world.villagers[args.villagerId] : null;
+  const v = Number.isInteger(args.villagerId) ? world.villagers[args.villagerId] : null;
   if (def.needs.startsWith('villager') && (!v || !v.alive)) return { ok: false, error: 'Pick a living villager' };
   if (def.needs === 'point' && !(Number.isFinite(args.x) && Number.isFinite(args.y))) return { ok: false, error: 'Pick a spot on the map' };
 

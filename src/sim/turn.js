@@ -5,12 +5,12 @@ import { Recorder } from './recorder.js';
 import { createWorld } from './world.js';
 import { stepWorld, startIdle } from './brain.js';
 import { emptyFx } from './villager.js';
-import { applyOrders, comebackBonus, validateOrders } from './orders.js';
+import { applyOrders, comebackBonus, normalizeOrder, validateOrders } from './orders.js';
 import { applySuddenDeath, checkWinner, factionsAlive, livingByFaction } from './win.js';
 import { buildRecap } from './events.js';
 import { mulberry32 } from './rng.js';
 import { botDecide, botGuesses, botCard, botPowers } from '../bots/bot.js';
-import { applyCard, dealHand, describeCard, validateCard } from './cards.js';
+import { applyCard, dealHand, describeCard, normalizeCard, validateCard } from './cards.js';
 import { rollEvent } from './townEvents.js';
 
 // The phase manager. Pure data + functions, no rendering, so it runs headless in Node.
@@ -94,17 +94,18 @@ export function createGame({ seed = 1, seats, cosmetics = true, difficulty = 'no
 /** A human (or bot) hands in this turn's orders. Returns {ok} or {ok:false, error}. */
 /** A human whose faction is gone, while another human is still playing: they haunt the town. */
 export function isGhost(game, seat) {
-  if (!game.eliminated[seat] || game.seats[seat].kind !== 'human') return false;
+  if (!game.eliminated[seat] || game.seats[seat]?.kind !== 'human') return false;
   return game.seats.some((s, i) => s.kind === 'human' && !game.eliminated[i]);
 }
 
 /** Would these orders (and card) be accepted right now? Changes nothing. */
 export function validateSubmission(game, seat, orders, card = null) {
+  if (!Number.isInteger(seat) || seat < 0 || seat >= game.seats.length) return { ok: false, error: 'Invalid seat' };
   if (game.phase !== 'command') return { ok: false, error: 'Not the command phase' };
   const ghost = isGhost(game, seat);
   if (game.eliminated[seat] && !ghost) return { ok: false, error: 'You are eliminated' };
   if (game.pending[seat] !== null) return { ok: false, error: 'Already submitted' };
-  const check = validateOrders(orders, game.influence[seat], game.world, game.verbsLastTurn[seat], ghost);
+  const check = validateOrders(orders, game.influence[seat], game.world, game.verbsLastTurn[seat], ghost, seat);
   if (!check.ok) return check;
   if (card && ghost) return { ok: false, error: 'Ghosts cannot play cards' };
   return validateCard(game, seat, card);
@@ -113,11 +114,8 @@ export function validateSubmission(game, seat, orders, card = null) {
 export function submitOrders(game, seat, orders, card = null) {
   const check = validateSubmission(game, seat, orders, card);
   if (!check.ok) return check;
-  game.cardPending[seat] = card ? { id: card.id, group: card.group ?? -1, ...(card.place ? { place: card.place } : {}) } : null;
-  game.pending[seat] = orders.map((o) => ({
-    verb: o.verb, target: o.target ? { ...o.target } : null, strength: o.strength,
-    ...(o.subject ? { subject: JSON.parse(JSON.stringify(o.subject)) } : {}),
-  }));
+  game.cardPending[seat] = normalizeCard(card);
+  game.pending[seat] = orders.map((o) => normalizeOrder(o, game.world));
   return { ok: true };
 }
 

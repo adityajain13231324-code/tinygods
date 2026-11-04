@@ -1,5 +1,5 @@
 import { REPLAY } from '../config/tunables.js';
-import { FIELDS, decode, encode } from '../sim/recorder.js';
+import { FIELDS, decode } from '../sim/recorder.js';
 
 /**
  * Plays a highlight clip back in the real town. It works by writing the recorded frames
@@ -60,17 +60,16 @@ export class Replay {
   }
 
   snapshot() {
-    const n = this.game.world.villagers.length;
-    const data = new Float32Array(n * FIELDS);
-    this.game.world.villagers.forEach((v, k) => encode(v, data, k * FIELDS));
-    return data;
+    // Recorded frames are intentionally compact/lossy. The live state must not be:
+    // even a tiny rounding change can alter later decisions in deterministic play.
+    // Playback only replaces scalar fields, so preserve their exact original values
+    // and the identity of all untouched arrays/objects, including px/py.
+    return this.game.world.villagers.map((v) => ({ ...v }));
   }
 
   restore() {
     this.game.world.villagers.forEach((v, k) => {
-      decode(this.saved, k * FIELDS, v);
-      v.px = v.x;
-      v.py = v.y;
+      Object.assign(v, this.saved[k]);
     });
     this.saved = null;
   }

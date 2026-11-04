@@ -1,4 +1,4 @@
-import { ORDERS, WEAPONS, INFLUENCE, STATS, GHOST, TURN } from '../config/tunables.js';
+import { ORDERS, WEAPONS, INFLUENCE, STATS, GHOST, TURN, TRAITS } from '../config/tunables.js';
 import { VERBS, NUM_GROUPS, GROUP_NAMES, PLACES } from '../config/content.js';
 import { isFirearm, groupOf } from './villager.js';
 import { formLoveBonds } from './bonds.js';
@@ -10,30 +10,51 @@ import { shuffle } from './rng.js';
 // Free text is never executed. Everything goes through validateOrder first.
 
 export const orderCost = (order) => order.strength;
+const SUBJECT_TRAITS = new Set([...Object.keys(TRAITS.mods), 'armed', 'unarmed']);
+const record = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
+
+/** Copy only validated fields. Local, bot and online submissions use this same shape. */
+export function normalizeOrder(order, world) {
+  const target = order.target ? { kind: order.target.kind, id: order.target.id } : null;
+  if (target?.kind === 'villager') target.name = world.villagers[target.id].name;
+  const out = { verb: order.verb, target, strength: order.strength };
+  if (order.dest !== undefined) out.dest = order.dest;
+  if (order.subject) {
+    const s = order.subject;
+    out.subject = s.kind === 'count' ? { kind: s.kind, n: s.n }
+      : s.kind === 'trait' ? { kind: s.kind, trait: s.trait }
+      : s.kind === 'villagers' ? { kind: s.kind, ids: [...s.ids], names: s.ids.map((id) => world.villagers[id].name) }
+      : { kind: 'all' };
+  }
+  return out;
+}
 
 /** @returns {{ok: true} | {ok: false, error: string}} */
-export function validateOrder(order, world) {
-  const verb = VERBS[order?.verb];
-  if (!verb) return { ok: false, error: 'Unknown verb' };
+export function validateOrder(order, world, seat = null) {
+  if (!record(order) || typeof order.verb !== 'string' || !Object.hasOwn(VERBS, order.verb)) return { ok: false, error: 'Unknown verb' };
+  const verb = VERBS[order.verb];
   if (![1, 2, 3].includes(order.strength)) return { ok: false, error: 'Strength must be 1, 2 or 3' };
 
   if (world.peaceful && ['assault', 'hunt', 'ambush', 'shove', 'seize'].includes(order.verb)) return { ok: false, error: `${verb.label} is locked: the town is at peace until day ${TURN.peaceTurns + 1}` };
   if (verb.targets.length === 0) {
     if (order.target) return { ok: false, error: `${verb.label} takes no target` };
-    return { ok: true };
+  } else {
+    const t = order.target;
+    if (!record(t) || !verb.targets.includes(t.kind)) return { ok: false, error: `${verb.label} needs a ${verb.targets.join(' or ')} target` };
+    if (t.kind === 'group' && !(Number.isInteger(t.id) && t.id >= 0 && t.id < NUM_GROUPS)) return { ok: false, error: 'Bad group' };
+    if (t.kind === 'place' && !world.places.some((p) => p.id === t.id)) return { ok: false, error: 'Bad place' };
+    if (t.kind === 'villager' && (!Number.isInteger(t.id) || !world.villagers[t.id]?.alive)) return { ok: false, error: 'That villager is not around' };
+    if (Number.isInteger(seat) && (['hunt', 'seize'].includes(order.verb) && world.villagers[t.id]?.faction === seat
+      || ['assault', 'scare', 'shove'].includes(order.verb) && t.kind === 'group' && t.id === seat)) return { ok: false, error: `${verb.label} cannot target your own faction` };
   }
-  const t = order.target;
-  if (!t || !verb.targets.includes(t.kind)) return { ok: false, error: `${verb.label} needs a ${verb.targets.join(' or ')} target` };
-  if (t.kind === 'group' && !(Number.isInteger(t.id) && t.id >= 0 && t.id < NUM_GROUPS)) return { ok: false, error: 'Bad group' };
-  if (t.kind === 'place' && !world.places.some((p) => p.id === t.id)) return { ok: false, error: 'Bad place' };
-  if (t.kind === 'villager' && !world.villagers[t.id]?.alive) return { ok: false, error: 'That villager is not around' };
-  if (order.dest !== undefined && !world.places.some((p) => p.id === order.dest)) return { ok: false, error: 'Bad place to drag them to' };
+  if (order.dest !== undefined && (order.verb !== 'seize' || !world.places.some((p) => p.id === order.dest))) return { ok: false, error: 'Bad place to drag them to' };
   const s = order.subject;
-  if (s) {
-    const ok = s.kind === 'all'
+  if (s !== undefined && s !== null) {
+    const ok = record(s) && (s.kind === 'all'
       || (s.kind === 'count' && Number.isInteger(s.n) && s.n >= 1 && s.n <= 12)
-      || (s.kind === 'trait' && typeof s.trait === 'string')
-      || (s.kind === 'villagers' && Array.isArray(s.ids) && s.ids.length > 0 && s.ids.every((id) => Number.isInteger(id)));
+      || (s.kind === 'trait' && SUBJECT_TRAITS.has(s.trait))
+      || (s.kind === 'villagers' && Array.isArray(s.ids) && s.ids.length > 0 && s.ids.length <= world.villagers.length
+        && s.ids.every((id) => Number.isInteger(id) && !!world.villagers[id]) && new Set(s.ids).size === s.ids.length));
     if (!ok) return { ok: false, error: 'Bad subject' };
   }
   return { ok: true };
@@ -49,19 +70,20 @@ export function verbLocked(verb, lastVerbs, alreadyThisTurn = 0) {
 }
 
 /** Check a whole turn's worth of orders against the seat's influence and the verb rules. */
-export function validateOrders(orders, influence, world, lastVerbs = null, ghost = false) {
+export function validateOrders(orders, influence, world, lastVerbs = null, ghost = false, seat = null) {
   if (!Array.isArray(orders)) return { ok: false, error: 'Orders must be a list' };
+  if (!Number.isFinite(influence) || influence < 0) return { ok: false, error: 'Invalid influence' };
   if (ghost) {
     if (orders.length > 1) return { ok: false, error: 'A ghost can whisper one order a turn' };
     for (const o of orders) {
-      if (!GHOST.verbs.includes(o.verb) || o.strength !== 1) return { ok: false, error: 'Ghosts can only whisper mild love, fear, praise, accuse or festival' };
+      if (!record(o) || !GHOST.verbs.includes(o.verb) || o.strength !== 1) return { ok: false, error: 'Ghosts can only whisper mild love, fear, praise, accuse or festival' };
     }
   }
   if (orders.length > ORDERS.maxOrdersPerTurn) return { ok: false, error: `At most ${ORDERS.maxOrdersPerTurn} orders per turn` };
   let cost = 0;
   const seen = {}; // how many times each verb has been used in this list
   for (const o of orders) {
-    const r = validateOrder(o, world);
+    const r = validateOrder(o, world, seat);
     if (!r.ok) return r;
     const locked = verbLocked(o.verb, lastVerbs, seen[o.verb] ?? 0);
     if (locked) return { ok: false, error: locked };

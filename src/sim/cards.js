@@ -44,9 +44,9 @@ export function dealHand(game) {
 
 export function validateCard(game, seat, card) {
   if (card === null || card === undefined) return { ok: true };
+  if (typeof card !== 'object' || Array.isArray(card) || typeof card.id !== 'string' || !Object.hasOwn(CARD_DEFS, card.id)) return { ok: false, error: 'Unknown card' };
   const def = CARD_DEFS[card.id];
-  if (!def) return { ok: false, error: 'Unknown card' };
-  if (!game.hand[seat].includes(card.id)) return { ok: false, error: `You do not hold ${def.name} this turn` };
+  if (!game.hand[seat]?.includes(card.id)) return { ok: false, error: `You do not hold ${def.name} this turn` };
   if (game.world.peaceful && ['bomb', 'kidnap'].includes(card.id)) return { ok: false, error: `${def.name} is locked: the town is at peace until day ${TURN.peaceTurns + 1}` };
   if (def.needs === 'place' && !PLACES.some((p) => p.id === card.place)) return { ok: false, error: `${def.name} needs a place` };
   if (def.needs === 'group') {
@@ -55,6 +55,12 @@ export function validateCard(game, seat, card) {
     if (['spy', 'raid'].includes(card.id) && card.group > 3) return { ok: false, error: `${def.name} needs a faction with a leader` };
   }
   return { ok: true };
+}
+
+export function normalizeCard(card) {
+  if (!card) return null;
+  const def = CARD_DEFS[card.id];
+  return { id: card.id, group: def.needs === 'group' ? card.group : -1, ...(def.needs === 'place' ? { place: card.place } : {}) };
 }
 
 export function describeCard(card) {

@@ -45,8 +45,10 @@ export const EVENT_DEFS = {
     text: 'The biggest faction catches a bad cold: its villagers lose 12 hp. Underdogs, this is your moment.',
     apply(game) {
       const living = livingByFaction(game.world);
-      const leader = living.indexOf(Math.max(...living));
-      for (const v of game.world.villagers) if (v.alive && v.faction === leader) v.hp = Math.max(25, v.hp - 12);
+      const largest = Math.max(...living);
+      const tied = living.map((n, seat) => n === largest && n > 0 ? seat : -1).filter((seat) => seat >= 0);
+      const leader = tied.length > 1 ? tied[Math.floor(game.eventRng() * tied.length)] : tied[0];
+      for (const v of game.world.villagers) if (v.alive && v.faction === leader) v.hp = Math.min(v.hp, Math.max(25, v.hp - 12));
       game.event.faction = leader;
     },
   },
