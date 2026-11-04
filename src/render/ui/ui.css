@@ -614,3 +614,5 @@ html, body { touch-action: manipulation; }
 .lobby-card { background: linear-gradient(180deg, #1e2a20, #131c16); backdrop-filter: none; }
 .lobby-card h2, .lobby-card b { color: var(--ink); }
 .menu2-overlay { background: rgba(6, 12, 8, 0.72); backdrop-filter: blur(3px); }
+
+.ptile.used { opacity: 0.4; text-decoration: line-through; }

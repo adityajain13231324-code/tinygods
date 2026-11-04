@@ -94,7 +94,9 @@ export function createPowerBar(root, ctx, game, camera, stage) {
       const b = el('button', `ptile${selected === id ? ' on' : ''}`);
       b.style.setProperty('--cat', POWER_CATS[id]);
       b.title = def.blurb;
-      b.disabled = left < def.cost;
+      const used = game.usedPowers[ctx.seat].includes(id);
+      b.disabled = left < def.cost || used;
+      if (used) { b.classList.add('used'); b.title = `${def.name}: already used this turn`; }
       const cost = el('span', 'pt-cost');
       for (let i = 0; i < def.cost; i++) cost.append(el('i'));
       b.append(el('span', 'pt-icon', def.icon), el('span', 'pt-name', def.name), cost);
@@ -178,7 +180,7 @@ export function createPowerBar(root, ctx, game, camera, stage) {
         }
         if (messages.length) say(messages.join(' '));
       }
-      const key = `${game.turn}:${ctx.seat}:${game.power[ctx.seat]}:${selected}:${group}:${good}:${placeId}`;
+      const key = `${game.turn}:${ctx.seat}:${game.power[ctx.seat]}:${game.usedPowers[ctx.seat].join(',')}:${selected}:${group}:${good}:${placeId}`;
       if (key !== shownKey) {
         shownKey = key;
         build();

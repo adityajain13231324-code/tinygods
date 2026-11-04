@@ -47,6 +47,7 @@ export function castPower(game, seat, id, args = {}) {
   if (game.phase !== 'sim') return { ok: false, error: 'Powers work while the town acts' };
   if (game.world.peaceful) return { ok: false, error: `Miracles unlock on day ${TURN.peaceTurns + 1}. The town is still at peace.` };
   if (game.eliminated[seat]) return { ok: false, error: 'Your faction has fallen' };
+  if (game.usedPowers?.[seat]?.includes(id)) return { ok: false, error: `${def.name} has already been used this turn. Each miracle works once per turn.` };
   if ((game.power[seat] ?? 0) < def.cost) return { ok: false, error: `Not enough power (${def.name} costs ${def.cost})` };
 
   const { world } = game;
@@ -225,6 +226,7 @@ export function castPower(game, seat, id, args = {}) {
   }
 
   game.power[seat] -= def.cost;
+  game.usedPowers?.[seat]?.push(id);
   const at = v ? { x: v.x, y: v.y } : { x: args.x, y: args.y };
   world.events.push({ type: 'power', turn: world.turn, time: world.time, power: id, x: at.x, y: at.y, seat, villagerId: v?.id ?? -1, group: args.group ?? -1 });
   const entry = game.truth.findLast?.((t) => t.turn === game.turn && t.seat === seat);

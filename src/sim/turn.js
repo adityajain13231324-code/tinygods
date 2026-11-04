@@ -46,6 +46,7 @@ export function createGame({ seed = 1, seats, cosmetics = true, difficulty = 'no
     simSeconds, // how long the town acts each day
     recapSeconds, // how long the news stays up before the next day starts by itself
     power: new Array(POPULATION.factions).fill(0), // god power points left this turn
+    usedPowers: Array.from({ length: POPULATION.factions }, () => []), // which miracles each seat has already cast this turn (one use each)
     hand: Array.from({ length: POPULATION.factions }, () => []), // this turn's three cards per seat
     cardPending: new Array(POPULATION.factions).fill(null), // the card each seat chose to play
     cardRumors: Array.from({ length: POPULATION.factions }, () => []), // rumor ids planted by cards (for feedback)
@@ -208,6 +209,7 @@ function beginTurn(game) {
   for (let seat = 0; seat < POPULATION.factions; seat++) {
     game.hand[seat] = game.eliminated[seat] ? [] : dealHand(game);
     game.power[seat] = game.eliminated[seat] || world.peaceful ? 0 : POWERS.perTurn;
+    game.usedPowers[seat] = [];
     game.feedback[seat] = [];
     game.cardRumors[seat] = [];
   }

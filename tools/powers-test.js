@@ -92,8 +92,9 @@ const freeze = (g) => { for (const v of g.world.villagers) { v.timer = 99; v.vx 
   const before = v.opinion[2];
   const r = castPower(g, 0, 'whisper', { villagerId: v.id, group: 2, good: false });
   check(r.ok && v.opinion[2] <= before - POWERS.whisper.shift + 0.5, `whisper: opinion of the Sprouts ${before.toFixed(0)} -> ${v.opinion[2].toFixed(0)}`);
+  g.usedPowers[0] = []; // (one use per turn is tested separately)
   const own = castPower(g, 0, 'whisper', { villagerId: v.id, group: 1 });
-  check(!own.ok, `whisper: refuses to whisper about someone's own faction (${own.error})`);
+  check(!own.ok && /own group/.test(own.error), `whisper: refuses to whisper about someone's own faction (${own.error})`);
 }
 // charm
 {
@@ -208,10 +209,20 @@ for (const id of ['rain', 'fog']) {
   g.power[0] = 1;
   check(!castPower(g, 0, 'lightning', { x: 900, y: 500 }).ok, 'cost: a 2-point miracle is refused with 1 point left');
   g.power[0] = 3;
+  const mine = alive(g, 0)[0];
   castPower(g, 0, 'fog', { x: 900, y: 500 });
-  castPower(g, 0, 'fog', { x: 900, y: 500 });
-  castPower(g, 0, 'fog', { x: 900, y: 500 });
-  check(g.power[0] === 0 && !castPower(g, 0, 'fog', { x: 900, y: 500 }).ok, 'cost: 3 points buy exactly three 1-point miracles');
+  castPower(g, 0, 'rain', { x: 900, y: 500 });
+  castPower(g, 0, 'miracle', { villagerId: mine.id });
+  check(g.power[0] === 0 && !castPower(g, 0, 'aegis', { villagerId: mine.id }).ok, 'cost: 3 points buy exactly three 1-point miracles');
+  // one use of each miracle per turn: no healing spam
+  const h = town(46);
+  const me = alive(h, 0)[0];
+  me.hp = 20;
+  h.power[0] = 3;
+  const first = castPower(h, 0, 'miracle', { villagerId: me.id });
+  const second = castPower(h, 0, 'miracle', { villagerId: me.id });
+  check(first.ok && !second.ok && h.power[0] === 2, 'once per turn: a second heal is refused and costs nothing');
+  check(castPower(h, 0, 'aegis', { villagerId: me.id }).ok, 'once per turn: a different miracle still works');
   const g2 = dawn(45);
   check(!castPower(g2, 0, 'fog', { x: 900, y: 500 }).ok, 'miracles refuse to work at dawn');
 }
