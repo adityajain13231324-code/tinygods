@@ -303,7 +303,7 @@ export function applyOrders(world, seat, orders, lastVerbs = null) {
             v.fx.arm = Math.max(v.fx.arm, S);
             v.armDone = false;
             v.aggression = clamp(v.aggression + ORDERS.armAggression * S, 0, 100);
-            if (isFirearm(v.weapon) && v.ammo < WEAPONS[v.weapon].maxAmmo) v.ammo++; // reload
+            if (isFirearm(v.weapon) && v.weapon !== 'rocket' && v.ammo < WEAPONS[v.weapon].maxAmmo) v.ammo++; // launchers have only their original five rockets
           }
           break;
       }

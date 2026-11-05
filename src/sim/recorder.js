@@ -2,18 +2,19 @@ import { REPLAY, SIM } from '../config/tunables.js';
 
 // Records the visible state of every villager ten times a second during the sim phase, so
 // the recap can replay a highlight. Only the fields the renderer needs are stored, as plain
-// numbers in one Float32Array per frame (60 villagers x 20 numbers x 4 bytes = 4.8 KB).
+// numbers in one Float32Array per frame (60 villagers x 24 numbers x 4 bytes = 5.76 KB),
+// plus a small snapshot of persistent power visuals for that frame.
 // Playback temporarily writes these into villagers while the sim is stopped. Replay
 // keeps a separate exact snapshot to restore the live state without Float32 rounding.
 
 const STATES = ['idle', 'wander', 'seek', 'talk', 'guard', 'attack', 'flee', 'mourn', 'dead'];
 const EXPRESSIONS = ['calm', 'happy', 'love', 'angry', 'scared', 'suspicious', 'sad', 'dead'];
-const WEAPON_NAMES = ['none', 'pan', 'bat', 'knife', 'gun', 'shotgun'];
+const WEAPON_NAMES = ['none', 'pan', 'bat', 'knife', 'gun', 'shotgun', 'rocket', 'whirlpool', 'bomb', 'fireball', 'shove'];
 const THOUGHTS = [null, 'heart', 'angry', 'sweat', 'question', 'skull', 'shield', 'flag'];
 
 const ACTIVITIES = [null, 'dance', 'rest', 'shop', 'pray', 'train', 'fish', 'garden', 'eat'];
 
-export const FIELDS = 20;
+export const FIELDS = 24;
 export const FRAME_SECONDS = REPLAY.everyTicks / SIM.tickHz;
 
 export function encode(v, a, o) {
@@ -37,6 +38,10 @@ export function encode(v, a, o) {
   a[o + 17] = WEAPON_NAMES.indexOf(v.lastHitWeapon);
   a[o + 18] = ACTIVITIES.indexOf(v.activity);
   a[o + 19] = v.partnerId;
+  a[o + 20] = v.frozenUntil;
+  a[o + 21] = v.frozenSince;
+  a[o + 22] = v.damageBonus;
+  a[o + 23] = v.lastCritical ? 1 : 0;
 }
 
 export function decode(a, o, v) {
@@ -60,6 +65,10 @@ export function decode(a, o, v) {
   v.lastHitWeapon = WEAPON_NAMES[a[o + 17]];
   v.activity = ACTIVITIES[a[o + 18]];
   v.partnerId = a[o + 19];
+  v.frozenUntil = a[o + 20];
+  v.frozenSince = a[o + 21];
+  v.damageBonus = a[o + 22];
+  v.lastCritical = a[o + 23] === 1;
 }
 
 export class Recorder {
@@ -70,6 +79,7 @@ export class Recorder {
 
   reset() {
     this.frames = [];
+    this.visuals = [];
     this.start = 0; // sim time of the first frame
   }
 
@@ -78,6 +88,7 @@ export class Recorder {
     const a = new Float32Array(this.count * FIELDS);
     world.villagers.forEach((v, i) => encode(v, a, i * FIELDS));
     this.frames.push(a);
+    this.visuals.push({ blackoutUntil: world.blackoutUntil, ...Object.fromEntries(['whirlpools', 'weaponDrops', 'rockets', 'bombs', 'fogs'].map(key => [key, world[key].map(x => ({ ...x }))])) });
   }
 
   get lastTime() {

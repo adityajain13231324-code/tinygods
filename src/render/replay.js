@@ -52,6 +52,7 @@ export class Replay {
     const a = rec.frames[i];
     const b = rec.frames[Math.min(i + 1, rec.frames.length - 1)];
     this.alpha = pos - i;
+    this.visuals = rec.visuals?.[i] ?? null;
     this.game.world.villagers.forEach((v, k) => {
       decode(b, k * FIELDS, v);
       v.px = a[k * FIELDS];

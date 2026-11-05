@@ -20,7 +20,7 @@ export function planWorkOrders(world, seat, orders) {
     const s = o.subject;
     let candidates = mine.filter(v => !s || s.kind === 'all' || s.kind === 'count' || s.kind === 'villagers' && s.ids.includes(v.id)
       || s.kind === 'trait' && (s.trait === 'armed' ? v.weapon !== 'none' : s.trait === 'unarmed' ? v.weapon === 'none' : v.trait === s.trait && (v.revealed || v.trait === 'gunslinger')));
-    if (o.verb === 'arm') candidates = candidates.filter(v => v.weapon === 'none' || isFirearm(v.weapon) && v.ammo < WEAPONS[v.weapon].maxAmmo);
+    if (o.verb === 'arm') candidates = candidates.filter(v => v.weapon === 'none' || isFirearm(v.weapon) && v.weapon !== 'rocket' && v.ammo < WEAPONS[v.weapon].maxAmmo);
     if (o.verb === 'escort') candidates = candidates.filter(v => v.id !== o.target.id);
     if (o.verb === 'seize') candidates = candidates.filter(v => !v.fx.seize);
     const rank = (a, b) => (o.verb === 'arm' ? Number(a.weapon !== 'none') - Number(b.weapon !== 'none') : 0)

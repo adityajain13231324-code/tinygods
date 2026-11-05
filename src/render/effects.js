@@ -179,6 +179,23 @@ export class Effects {
   power(e) {
     const { x, y } = e;
     switch (e.power) {
+      case 'freeze':
+      case 'whirlpool':
+        for (let i = 0; i < 12; i++) this.emit('star', x, y, { vx: Math.cos(i * Math.PI / 6) * 110, vy: Math.sin(i * Math.PI / 6) * 100, life: 0.6, tint: 0xa5eaff });
+        this.audio?.play('splash', x);
+        break;
+      case 'strength':
+        this.puff(x, y - 16, 7, 0xffcd74);
+        this.audio?.play('bond', x);
+        break;
+      case 'blackout':
+        this.audio?.play('warp', x);
+        break;
+      case 'launcher':
+      case 'timebomb':
+        this.puff(x, y, 7, 0xc5caa4);
+        this.audio?.play('clang', x);
+        break;
       case 'lightning': {
         const pts = [[x + (Math.random() - 0.5) * 30, y - 520]];
         for (let i = 1; i < 7; i++) pts.push([x + (Math.random() - 0.5) * 60 * (1 - i / 7), y - 520 + (520 * i) / 7]);
@@ -429,8 +446,8 @@ export class Effects {
 
     if (v.hitFlash > f.hit + 0.5) {
       for (let i = 0; i < 3; i++) this.emit('star', view.root.x + (Math.random() - 0.5) * 16, view.bodyY() - 6, { vy: -30 - Math.random() * 20, life: 0.5, s0: 0.7, s1: 1.2, spin: 6 });
-      this.number(view.root.x, hy - 6, `-${Math.round(v.lastDamage)}`, v.lastDamage >= 25 ? 0xff7a5a : 0xffffff);
-      if (VillagerView.bloodEnabled && v.lastHitWeapon !== 'shove') this.spray(view.root.x, view.bodyY(), v.hitFromX, v.hitFromY, v.lastDamage >= 25 ? 6 : 3);
+      this.number(view.root.x, hy - 6, v.lastHitWeapon === 'whirlpool' ? 'VORTEX' : `${v.lastCritical ? 'CRIT ' : '-'}${Math.round(v.lastDamage)}`, v.lastCritical ? 0xffdf7c : v.lastDamage >= 25 ? 0xff7a5a : 0xffffff);
+      if (VillagerView.bloodEnabled && !['shove', 'whirlpool'].includes(v.lastHitWeapon)) this.spray(view.root.x, view.bodyY(), v.hitFromX, v.hitFromY, v.lastDamage >= 25 ? 6 : 3);
       this.audio?.play(HIT_SOUND[v.lastHitWeapon] ?? 'slap', view.root.x);
     }
     f.hit = v.hitFlash;

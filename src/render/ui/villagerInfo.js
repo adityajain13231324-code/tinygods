@@ -18,9 +18,12 @@ export function villagerInfo(game, v) {
     talk: `${v.expression === 'love' ? 'Hugging' : v.expression === 'angry' ? 'Arguing with' : 'Chatting with'} ${name(other)}`,
     wander: v.purpose === 'arm' ? 'Going to the Armory' : v.purpose === 'follow' ? 'Heading to their post' : 'Strolling about',
   };
-  const weapon = v.weapon === 'none' ? 'bare fists' : v.weapon === 'gun' ? `pistol (${v.ammo} bullets)` : v.weapon === 'shotgun' ? `shotgun (${v.ammo} shells)` : v.weapon;
+  const weapon = v.weapon === 'none' ? 'bare fists' : v.weapon === 'gun' ? `pistol (${v.ammo} bullets)` : v.weapon === 'shotgun' ? `shotgun (${v.ammo} shells)` : v.weapon === 'rocket' ? `rocket launcher (${v.ammo} rockets)` : v.weapon;
   const lines = [`HP ${Math.ceil(v.hp)}/100 · ${weapon}`, v.alive ? action[v.state] ?? ACTIVITY_TEXT[v.activity] ?? 'Relaxing' : 'Dead',
     v.trait && (v.revealed || v.trait === 'gunslinger') ? TRAITS[v.trait] ?? 'Temperament: ordinary' : v.revealed ? 'Temperament: ordinary' : 'Temperament: not seen yet'];
+  if (v.alive && v.frozenUntil > game.world.time) lines.push(`Frozen (${Math.ceil(v.frozenUntil - game.world.time)}s)`);
+  if (v.alive && v.damageBonus > 0) lines.push(`Strength +${Math.round(v.damageBonus * 100)}% until dusk`);
+  if (v.alive && game.world.blackoutUntil > game.world.time) lines.push('Confused by Blackout: attacks paused');
   if (v.mood < -0.5) lines.push('Having a bad day');
   if (v.mood > 0.5) lines.push('In a good mood');
   if (v.partnerId >= 0) lines.push(`Bonded with ${name(game.world.villagers[v.partnerId])}`);

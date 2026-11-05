@@ -55,6 +55,8 @@ export class Director {
       const e = world.events[this.index++];
       if (e.type === 'kill') this.onKill(game, e);
       else if (e.type === 'gunshot') this.onGunshot(game, e);
+      else if (e.type === 'rocketLaunch') { this.audio?.play('warp', e.x); this.effects.puff(e.x, e.y, 7, 0xe5dbbb); }
+      else if (e.type === 'weaponPickup') { this.audio?.play('clang', e.x); this.effects.number(e.x, e.y - 45, '5 ROCKETS', 0xffdf7c); }
       else if (e.type === 'bond') this.audio?.play('bond', world.villagers[e.aId].x);
       else if (e.type === 'shout') this.audio?.play('shout', e.x);
       else if (e.type === 'scream') this.audio?.play('scream', e.x);
@@ -104,7 +106,7 @@ export class Director {
     // Keep the board out of the way: if the kill is in the top of town, the board goes to the bottom.
     const at = e.y < WORLD.height * 0.42 ? 'bottom' : 'top';
     const what = `${describeDeath(world, e)}.`;
-    const detail = e.source ? 'An explosion struck here. Its owner remains secret until the final reveal.' : howItGotHere(killer, e.chain);
+    const detail = e.source?.kind === 'weapon' ? `${killer?.name ?? 'A villager'} fired a rocket.` : e.source ? 'A god power struck here. Its owner remains secret until the final reveal.' : howItGotHere(killer, e.chain);
 
     const cut = (zoom, hold) => {
       this.camera.cut(e.x, e.y - 14, { zoom, hold });

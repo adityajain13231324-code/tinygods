@@ -33,6 +33,8 @@ function checkWorld(g, where) {
   for (const v of world.villagers) {
     const bad = (what) => report(`${what} (${where})`, `villager ${v.name} state=${v.state} x=${v.x} y=${v.y} hp=${v.hp} turn=${g.turn} t=${g.simElapsed?.toFixed(1)}`);
     if (!v.alive) continue;
+    if (![v.frozenUntil,v.frozenSince,v.damageBonus].every(Number.isFinite) || v.damageBonus < 0 || v.damageBonus > 0.5) bad('invalid power status');
+    if (v.weapon === 'rocket' && (!Number.isInteger(v.ammo) || v.ammo < 1 || v.ammo > 5)) bad('invalid rocket ammo');
     if (!Number.isFinite(v.x) || !Number.isFinite(v.y) || !Number.isFinite(v.vx) || !Number.isFinite(v.vy)) bad('non-finite position or velocity');
     if (!Number.isFinite(v.hp) || v.hp <= 0 || v.hp > 100.0001) bad('hp out of range');
     if (v.x < -80 || v.x > WORLD.width + 80 || v.y < -80 || v.y > WORLD.height + 80) bad('villager far outside the map');
@@ -85,7 +87,7 @@ function playMatch(seed) {
           const id = pick(POWER_IDS);
           const alive = g.world.villagers.filter((v) => v.alive);
           const target = pick(alive);
-          const args = { x: rnd() * WORLD.width, y: rnd() * WORLD.height, villagerId: target?.id, group: Math.floor(rnd() * 6) - 1, placeId: pick(['plaza', 'pond', 'nowhere', 'armory', 'market']), good: rnd() < 0.5 };
+          const args = { tx: rnd() * WORLD.width, ty: rnd() * WORLD.height, x: rnd() * WORLD.width, y: rnd() * WORLD.height, villagerId: target?.id, group: Math.floor(rnd() * 6) - 1, placeId: pick(['plaza', 'pond', 'nowhere', 'armory', 'market']), good: rnd() < 0.5 };
           if (rnd() < 0.05) { args.villagerId = 999; args.x = NaN; }
           g.power[seat] = Math.max(g.power[seat], 3);
           const cr = castPower(g, seat, id, args);

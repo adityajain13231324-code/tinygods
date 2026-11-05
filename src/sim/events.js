@@ -11,7 +11,10 @@ export function describeDeath(world, e) {
   const victim = world.villagers[e.victimId];
   const where = `at the ${placeName(e.place)}`;
   const who = `${victim.name} (${factionName(e.victimFaction)})`;
-  if (e.source || e.weapon === 'bomb' || e.weapon === 'fireball') return `${e.source?.id === 'fireball' || e.weapon === 'fireball' ? 'A fireball' : 'A Time Bomb'} killed ${who} ${where}`;
+  if (e.source || ['bomb', 'fireball', 'rocket', 'whirlpool'].includes(e.weapon)) {
+    const cause = { fireball: 'A fireball', rocket: 'A rocket', whirlpool: 'A whirlpool' }[e.source?.id ?? e.weapon] ?? 'A Time Bomb';
+    return `${cause} killed ${who} ${where}`;
+  }
   const killer = world.villagers[e.killerId];
   return `${killer?.name ?? 'Someone'} (${factionName(e.killerFaction)}) took down ${who} ${where}`;
 }

@@ -16,7 +16,7 @@ import { range } from './rng.js';
  * @property {number[]} fear     0..100 per group
  * @property {number[]} grudge   seconds left of "fight this group" after being hit
  * @property {number[]} trust    0..1 per player seat: how much a NEUTRAL believes that player's orders
- * @property {'none'|'pan'|'bat'|'knife'|'gun'|'shotgun'} weapon
+ * @property {'none'|'pan'|'bat'|'knife'|'gun'|'shotgun'|'rocket'} weapon
  * @property {number} ammo
  * @property {Object} fx  temporary effects of this turn's orders (cleared every turn)
  * @property {number} x @property {number} y @property {number} px @property {number} py  (px/py: previous tick, for rendering)
@@ -96,6 +96,10 @@ export function createVillager(rng, { id, name, shape, faction, x, y, count = 60
 
     x, y, px: x, py: y, vx: 0, vy: 0,
     blessUntil: 0, // sim time until which an Aegis halves incoming damage
+    frozenUntil: 0,
+    frozenSince: 0,
+    damageBonus: 0,
+    lastCritical: false,
     kx: 0, ky: 0, // knockback velocity from gusts, lightning and bombs (see shove.js)
     facing: rng() < 0.5 ? -1 : 1,
     speed: range(rng, VILLAGER.walkSpeed),

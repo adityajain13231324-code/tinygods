@@ -34,6 +34,7 @@ export const POWER_CATS = {
   whisper: '#a77bff', charm: '#ff8fb0', enrage: '#ff8fb0',
   gust: '#ffd36b', tornado: '#ffd36b', earthquake: '#ffd36b',
   lightning: '#ff6b4a', fireball: '#ff6b4a', disarm: '#ff6b4a', weapon: '#ff6b4a',
+  timebomb: '#ff9c6b', blackout: '#a99af0', whirlpool: '#55bee5', launcher: '#a7c279', freeze: '#8adfff', strength: '#ffc978',
 };
 
 // The order menu: icon and one-line meaning for every verb.

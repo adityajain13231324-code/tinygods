@@ -10,7 +10,7 @@ import { describeDeath } from './events.js';
 // "Cause" = a seat number 0..3, or -1 when the town snapped with no order behind it.
 
 const placeName = (id) => PLACES.find((p) => p.id === id)?.name ?? id;
-const seatName = (seat) => FACTIONS[seat].name;
+const seatName = (seat) => FACTIONS[seat]?.name ?? 'The neutrals';
 const label = (v) => (v.faction >= 0 ? FACTIONS[v.faction].name : 'neutral');
 
 /**
@@ -18,7 +18,10 @@ const label = (v) => (v.faction >= 0 ? FACTIONS[v.faction].name : 'neutral');
  * @returns {{seat: number, reason: string, weight: number}}
  */
 export function attributeKill(game, turn, e) {
-  if (e.source && Number.isInteger(e.source.seat)) return { seat: e.source.seat, reason: `Recorded cause: ${seatName(e.source.seat)} ${e.source.id === 'fireball' ? 'cast Fireball' : 'planted the Time Bomb'}`, weight: 10, kind: 'recorded' };
+  if (e.source && Number.isInteger(e.source.seat)) {
+    const action = { fireball: 'cast Fireball', whirlpool: 'cast Whirlpool', rocket: 'fired the rocket', timebomb: 'planted the Time Bomb', bomb: 'planted the Time Bomb' }[e.source.id] ?? 'used a power';
+    return { seat: e.source.seat, reason: `Recorded cause: ${seatName(e.source.seat)} ${action}`, weight: 10, kind: 'recorded' };
+  }
   const killer = game.world.villagers[e.killerId];
   const victimGroup = e.victimFaction >= 0 ? e.victimFaction : 4;
   const killerGroup = e.killerFaction >= 0 ? e.killerFaction : 4;

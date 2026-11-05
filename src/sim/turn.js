@@ -309,9 +309,14 @@ function endSim(game) {
 
   world.festivals = [];
   world.bombs = [];
+  world.blackoutUntil = 0;
+  world.whirlpools = [];
+  world.weaponDrops = [];
+  world.rockets = [];
 
   // Stand everyone down so the town is calm while players plan the next turn.
   for (const v of world.villagers) {
+    v.frozenUntil = v.frozenSince = v.damageBonus = 0;
     if (!v.alive) continue;
     v.fx = emptyFx();
     v.carry = null;

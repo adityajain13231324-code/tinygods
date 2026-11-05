@@ -54,6 +54,12 @@ const ACTIONS = {
   medic: ['medic', 'hospital', 'nurse', 'ambulance', 'infirmary', 'bandage', 'bandages', 'clinic'],
   truce: ['truce', 'ceasefire', 'bell', 'soothe', 'pacify', 'lull', 'calm'],
   // god powers
+  timebomb: ['timebomb'],
+  blackout: ['blackout', 'nightfall'],
+  whirlpool: ['whirlpool', 'maelstrom'],
+  launcher: ['rocket', 'rockets', 'launcher'],
+  freeze: ['freeze', 'ice'],
+  strength: ['strength', 'strengthen'],
   lightning: ['lightning', 'thunder', 'zap', 'smite', 'bolt', 'storm', 'shock', 'thunderbolt', 'electrocute', 'blast'],
   earthquake: ['earthquake', 'quake', 'tremor', 'shake', 'rumble', 'tremble'],
   tornado: ['tornado', 'twister', 'cyclone', 'whirlwind', 'vortex', 'hurricane'],
@@ -63,7 +69,7 @@ const ACTIONS = {
   enrage: ['enrage', 'provoke', 'incite', 'taunt', 'anger', 'madden', 'infuriate', 'goad', 'berserk'],
   aegis: ['aegis', 'ward', 'bubble', 'barrier', 'forcefield', 'invulnerable', 'immunity', 'shield'],
   disarm: ['disarm', 'unarm', 'confiscate', 'strip'],
-  sleep: ['sleep', 'nap', 'stun', 'freeze', 'paralyze', 'petrify', 'knockout', 'snooze', 'doze'],
+  sleep: ['sleep', 'nap', 'stun', 'paralyze', 'petrify', 'knockout', 'snooze', 'doze'],
   miracle: ['heal', 'miracle', 'cure', 'mend', 'restore', 'revive', 'treat', 'rescue', 'help'],
   whisper: ['whisper', 'convince', 'tell', 'hint', 'suggest', 'murmur', 'nudge', 'sway', 'influence', 'talk', 'persuade'],
   fog: ['fog', 'mist', 'cloud', 'smoke', 'blur', 'haze', 'veil', 'darkness', 'blind'],
@@ -71,7 +77,7 @@ const ACTIONS = {
 };
 
 // When a sentence holds words for several actions, the earlier in this list wins.
-const PRIORITY = ['standdown', 'scatter', 'ambush', 'seize', 'shove', 'bomb', 'kidnap', 'warchest', 'forged', 'bribe', 'prophecy', 'raid', 'spoiled', 'matchmaker', 'treaty', 'alarm', 'recruit', 'medic', 'census',
+const PRIORITY = ['blackout', 'whirlpool', 'launcher', 'freeze', 'strength', 'timebomb', 'standdown', 'scatter', 'ambush', 'seize', 'shove', 'bomb', 'kidnap', 'warchest', 'forged', 'bribe', 'prophecy', 'raid', 'spoiled', 'matchmaker', 'treaty', 'alarm', 'recruit', 'medic', 'census',
   'truce', 'spy', 'alibi', 'earthquake', 'tornado', 'fireball', 'disarm', 'rain', 'charm', 'enrage', 'aegis', 'sleep', 'lightning', 'miracle', 'whisper', 'fog', 'gust', 'rally', 'hunt', 'escort', 'avoid', 'festival', 'arm', 'protect',
   'go', 'scare', 'assault', 'hate', 'love', 'fear', 'accuse', 'praise'];
 
@@ -201,6 +207,9 @@ function findAction(tokens, phase) {
     found.delete('gust');
     found.add('go');
   }
+  // An order's strength dial must not turn it into the Strength miracle.
+  if (tokens.some(t => ACTIONS.arm.includes(t) || ACTIONS.assault.includes(t))) found.delete('strength');
+  if (phase === 'sim' && found.has('bomb')) return 'timebomb';
   for (const id of PRIORITY) if (found.has(id)) return id;
   return null;
 }
@@ -543,7 +552,11 @@ export function resolvePower(game, seat, spec) {
     case 'rain':
     case 'tornado':
     case 'fireball':
-    case 'disarm': {
+    case 'disarm':
+    case 'timebomb':
+    case 'whirlpool':
+    case 'launcher':
+    case 'freeze': {
       if (Number.isFinite(spec.x)) return { ok: true, id: spec.id, args: { x: spec.x, y: spec.y } };
       const v = spec.villagerId !== undefined ? world.villagers[spec.villagerId] : null;
       if (v) return { ok: true, id: spec.id, args: { x: v.x, y: v.y } };
@@ -560,7 +573,13 @@ export function resolvePower(game, seat, spec) {
       return { ok: true, id: spec.id, args: { x: spot.x, y: spot.y } };
     }
     case 'earthquake':
-      return { ok: true, id: 'earthquake', args: {} };
+    case 'blackout':
+      return { ok: true, id: spec.id, args: {} };
+    case 'strength': {
+      const v = spec.villagerId !== undefined ? world.villagers[spec.villagerId] : alive.filter(q => q.faction === seat && !q.damageBonus).sort((a,b) => (b.state === 'attack') - (a.state === 'attack') || b.aggression - a.aggression)[0];
+      if (!v?.alive || v.faction !== seat) return { ok: false, error: 'Choose a living villager from your faction.' };
+      return { ok: true, id: spec.id, args: { villagerId: v.id } };
+    }
     case 'aegis':
     case 'charm':
     case 'enrage':
@@ -584,10 +603,11 @@ export function resolvePower(game, seat, spec) {
     case 'miracle': {
       let v = spec.villagerId !== undefined ? world.villagers[spec.villagerId] : null;
       if (!v) {
-        const pool = alive.filter((q) => (spec.group !== null && spec.group !== undefined ? groupOfV(q) === spec.group : q.faction === seat));
+        const pool = alive.filter(q => q.faction === seat && q.hp < 100);
+        if (spec.group !== undefined && spec.group !== null && spec.group !== seat) return { ok: false, error: 'Miracle only heals your own faction.' };
         v = pool.sort((a, b) => a.hp - b.hp)[0];
       }
-      if (!v) return { ok: false, error: 'Nobody to heal.' };
+      if (!v?.alive || v.faction !== seat) return { ok: false, error: 'Choose an injured member of your own faction.' };
       return { ok: true, id: 'miracle', args: { villagerId: v.id } };
     }
     case 'whisper': {

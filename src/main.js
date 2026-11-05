@@ -14,6 +14,7 @@ import { createHud } from './render/ui/hud.js';
 import { createHover } from './render/ui/hover.js';
 import { createCommandPanel } from './render/ui/commandPanel.js';
 import { createPowerBar } from './render/ui/powerBar.js';
+import { PowerWorldView } from './render/powerWorldView.js';
 import { createRecap } from './render/ui/recap.js';
 import './render/ui/ui.css';
 import { Replay } from './render/replay.js';
@@ -91,6 +92,8 @@ crowd.sortableChildren = true;
 const linesLayer = stage.addChild(new Container());
 const spotLayer = stage.addChild(new Container());
 stage.addChild(effects.layer);
+const powerWorld = new PowerWorldView(app);
+stage.addChild(powerWorld.root);
 
 // ---- UI ----
 const ctx = {
@@ -171,6 +174,11 @@ const board = createBoard(uiRoot);
 const command = createCommandPanel(uiRoot, ctx);
 const powerBar = createPowerBar(uiRoot, ctx, game, camera, stage);
 camera.onTap = (x, y) => powerBar.mapTap(x, y);
+camera.onAimStart = (x, y) => powerBar.aimStart(x, y);
+camera.onAimEnd = (x, y) => powerBar.aimEnd(x, y);
+camera.onAimMove = (x, y) => powerBar.aimMove(x, y);
+camera.onAimCancel = () => powerBar.aimCancel();
+camera.onAimOut = () => powerBar.aimOut();
 const recap = createRecap(uiRoot, ctx);
 let net = null;
 if (online) {
@@ -341,6 +349,9 @@ function frame(frameSeconds) {
   uiRoot.classList.toggle('cut', spotOn);
 
   const alpha = replay.active ? replay.alpha : game.phase === 'sim' ? Math.min(1, game.acc / TICK) : 1;
+  VillagerView.effectTime = replay.active ? replay.time : game.world.time;
+  powerWorld.update(replay.active ? replay.visuals : game.world, VillagerView.effectTime, dt);
+  effects.world = replay.active ? { ...replay.visuals, time: replay.time } : game.world;
   for (const view of views) {
     view.dim = spotOn && !spotlight.has(view.v.id);
     view.update(alpha, animTime);
@@ -366,7 +377,7 @@ function frame(frameSeconds) {
     board.show({ kicker: 'TOWN EVENT', title: `${game.event.icon} ${game.event.title.toUpperCase()}`, text: game.event.text });
   }
 
-  hover.update();
+  hover.update(!!powerBar.selected);
   orderPreview.update();
   hud.update(game);
   command.update(game);
@@ -407,4 +418,4 @@ app.ticker.add(() => {
 });
 
 // Handy for poking around in the browser console.
-window.tinyGods = { net, game, app, views, ctx, frame, camera, effects, director, audio, replay, cutscenes, town, speech, spotlight };
+window.tinyGods = { net, game, app, views, ctx, frame, camera, effects, director, audio, replay, cutscenes, town, speech, spotlight, powerBar, powerWorld };

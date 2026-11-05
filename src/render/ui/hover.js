@@ -68,7 +68,8 @@ export function createHover(uiRoot, linesLayer, stage, game) {
     onHover(view) { hovered = view; cardKey = ''; },
     onOut(view) { if (hovered === view) hovered = null; },
 
-    update() {
+    update(suppressed = false) {
+      if (suppressed) { card.hidden = true; lines.clear(); return; }
       if (!hovered || !hovered.v.alive) {
         hovered = null;
         card.hidden = true;

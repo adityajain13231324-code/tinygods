@@ -657,6 +657,15 @@ html, body { touch-action: manipulation; }
 
 .ptile.used { opacity: 0.4; text-decoration: line-through; }
 
+/* The spell book grows inside its own scroll area, keeping the dock compact. */
+.power-cursor { position: fixed; z-index: 15; pointer-events: none; font-size: 23px; filter: drop-shadow(0 2px 2px #000a); }
+#powerbar .powergrid { overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: #a4bb9a70 transparent; flex: 1 1 auto; min-height: 100px; max-height: 280px; padding: 3px; grid-template-columns: repeat(2, minmax(0, 1fr)); align-content: start; }
+#powerbar .ptile { min-height: 44px; padding: 6px; gap: 5px; }
+#powerbar .pt-icon { font-size: 20px; flex: none; }
+#powerbar .pt-name { white-space: normal; text-overflow: clip; overflow: visible; font-size: 12px; line-height: 1.15; overflow-wrap: anywhere; }
+#powerbar .pt-cost { flex: none; }
+@media (min-width: 920px) { #powerbar { max-height: min(620px, calc(100dvh - var(--topH, 58px) - 14px)); } }
+
 /* Compact sheets protect the town on phones and tablets. */
 .sheet-body { display: flex; flex-direction: column; gap: 8px; min-height: 0; flex: 1 1 auto; overflow-y: auto; overflow-x: hidden; }
 #command, #powerbar { overflow: hidden; }

@@ -69,6 +69,10 @@ export function createWorld(seed = 1, { cosmetics = true } = {}) {
     peaceful: true, // set each turn by the phase manager: no fights while true
     tornadoes: [], // villagers caught in a tornado, about to be flung out: {id, x, y, at}
     bombs: [], // time bombs planted by cards: {x, y, r, at, seat}
+    blackoutUntil: 0,
+    whirlpools: [],
+    weaponDrops: [],
+    rockets: [],
     fogs: [], // patches of fog cast by gods: {x, y, r, until}
     festivals: [], // this turn's parties: {place, strength, seat}
     bounds: { x0: WORLD.margin, y0: WORLD.margin, x1: WORLD.width - WORLD.margin, y1: WORLD.height - WORLD.margin }, // the safe area (shrinks late in the match)

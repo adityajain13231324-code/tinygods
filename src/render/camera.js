@@ -138,6 +138,9 @@ export class Camera {
     const pts = new Map();
     let moved = 0;
     let pinch = 0;
+    let aiming = null;
+    let multi = false;
+    const xy = e => { const r = canvas.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
     canvas.style.touchAction = 'none';
     canvas.addEventListener('wheel', (e) => {
       e.preventDefault();
@@ -145,22 +148,38 @@ export class Camera {
     }, { passive: false });
     canvas.addEventListener('pointerdown', (e) => {
       pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (pts.size === 1) {
+        multi = false;
+        if (this.onAimStart?.(...xy(e))) aiming = e.pointerId;
+        canvas.setPointerCapture(e.pointerId);
+      } else {
+        multi = true;
+        aiming = null;
+        this.onAimCancel?.();
+      }
       moved = 0;
       pinch = 0;
     });
     const end = (e) => { pts.delete(e.pointerId); pinch = 0; };
     canvas.addEventListener('pointerup', (e) => {
-      if (moved < 5 && pts.size === 1) this.onTap?.(e.offsetX, e.offsetY); // a click, not a drag
+      if (aiming === e.pointerId) { aiming = null; this.onAimEnd?.(...xy(e)); }
+      else if (!multi && moved < 5 && pts.size === 1) this.onTap?.(...xy(e));
       end(e);
     });
-    canvas.addEventListener('pointercancel', end);
+    canvas.addEventListener('pointercancel', e => { aiming = null; this.onAimCancel?.(); end(e); });
+    canvas.addEventListener('lostpointercapture', e => {
+      if (pts.has(e.pointerId)) { aiming = null; this.onAimCancel?.(); end(e); }
+    });
+    canvas.addEventListener('pointerleave', () => this.onAimOut?.());
     canvas.addEventListener('pointermove', (e) => {
+      this.onAimMove?.(...xy(e));
       const p = pts.get(e.pointerId);
       if (!p) return;
       const dx = e.clientX - p.x;
       const dy = e.clientY - p.y;
       p.x = e.clientX;
       p.y = e.clientY;
+      if (aiming === e.pointerId) return;
       if (pts.size === 2) {
         const [a, b] = [...pts.values()];
         const d = Math.hypot(a.x - b.x, a.y - b.y);

@@ -118,9 +118,10 @@ export const WEAPONS = {
   // Shotgun: short range, almost never misses, hurts whoever is standing next to the target
   // too, only two shells, and very loud. Carried only by the rare "gunslinger".
   shotgun: { damage: 42, range: 110, maxAmmo: 2, panicRadius: 230, minHit: 0.8, splashRadius: 45, splashFraction: 0.5 },
+  rocket: { damage: 0, range: 270, maxAmmo: 5, panicRadius: 210, interval: 1.8 },
 };
 
-export const FIREARMS = ['gun', 'shotgun'];
+export const FIREARMS = ['gun', 'shotgun', 'rocket'];
 
 // Of 60 villagers (the rest have fists). Gunslingers get the shotguns separately (see TRAITS).
 export const WEAPON_START = { pan: 0, bat: 0, knife: 0, gun: 0 }; // nobody starts armed: weapons come only from the armory (Arm up)
@@ -256,6 +257,8 @@ export const NOTORIETY = {
 
 // ---- Fighting ------------------------------------------------------------
 export const COMBAT = {
+  headshotChance: 0.2,
+  headshotMultiplier: 2,
   fistShoveSpeed: 220, // a brawler's shove: a short stumble (about 70 px), not a separation
   fistShove: 0.10, // in a fist fight, this share of moves is a shove (no damage, big push)
   fistShout: 0.03, // ...and this share is a shout that rattles whoever is listening
@@ -446,7 +449,8 @@ export const ART = {
 export const CARDS = { handSize: 4 };
 export const POWERS = {
   perTurn: 3, // points refill every turn; unspent points are lost. Locked while the town is at peace.
-  lightning: { cost: 2, radius: 125, damage: 4, calmSeconds: 10 },
+  targetRadius: 85, // selection aid only: single-target powers still affect exactly one villager
+  lightning: { cost: 1, radius: 125, damage: 4, calmSeconds: 10 },
   miracle: { cost: 1, heal: 45, opinion: 15 },
   whisper: { cost: 1, shift: 30 },
   fog: { cost: 1, radius: 125, seconds: 14 },
@@ -461,6 +465,12 @@ export const POWERS = {
   disarm: { cost: 2, radius: 115 },
   weapon: { cost: 1 }, // hands one of your own villagers a weapon
   sleep: { cost: 1, seconds: 8 },
+  timebomb: { cost: 2, radius: 120, seconds: 12 },
+  blackout: { cost: 3, seconds: 8, heal: 20 },
+  whirlpool: { cost: 3, radius: 155, seconds: 3, maxDamage: 30, pull: 650 },
+  launcher: { cost: 3, pickupRadius: 24, rocketSpeed: 500 },
+  freeze: { cost: 2, radius: 135, seconds: 4 },
+  strength: { cost: 1, minBonus: 0.1, maxBonus: 0.5 },
 };
 
 // How hard the bots play. Each bot seat can have its own (seat.difficulty), else the game's.

@@ -11,7 +11,7 @@ import { mulberry32 } from '../src/sim/rng.js';
 
 const MATCHES = Number(process.argv[2] ?? 6);
 const PHRASES = ['hate the tides', 'arm up', 'send three villagers to the armory', 'scare the sparks', 'hunt the tides', 'guard the plaza', 'throw a party at the pond', 'assault the sprouts', 'stand down', 'accuse the sparks'];
-const POWERS = [['lightning', { x: 900, y: 600 }], ['earthquake', {}], ['fog', { x: 700, y: 500 }], ['fireball', { x: 1100, y: 400 }], ['tornado', { x: 800, y: 700 }]];
+const POWERS = [['lightning', { x: 900, y: 600 }], ['earthquake', {}], ['fog', { x: 700, y: 500 }], ['fireball', { x: 1100, y: 400 }], ['tornado', { x: 800, y: 700 }], ['timebomb', { x: 950, y: 570 }], ['blackout', {}], ['whirlpool', { x: 950, y: 570 }], ['launcher', { x: 950, y: 570 }], ['freeze', { x: 950, y: 570 }], ['strength', {}], ['gust', { tx: 950, ty: 570 }]];
 let failed = 0;
 
 function playMatch(seed, humans, dropSeat = -1) {
@@ -72,7 +72,8 @@ function playMatch(seed, humans, dropSeat = -1) {
       }
       if (g.phase === 'sim' && !g.world.peaceful && rnd() < 0.01) {
         const [id, args] = POWERS[Math.floor(rnd() * POWERS.length)];
-        n.cast(id, args);
+        const target = g.world.villagers.find(v => v.alive && v.faction === s);
+        n.cast(id, { ...args, ...(['strength','gust'].includes(id) ? { villagerId: target?.id } : {}) });
       }
       if (g.phase === 'recap' && rnd() < 0.03) n.ready();
       n.update(Math.min(0.1, 0.016 * (0.5 + rnd() * 2.2)) * (s === 2 ? 0.7 : 1)); // random frame times; one slow machine

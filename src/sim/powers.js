@@ -16,7 +16,7 @@ import { powerUnlockError } from './availability.js';
 
 export const POWER_DEFS = {
   // calm and protect
-  miracle: { name: 'Miracle', icon: '✨', cost: POWERS.miracle.cost, needs: 'villager', hint: 'Click a villager to heal them.', blurb: 'Heal one villager. Their faction warms to you.' },
+  miracle: { name: 'Miracle', icon: '✨', cost: POWERS.miracle.cost, needs: 'villager', hint: 'Aim near one injured ally to heal them.', blurb: 'Heal one nearby member of your own faction by 45 HP.' },
   aegis: { name: 'Aegis', icon: '🛡️', cost: POWERS.aegis.cost, needs: 'villager', hint: 'Click a villager to shield them.', blurb: 'One villager takes 60% less damage for 16 seconds.' },
   rain: { name: 'Downpour', icon: '🌧️', cost: POWERS.rain.cost, needs: 'point', hint: 'Click a spot: everyone there cools off.', blurb: 'A heavy rain on a wide area: fights break up and tempers drop.' },
   fog: { name: 'Fog', icon: '🌫️', cost: POWERS.fog.cost, needs: 'point', hint: 'Click a spot for fog.', blurb: 'A patch of fog: fights inside stop at once and nobody in it can pick a new one for a while (they still defend themselves).' },
@@ -26,17 +26,39 @@ export const POWER_DEFS = {
   charm: { name: 'Charm', icon: '💘', cost: POWERS.charm.cost, needs: 'villager', hint: 'Click a villager to charm.', blurb: 'A villager of any faction warms to you and will not hurt your people for a while.' },
   enrage: { name: 'Enrage', icon: '😡', cost: POWERS.enrage.cost, needs: 'villager', hint: 'Click a villager to enrage.', blurb: 'A villager flies into a rage and attacks the nearest outsider.' },
   // moving people
-  gust: { name: 'Gust', icon: '💨', cost: POWERS.gust.cost, needs: 'villager+place', hint: 'Choose a place, then click the villager to blow there.', blurb: 'A real shove: blows one villager (and anyone beside them) toward a place.' },
+  gust: { name: 'Gust', icon: '💨', cost: POWERS.gust.cost, needs: 'villager+direction', hint: 'Hold near a villager, drag a direction, then release.', blurb: 'One drag blows a villager and nearby bystanders in your chosen direction.' },
   tornado: { name: 'Tornado', icon: '🌪️', cost: POWERS.tornado.cost, needs: 'point', hint: 'Click a spot: everyone nearby is dragged in and flung.', blurb: 'Drags everyone nearby toward the centre, then they scatter, scared.' },
   earthquake: { name: 'Earthquake', icon: '🌋', cost: POWERS.earthquake.cost, needs: 'none', hint: 'Cast at once: the whole town shakes.', blurb: 'Every fight stops, everyone is shoved in a random direction, the whole town panics.' },
   // violence
   lightning: { name: 'Lightning', icon: '⚡', cost: POWERS.lightning.cost, needs: 'point', hint: 'Click a spot to strike it.', blurb: 'A bolt that throws everyone nearby back and scatters a brawl. Hurts little.' },
   fireball: { name: 'Fireball', icon: '🔥', cost: POWERS.fireball.cost, needs: 'point', hint: 'Click a spot: a small, deadly blast.', blurb: 'Damages rivals and neutrals. Flings everyone nearby, including your own villagers, who take no damage.' },
-  weapon: { name: 'Arm', icon: '🗡️', cost: POWERS.weapon.cost, needs: 'villager', hint: 'Click one of YOUR villagers to arm them.', blurb: 'Hand one of your villagers a weapon (pan, bat, knife or gun) on the spot, ready to use. Does not touch the armory shelf.' },
+  weapon: { name: 'Arm', icon: '🗡️', cost: POWERS.weapon.cost, needs: 'villager', hint: 'Aim near an unarmed ally. Arms exactly one.', blurb: 'Give one nearby own villager a weapon. The circle helps you aim; it does not arm the whole group.' },
   disarm: { name: 'Disarm', icon: '🪓', cost: POWERS.disarm.cost, needs: 'point', hint: 'Click a spot: weapons fly out of hands.', blurb: 'Everyone near the spot drops their weapon and is shoved away.' },
+  timebomb: { name: 'Time Bomb', icon: '💣', cost: POWERS.timebomb.cost, needs: 'point', hint: 'Place a bomb. It explodes after 12 seconds.', blurb: 'A visible blast with a 12-second fuse. Plant before the last 12 seconds. Your faction takes no HP damage.' },
+  blackout: { name: 'Blackout', icon: '🌘', cost: POWERS.blackout.cost, needs: 'none', hint: 'Eight seconds of night and confusion.', blurb: 'Stops attacks for 8 seconds and heals every living ally by 20 HP. Existing bombs and rockets remain live.' },
+  whirlpool: { name: 'Whirlpool', icon: '🌀', cost: POWERS.whirlpool.cost, needs: 'point', hint: 'Pulls and damages EVERYONE, including your allies.', blurb: 'A 3-second water vortex pulls everyone inward. Up to 30 damage at the centre, including your own faction.' },
+  launcher: { name: 'Rocket Launcher', icon: '🚀', cost: POWERS.launcher.cost, needs: 'point', hint: 'Drop a launcher here. Anyone can pick it up.', blurb: 'First villager reaching the crate gets 5 rockets. Half-damage Fireball blasts spare the holder’s faction. Unclaimed crates expire at dusk.' },
+  freeze: { name: 'Freeze', icon: '❄️', cost: POWERS.freeze.cost, needs: 'point', hint: 'Freeze everyone in the circle for 4 seconds.', blurb: 'Stops movement and attacks for 4 seconds, including allies. Frozen villagers can still take damage.' },
+  strength: { name: 'Strength', icon: '💪', cost: POWERS.strength.cost, needs: 'villager', hint: 'Aim near one ally to strengthen them.', blurb: 'One own villager gains a random 10-50% attack bonus for the rest of this turn. Does not stack.' },
 };
 
 const dist = (a, x, y) => Math.hypot(a.x - x, a.y - y);
+
+export function targetPowerError(seat, id, v, args = {}) {
+  if (!v?.alive) return 'Pick a living villager';
+  if (['weapon', 'miracle', 'strength'].includes(id) && v.faction !== seat) return 'Choose one of your own villagers.';
+  if (id === 'weapon' && effectiveWeapon(v) !== 'none') return `${v.name} is already armed.`;
+  if (id === 'miracle' && v.hp >= 100) return `${v.name} is already at full health.`;
+  if (id === 'strength' && v.damageBonus > 0) return `${v.name} is already strengthened this turn.`;
+  if (id === 'whisper' && args.group === groupOf(v)) return `${v.name} knows their own group too well to be fooled`;
+  return null;
+}
+
+/** Nearby selection is an aiming aid, never an area cast. Ties use distance, then ID. */
+export function nearestPowerTarget(game, seat, id, x, y, radius, args = {}) {
+  return game.world.villagers.filter(v => !targetPowerError(seat, id, v, args) && Math.hypot(v.x - x, v.y - 18 - y) <= radius)
+    .sort((a, b) => Math.hypot(a.x - x, a.y - 18 - y) - Math.hypot(b.x - x, b.y - 18 - y) || a.id - b.id)[0] ?? null;
+}
 
 /**
  * Cast a power. `args` depends on the power: {x, y} | {villagerId} | {villagerId, group, good?} | {villagerId, placeId}.
@@ -56,12 +78,20 @@ export function validatePower(game, seat, id, args = {}) {
 
   const { world } = game;
   const v = Number.isInteger(args.villagerId) ? world.villagers[args.villagerId] : null;
-  if (def.needs.startsWith('villager') && (!v || !v.alive)) return { ok: false, error: 'Pick a living villager' };
+  if (def.needs.startsWith('villager')) {
+    const error = targetPowerError(seat, id, v, args);
+    if (error) return { ok: false, error };
+  }
   if (def.needs === 'point' && !(Number.isFinite(args.x) && Number.isFinite(args.y))) return { ok: false, error: 'Pick a spot on the map' };
   if (def.needs === 'point' && (args.x < 0 || args.x > WORLD.width || args.y < 0 || args.y > WORLD.height)) return { ok: false, error: 'Pick a spot inside the town' };
   if (id === 'whisper' && (!Number.isInteger(args.group) || args.group < 0 || args.group > 4)) return { ok: false, error: 'Whisper about which faction?' };
   if (id === 'whisper' && args.group === groupOf(v)) return { ok: false, error: `${v.name} knows their own group too well to be fooled` };
-  if (id === 'gust' && !world.places.some((p) => p.id === args.placeId)) return { ok: false, error: 'Blow them toward which place?' };
+  if (id === 'gust') {
+    const point = Number.isFinite(args.tx) && Number.isFinite(args.ty) && args.tx >= 0 && args.tx <= WORLD.width && args.ty >= 0 && args.ty <= WORLD.height;
+    const place = world.places.some(p => p.id === args.placeId);
+    if (!point && !place) return { ok: false, error: 'Drag a direction, or name a destination place.' };
+    if (point && Math.hypot(args.tx - v.x, args.ty - v.y) < 8) return { ok: false, error: 'Drag a little farther to choose a direction.' };
+  }
   if (id === 'weapon' && v.faction !== seat) return { ok: false, error: 'You can only arm your own villagers.' };
   if (id === 'weapon' && effectiveWeapon(v) !== 'none') return { ok: false, error: `${v.name} is already armed.` };
   if (args.good !== undefined && typeof args.good !== 'boolean') return { ok: false, error: 'Choose a good or bad whisper' };
@@ -72,7 +102,7 @@ export function normalizePowerArgs(id, args = {}) {
   const needs = POWER_DEFS[id].needs;
   if (needs === 'none') return {};
   if (needs === 'point') return { x: args.x, y: args.y };
-  return { villagerId: args.villagerId, ...(needs === 'villager+group' ? { group: args.group, good: args.good ?? false } : {}), ...(needs === 'villager+place' ? { placeId: args.placeId } : {}) };
+  return { villagerId: args.villagerId, ...(needs === 'villager+group' ? { group: args.group, good: args.good ?? false } : {}), ...(needs === 'villager+direction' ? Number.isFinite(args.tx) && Number.isFinite(args.ty) ? { tx: args.tx, ty: args.ty } : { placeId: args.placeId } : {}) };
 }
 
 export function castPower(game, seat, id, args = {}) {
@@ -91,6 +121,7 @@ export function castPower(game, seat, id, args = {}) {
         n++;
         o.hp = Math.max(1, o.hp - POWERS.lightning.damage);
         o.lastDamage = POWERS.lightning.damage;
+        o.lastCritical = false;
         o.hitFromX = args.x;
         o.hitFromY = args.y;
         o.calmUntil = world.time + POWERS.lightning.calmSeconds;
@@ -141,6 +172,50 @@ export function castPower(game, seat, id, args = {}) {
       v.escalation = Math.max(v.escalation, 1); // ready to use it when a fight gets serious
       world.events.push({ type: 'arm', turn: world.turn, time: world.time, villagerId: v.id });
       message = `${v.name} is now armed with a ${v.weapon}.`;
+      break;
+    }
+    case 'timebomb': {
+      const source = { kind: 'power', id, seat, actionId: `${world.turn}:${seat}:power:${id}` };
+      world.bombs.push({ x: args.x, y: args.y, r: POWERS.timebomb.radius, at: world.time + POWERS.timebomb.seconds, seat, source });
+      world.events.push({ type: 'bombPlanted', turn: world.turn, time: world.time, x: args.x, y: args.y, source });
+      message = 'Time Bomb planted. It detonates in 12 seconds.';
+      break;
+    }
+    case 'blackout':
+      world.blackoutUntil = Math.max(world.blackoutUntil, world.time + POWERS.blackout.seconds);
+      for (const o of world.villagers) if (o.alive) {
+        if (o.state === 'attack') startIdle(world, o, 'blackout');
+        if (o.faction === seat) o.hp = Math.min(100, o.hp + POWERS.blackout.heal);
+      }
+      message = 'Night falls for 8 seconds. Every living ally recovered up to 20 HP.';
+      break;
+    case 'whirlpool': {
+      const start = world.time;
+      const source = { kind: 'power', id, seat, x: args.x, y: args.y, actionId: `${world.turn}:${seat}:power:${id}` };
+      world.whirlpools.push({ id: source.actionId, x: args.x, y: args.y, r: POWERS.whirlpool.radius, start, lastTick: start, until: start + POWERS.whirlpool.seconds, source });
+      message = 'A whirlpool pulls everyone inward. Allies are not safe from its damage.';
+      break;
+    }
+    case 'launcher':
+      world.weaponDrops.push({ id: `${world.turn}:${seat}:launcher`, x: args.x, y: args.y });
+      message = 'Launcher dropped. The first villager reaching it gets its five rockets.';
+      break;
+    case 'freeze': {
+      let n = 0;
+      for (const o of world.villagers) if (o.alive && dist(o, args.x, args.y) <= POWERS.freeze.radius) {
+        o.frozenSince = world.time;
+        o.frozenUntil = Math.max(o.frozenUntil, world.time + POWERS.freeze.seconds);
+        o.vx = o.vy = o.kx = o.ky = 0;
+        if (o.state === 'attack') startIdle(world, o, 'freeze');
+        n++;
+      }
+      message = `Froze ${n} villager${n === 1 ? '' : 's'} for 4 seconds.`;
+      break;
+    }
+    case 'strength': {
+      const percent = Math.round(POWERS.strength.minBonus * 100) + Math.floor(world.rng() * (Math.round((POWERS.strength.maxBonus - POWERS.strength.minBonus) * 100) + 1));
+      v.damageBonus = percent / 100;
+      message = `${v.name} gains ${percent}% attack damage until dusk.`;
       break;
     }
     case 'charm': {
@@ -206,6 +281,7 @@ export function castPower(game, seat, id, args = {}) {
         o.kx += Math.cos(a) * POWERS.earthquake.shove;
         o.ky += Math.sin(a) * POWERS.earthquake.shove;
         o.hp = Math.max(1, o.hp - POWERS.earthquake.damage);
+        o.lastCritical = false;
         o.panic = Math.max(o.panic, 2);
         o.panicX = WORLD.width / 2;
         o.panicY = WORLD.height / 2;
@@ -242,19 +318,19 @@ export function castPower(game, seat, id, args = {}) {
     }
     case 'gust': {
       const place = world.places.find((p) => p.id === args.placeId);
-      if (!place) return { ok: false, error: 'Blow them toward which place?' };
+      const destination = Number.isFinite(args.tx) ? { x: args.tx, y: args.ty } : place;
       if (v.state === 'attack') startIdle(world, v, 'gust');
-      goToPlace(world, v, place, 'follow');
-      shoveToward(v, place.x, place.y, 640); // a real shove, not just a nudge
-      for (const o of world.villagers) if (o.alive && o !== v && dist(o, v.x, v.y) < 90) shoveToward(o, place.x, place.y, 420); // anyone beside them gets swept along
-      message = `${v.name} was blown toward the ${place.name}.`;
+      goToPlace(world, v, { ...destination, radius: 0 }, 'follow');
+      shoveToward(v, destination.x, destination.y, POWERS.gust.push);
+      for (const o of world.villagers) if (o.alive && o !== v && dist(o, v.x, v.y) < 90) shoveToward(o, destination.x, destination.y, 420);
+      message = place ? `${v.name} was blown toward the ${place.name}.` : `${v.name} was swept in your chosen direction.`;
       break;
     }
   }
 
   game.power[seat] -= def.cost;
   game.usedPowers?.[seat]?.push(id);
-  const at = v ? { x: v.x, y: v.y } : { x: args.x, y: args.y };
+  const at = v ? { x: v.x, y: v.y } : { x: args.x ?? WORLD.width / 2, y: args.y ?? WORLD.height / 2 };
   world.events.push({ type: 'power', turn: world.turn, time: world.time, power: id, x: at.x, y: at.y, seat, villagerId: v?.id ?? -1, group: args.group ?? -1 });
   const entry = game.truth.findLast?.((t) => t.turn === game.turn && t.seat === seat);
   if (entry) (entry.extras ??= []).push({ kind: 'power', id, group: args.group ?? -1, villagerId: v?.id ?? -1 });

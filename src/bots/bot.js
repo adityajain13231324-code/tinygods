@@ -142,6 +142,7 @@ export function botPowers(game) {
     const spot = hotspot(world);
     const myFight = spot && world.villagers.some((v) => v.alive && v.faction === seat && v.state === 'attack' && Math.hypot(v.x - spot.x, v.y - spot.y) < 130);
     const personality = s.personality ?? 'chaos';
+    if (mine.filter(v => v.hp <= 65).length >= 3 && castPower(game, seat, 'blackout', {}).ok) return;
     const emergency = shuffle(rng, mine.filter(v => v.hp <= 30 && world.villagers.some(o => o.alive && o.faction !== seat && o.state === 'attack' && (o.targetId === v.id || Math.hypot(o.x - v.x, o.y - v.y) < 180))))
       .sort((a, b) => a.hp - b.hp)[0];
     if (emergency) {
@@ -155,7 +156,7 @@ export function botPowers(game) {
       const crowd = foes.map((m) => ({ m, n: foes.filter((o) => Math.hypot(o.x - m.x, o.y - m.y) < 90).length, own: mine.filter((o) => Math.hypot(o.x - m.x, o.y - m.y) < 130).length }))
         .filter((c) => c.own === 0).sort((p, q) => q.n - p.n)[0];
       if (crowd && crowd.n >= 3 && game.power[seat] >= 2) {
-        const id = !powerUnlockError(game, 'fireball') && rng() < 0.6 ? 'fireball' : 'tornado';
+        const id = game.power[seat] >= 3 && !powerUnlockError(game, 'whirlpool') && rng() < 0.25 ? 'whirlpool' : !powerUnlockError(game, 'fireball') && rng() < 0.6 ? 'fireball' : 'tornado';
         if (castPower(game, seat, id, { x: crowd.m.x, y: crowd.m.y }).ok) return;
       }
       const danger = v => mine.reduce((n, o) => n + (Math.hypot(o.x - v.x, o.y - v.y) < 180 ? 1 + (100 - o.hp) / 100 : 0), 0);
@@ -163,6 +164,8 @@ export function botPowers(game) {
       if (armed && game.power[seat] >= 2 && castPower(game, seat, 'disarm', { x: armed.x, y: armed.y }).ok) return;
     }
     // Defence: shield a hurt villager, or call rain over a fight that is not mine to win.
+    const fighter = mine.find(v => v.state === 'attack' && !v.damageBonus);
+    if (fighter && d.offence && rng() < 0.2 && castPower(game, seat, 'strength', { villagerId: fighter.id }).ok) return;
     if (hurt && rng() < 0.2 && castPower(game, seat, 'aegis', { villagerId: hurt.id }).ok) return;
     if ((personality === 'pacifist' || personality === 'gossip') && hotspot(world) && rng() < 0.25 && castPower(game, seat, 'rain', { x: hotspot(world).x, y: hotspot(world).y }).ok) return;
     if (spot && myFight && spot.n >= 3 && personality !== 'warmonger' && castPower(game, seat, 'lightning', { x: spot.x, y: spot.y }).ok) return;

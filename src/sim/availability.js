@@ -1,8 +1,9 @@
-import { TURN } from '../config/tunables.js';
+import { TURN, POWERS } from '../config/tunables.js';
 
 export function powerUnlockError(game, id) {
-  if (['fireball', 'lightning', 'earthquake'].includes(id) && game.turn < TURN.damagingAreaTurn) return `Damaging area miracles unlock on day ${TURN.damagingAreaTurn}.`;
+  if (['fireball', 'lightning', 'earthquake', 'timebomb', 'whirlpool', 'launcher'].includes(id) && game.turn < TURN.damagingAreaTurn) return `Damaging area miracles unlock on day ${TURN.damagingAreaTurn}.`;
   if (game.world.peaceful) return `Miracles unlock on day ${TURN.peaceTurns + 1}. The town is still at peace.`;
+  if (id === 'timebomb' && game.phase === 'sim' && game.simSeconds - game.simElapsed < POWERS.timebomb.seconds) return 'Time Bomb needs 12 seconds before dusk to explode. Save your power for another miracle.';
   return null;
 }
 

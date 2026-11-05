@@ -10,6 +10,7 @@ import { resolveCombat, shoutAt, shoveVictim, updateBombs } from './combat.js';
 import { shoveFrom } from './shove.js';
 import { stepKnockback } from './shove.js';
 import { updateTension } from './tension.js';
+import { updatePowerEffects } from './powerEffects.js';
 
 // Each villager "thinks" twice a second and picks what to do, in priority order:
 //   0. grievance: stew over the people standing nearby that they dislike (see GRIEVANCE)
@@ -37,6 +38,7 @@ export function stepWorld(world, dt = 1 / SIM.tickHz) {
 
   for (const v of villagers) {
     if (!v.alive) continue;
+    if (v.frozenUntil > world.time) { v.vx = v.vy = v.kx = v.ky = 0; continue; }
     for (let g = 0; g < v.grudge.length; g++) if (v.grudge[g] > 0) v.grudge[g] -= dt;
     if (v.panic > 0) v.panic -= dt;
     v.swing = Math.max(0, v.swing - dt / 0.3);
@@ -52,6 +54,7 @@ export function stepWorld(world, dt = 1 / SIM.tickHz) {
   }
 
   updateCarried(world);
+  updatePowerEffects(world, dt);
   resolveCombat(world, dt);
   updateBombs(world);
   updateTornadoes(world);
@@ -68,6 +71,11 @@ function think(world, v) {
 }
 
 function decide(world, v) {
+  if (world.time < world.blackoutUntil) {
+    if (v.state === 'attack') startIdle(world, v, 'blackout');
+    peaceful(world, v);
+    return 'blackout confusion';
+  }
   if (v.state === 'wander') [v.targetX, v.targetY] = walkingGoal(world, v.targetX, v.targetY);
   // Read Stand Down before the combat branch can return. Immediate danger may still
   // trigger self-defence, but an existing voluntary chase must stop on the next thought.
@@ -433,9 +441,10 @@ function stopGlare(world, v) {
 function updateCarried(world) {
   for (const victim of world.villagers) {
     if (!victim.alive) continue;
+    if (victim.frozenUntil > world.time || victim.carry?.by.some(id => world.villagers[id]?.frozenUntil > world.time)) continue;
     if (!victim.carry) {
       // is a lift starting? two grabbers close to me, both on this seizure
-      const helpers = world.villagers.filter((g) => g.alive && g.fx.seize?.victim === victim.id && g.faction !== victim.faction && dist(g, victim.x, victim.y) <= ORDERS.seizeJoin + 12 && g.state !== 'attack' && g.state !== 'flee');
+      const helpers = world.villagers.filter((g) => g.alive && g.frozenUntil <= world.time && g.fx.seize?.victim === victim.id && g.faction !== victim.faction && dist(g, victim.x, victim.y) <= ORDERS.seizeJoin + 12 && g.state !== 'attack' && g.state !== 'flee');
       if (helpers.length >= 2) {
         victim.carry = { by: helpers.map((g) => g.id), dest: helpers[0].fx.seize.dest, until: world.time + ORDERS.seizeSeconds };
         victim.state = 'mourn';
@@ -464,6 +473,7 @@ function updateCarried(world) {
       if (arrived && dest.id === 'pond') {
         victim.hp = Math.max(1, victim.hp - ORDERS.seizeDunk);
         victim.lastDamage = ORDERS.seizeDunk;
+        victim.lastCritical = false;
         victim.lastHitWeapon = 'shove';
         victim.hitFlash = 0.6;
         world.events.push({ type: 'splash', turn: world.turn, time: world.time, x: victim.x, y: victim.y });

@@ -1,7 +1,8 @@
-import { FACTIONS, GROUP_NAMES, PLACES } from '../../config/content.js';
-import { POWERS } from '../../config/tunables.js';
+import { Graphics } from 'pixi.js';
+import { FACTIONS, GROUP_NAMES } from '../../config/content.js';
+import { POWERS, WORLD } from '../../config/tunables.js';
 import { parseCommand, resolvePower } from '../../sim/parser.js';
-import { POWER_DEFS } from '../../sim/powers.js';
+import { POWER_DEFS, nearestPowerTarget } from '../../sim/powers.js';
 import { css, el } from './dom.js';
 import { createTypeBox } from './typeBox.js';
 import { POWER_CATS } from './cardStyle.js';
@@ -22,7 +23,14 @@ export function createPowerBar(root, ctx, game, camera, stage) {
   let selected = null; // power id waiting for a click on the map
   let group = null; // for Whisper
   let good = false;
-  let placeId = 'plaza'; // for Gust
+  let pointer = null;
+  let drag = null;
+  const aim = stage.addChild(new Graphics());
+  aim.eventMode = 'none';
+  const cursor = el('div', 'power-cursor');
+  cursor.setAttribute('aria-hidden', 'true');
+  cursor.hidden = true;
+  root.append(cursor);
   let shownKey = '';
   let note = '';
   let noteBad = false;
@@ -48,34 +56,79 @@ export function createPowerBar(root, ctx, game, camera, stage) {
     },
   });
 
+  const point = (sx, sy) => ({ x: (sx - stage.x) / camera.scale, y: (sy - stage.y) / camera.scale });
+  const radius = () => Math.max(POWERS.targetRadius, 22 / camera.scale);
+  const target = (p) => nearestPowerTarget(game, ctx.seat, selected, p.x, p.y, radius(), { group, good });
+  const cancelAim = () => { drag = null; pointer = null; aim.clear(); cursor.hidden = true; };
+  function cast(args) {
+    const r = ctx.cast(selected, args);
+    say(r.ok ? r.message : r.error, !r.ok);
+    if (r.ok) { selected = null; cancelAim(); }
+    shownKey = '';
+  }
   function mapTap(sx, sy) {
     if (panel.hidden || !selected) return false;
-    const wx = (sx - stage.x) / camera.scale;
-    const wy = (sy - stage.y) / camera.scale;
+    if (selected === 'gust') return true;
+    if (selected === 'whisper' && group === null) { say('Choose a faction for Whisper first.', true); return true; }
+    const p = point(sx, sy);
     const def = POWER_DEFS[selected];
     let args;
     if (def.needs === 'point') {
-      args = { x: wx, y: wy };
+      args = p;
     } else {
-      let best = null;
-      let bestD = 55;
-      for (const v of game.world.villagers) {
-        if (!v.alive) continue;
-        const d = Math.hypot(v.x - wx, v.y - 18 - wy);
-        if (d < bestD) { bestD = d; best = v; }
-      }
+      const best = target(p);
       if (!best) {
-        say('No villager there. Click right on one.', true);
+        say('No eligible villager in the circle. Aim a little closer.', true);
         return true;
       }
-      args = { villagerId: best.id, group, good, placeId };
+      args = { villagerId: best.id, group, good };
     }
-    const r = ctx.cast(selected, args);
-    say(r.ok ? r.message : r.error, !r.ok);
-    if (r.ok) selected = null;
-    shownKey = '';
+    cast(args);
     return true;
   }
+  function drawAim() {
+    aim.clear();
+    cursor.hidden = true;
+    if (!pointer || !selected || panel.hidden) return;
+    const p = point(pointer.x, pointer.y);
+    if (p.x < 0 || p.y < 0 || p.x > WORLD.width || p.y > WORLD.height) return;
+    const def = POWER_DEFS[selected];
+    const single = def.needs.startsWith('villager');
+    const r = single ? radius() : (POWERS[selected]?.radius ?? POWERS[selected]?.pickupRadius ?? 40);
+    const v = drag ? game.world.villagers[drag.id] : single ? target(p) : null;
+    const valid = !single || (v && (selected !== 'whisper' || group !== null));
+    const color = !valid ? 0xff8b8b : selected === 'whirlpool' ? 0xffb166 : 0x9ee5ff;
+    aim.circle(p.x, p.y, r).fill({ color, alpha: 0.12 }).stroke({ color, width: 2 / camera.scale, alpha: 0.9 });
+    if (valid && v) aim.ellipse(v.x, v.y, 25, 12).stroke({ color: 0xffdf7c, width: 3 / camera.scale });
+    if (drag && v) {
+      const a = Math.atan2(p.y - v.y, p.x - v.x);
+      aim.moveTo(v.x, v.y - 18).lineTo(p.x, p.y).stroke({ color: 0xffdf7c, width: 3 / camera.scale });
+      aim.poly([p.x, p.y, p.x - 18 * Math.cos(a - 0.5), p.y - 18 * Math.sin(a - 0.5), p.x - 18 * Math.cos(a + 0.5), p.y - 18 * Math.sin(a + 0.5)]).fill(0xffdf7c);
+    }
+    cursor.textContent = def.icon;
+    cursor.style.left = `${pointer.x + 16}px`;
+    cursor.style.top = `${pointer.y + 16}px`;
+    cursor.hidden = false;
+  }
+  function aimStart(x, y) {
+    if (panel.hidden || selected !== 'gust') return false;
+    pointer = { x, y };
+    const v = target(point(x, y));
+    drag = v ? { id: v.id, x, y } : null;
+    if (!v) say('Hold near a villager, then drag a direction.', true);
+    return true;
+  }
+  function aimEnd(x, y) {
+    if (!drag || selected !== 'gust' || panel.hidden) { drag = null; return; }
+    const start = drag;
+    drag = null;
+    if (Math.hypot(x - start.x, y - start.y) < 12) { say('Drag a little farther, then release.', true); return; }
+    const p = point(x, y);
+    cast({ villagerId: start.id, tx: Math.max(0, Math.min(WORLD.width, p.x)), ty: Math.max(0, Math.min(WORLD.height, p.y)) });
+  }
+  window.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { selected = null; cancelAim(); shownKey = ''; }
+  });
 
   function say(text, bad = false) {
     note = text;
@@ -85,6 +138,8 @@ export function createPowerBar(root, ctx, game, camera, stage) {
 
   function build() {
     const scrollTop = panel.querySelector('.sheet-body')?.scrollTop ?? 0;
+    const gridScroll = panel.querySelector('.powergrid')?.scrollTop ?? 0;
+    const focused = panel.contains(document.activeElement) ? document.activeElement?.dataset.power : null;
     panel.replaceChildren();
     const left = game.power[ctx.seat] ?? 0;
     const head = el('div', 'powerhead');
@@ -99,6 +154,9 @@ export function createPowerBar(root, ctx, game, camera, stage) {
     const row = el('div', 'powergrid');
     for (const [id, def] of Object.entries(POWER_DEFS)) {
       const b = el('button', `ptile${selected === id ? ' on' : ''}`);
+      b.dataset.power = id;
+      b.setAttribute('aria-pressed', String(selected === id));
+      b.setAttribute('aria-label', `${def.name}, ${def.cost} power. ${def.blurb}`);
       b.style.setProperty('--cat', POWER_CATS[id]);
       b.title = def.blurb;
       const used = game.usedPowers[ctx.seat].includes(id);
@@ -110,6 +168,7 @@ export function createPowerBar(root, ctx, game, camera, stage) {
       for (let i = 0; i < def.cost; i++) cost.append(el('i'));
       b.append(el('span', 'pt-icon', def.icon), el('span', 'pt-name', def.name), cost);
       b.onclick = () => {
+        cancelAim();
         if (def.needs === 'none') {
           const r = ctx.cast(id, {});
           say(r.ok ? r.message : r.error, !r.ok);
@@ -117,7 +176,7 @@ export function createPowerBar(root, ctx, game, camera, stage) {
           return;
         }
         selected = selected === id ? null : id;
-        panel.classList.toggle('expanded', selected === 'whisper' || selected === 'gust');
+        panel.classList.toggle('expanded', selected === 'whisper');
         say(selected ? def.blurb : '');
         shownKey = '';
       };
@@ -144,16 +203,6 @@ export function createPowerBar(root, ctx, game, camera, stage) {
       r.append(tone);
       panel.append(r);
     }
-    if (selected === 'gust') {
-      const r = el('div', 'row');
-      r.append(el('span', 'label', 'Toward'));
-      for (const p of PLACES) {
-        const b = el('button', `opt${placeId === p.id ? ' on' : ''}`, p.name);
-        b.onclick = () => { placeId = p.id; shownKey = ''; };
-        r.append(b);
-      }
-      panel.append(r);
-    }
 
     panel.append(type.root);
     type.say(note, noteBad);
@@ -164,24 +213,21 @@ export function createPowerBar(root, ctx, game, camera, stage) {
       aim.disabled = selected === 'whisper' && group === null;
       aim.onclick = () => { panel.classList.remove('expanded'); shownKey = ''; };
       const cancel = el('button', 'go ghost', 'Cancel');
-      cancel.onclick = () => { selected = null; shownKey = ''; };
+      cancel.onclick = () => { selected = null; cancelAim(); shownKey = ''; };
       foot.append(aim, cancel);
     }
     finishSheet(panel, `Miracles · ${left} power`, foot);
     panel.querySelector('.sheet-body').scrollTop = scrollTop;
+    row.scrollTop = gridScroll;
+    if (focused) row.querySelector(`[data-power="${focused}"]`)?.focus({ preventScroll: true });
   }
-
-  const hintFor = (id) => ({
-    lightning: 'Click a spot on the map to strike it.',
-    miracle: 'Click a villager to heal them.',
-    whisper: 'Choose a faction below, then click a villager to whisper to.',
-    fog: 'Click a spot on the map for fog.',
-    gust: 'Choose a place below, then click the villager to blow there.',
-  })[id];
 
   let castQueued = false;
   return {
-    mapTap,
+    mapTap, aimStart, aimEnd, aimCancel: cancelAim,
+    aimMove(x, y) { pointer = { x, y }; },
+    aimOut() { if (!drag) { pointer = null; aim.clear(); cursor.hidden = true; } },
+    get selected() { return selected; },
     update() {
       const open = game.phase === 'sim' && !game.world.peaceful && !game.eliminated[ctx.seat] && ctx.passReady && !ctx.cutsceneActive?.();
       panel.hidden = !open;
@@ -190,6 +236,7 @@ export function createPowerBar(root, ctx, game, camera, stage) {
         if (body) body.scrollTop = 0;
         shownKey = '';
         selected = null;
+        cancelAim();
         if (game.phase !== 'sim') castQueued = false;
         return;
       }
@@ -204,11 +251,14 @@ export function createPowerBar(root, ctx, game, camera, stage) {
         }
         if (messages.length) say(messages.join(' '));
       }
-      const key = `${game.turn}:${ctx.seat}:${game.power[ctx.seat]}:${game.usedPowers[ctx.seat].join(',')}:${selected}:${group}:${good}:${placeId}`;
+      if (selected && (game.power[ctx.seat] < POWER_DEFS[selected].cost || game.usedPowers[ctx.seat].includes(selected))) { selected = null; cancelAim(); }
+      if (selected && powerUnlockError(game, selected)) { selected = null; cancelAim(); }
+      const key = `${game.turn}:${ctx.seat}:${game.power[ctx.seat]}:${game.usedPowers[ctx.seat].join(',')}:${selected}:${group}:${good}:${!!powerUnlockError(game, 'timebomb')}`;
       if (key !== shownKey) {
         shownKey = key;
         build();
       }
+      drawAim();
     },
   };
 }

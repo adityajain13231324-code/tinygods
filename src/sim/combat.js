@@ -1,4 +1,4 @@
-import { BOND, BRAIN, COMBAT, GRIEVANCE, ORDERS, TENSION, TRAITS, WEAPONS } from '../config/tunables.js';
+import { BOND, BRAIN, COMBAT, GRIEVANCE, ORDERS, POWERS, TENSION, TRAITS, WEAPONS } from '../config/tunables.js';
 import { breakBond } from './bonds.js';
 import { chainFor, logPair } from './history.js';
 import { groupOf, isFirearm, usableWeapon } from './villager.js';
@@ -12,6 +12,7 @@ export function resolveCombat(world, dt) {
   for (const a of world.villagers) {
     if (!a.alive) continue;
     a.cd = Math.max(0, a.cd - dt);
+    if (world.time < world.blackoutUntil || world.time < a.frozenUntil) continue;
     if (a.state !== 'attack') continue;
     const target = world.villagers[a.targetId];
     if (!target || !target.alive) continue;
@@ -21,7 +22,7 @@ export function resolveCombat(world, dt) {
     if (Math.hypot(target.x - a.x, target.y - a.y) > stats.range) continue;
     if (a.cd > 0) continue;
 
-    a.cd = COMBAT.duelInterval;
+    a.cd = stats.interval ?? COMBAT.duelInterval;
     a.swing = 1;
     strike(world, a, target, weapon);
   }
@@ -34,6 +35,7 @@ export function shoveVictim(world, attacker, victim, speed = ORDERS.shoveSpeed) 
   victim.hitFlash = 0.6;
   victim.lastDamage = 4;
   victim.lastHitWeapon = 'shove';
+  victim.lastCritical = false;
   victim.hitFromX = attacker.x;
   victim.hitFromY = attacker.y;
   const g = groupOf(attacker);
@@ -70,6 +72,16 @@ function scream(world, victim) {
 function strike(world, attacker, victim, weapon) {
   const { rng } = world;
   const stats = WEAPONS[weapon];
+  if (weapon === 'rocket') {
+    attacker.ammo--;
+    const duration = Math.max(0.18, Math.hypot(victim.x - attacker.x, victim.y - attacker.y) / POWERS.launcher.rocketSpeed);
+    const id = `${world.turn}:${attacker.id}:${world.time}:rocket`;
+    world.rockets.push({ id, x: attacker.x, y: attacker.y - 18, tx: victim.x, ty: victim.y, start: world.time, at: world.time + duration,
+      seat: attacker.faction, bonus: 1 + (attacker.damageBonus ?? 0), source: { kind: 'weapon', id: 'rocket', seat: attacker.faction, shooterId: attacker.id, actionId: id } });
+    world.events.push({ type: 'rocketLaunch', turn: world.turn, time: world.time, x: attacker.x, y: attacker.y, shooterId: attacker.id });
+    if (attacker.ammo <= 0) { attacker.weapon = 'none'; attacker.ammo = 0; }
+    return;
+  }
 
   // Fists are not all punching: people push, and yell, and then punch.
   if (weapon === 'none') {
@@ -85,15 +97,16 @@ function strike(world, attacker, victim, weapon) {
     clamp(COMBAT.hitBase + (attacker.courage - victim.courage) / COMBAT.hitSpread, COMBAT.hitMin, COMBAT.hitMax),
   );
   const hit = rng() < hitChance;
+  const critical = hit && isFirearm(weapon) && rng() < COMBAT.headshotChance;
 
   if (isFirearm(weapon)) {
     attacker.ammo--;
-    gunshot(world, attacker, weapon, victim, hit);
+    gunshot(world, attacker, weapon, victim, hit, critical);
     attacker.revealed = true;
   }
   if (!hit) return;
 
-  dealDamage(world, attacker, victim, weapon, 1);
+  dealDamage(world, attacker, victim, weapon, 1, critical);
 
   // A shotgun blast also catches whoever is standing next to the target.
   if (weapon === 'shotgun') {
@@ -106,7 +119,7 @@ function strike(world, attacker, victim, weapon) {
   }
 }
 
-function dealDamage(world, attacker, victim, weapon, share) {
+function dealDamage(world, attacker, victim, weapon, share, critical = false) {
   const { rng } = world;
   const stats = WEAPONS[weapon];
   const defence = victim.courage / COMBAT.courageDefenceDiv;
@@ -122,9 +135,11 @@ function dealDamage(world, attacker, victim, weapon, share) {
     damage *= BOND.teamDamage;
   }
   if (world.time < victim.blessUntil) damage *= 0.4; // under an Aegis
+  damage *= (1 + (attacker.damageBonus ?? 0)) * (critical ? COMBAT.headshotMultiplier : 1);
   victim.hp -= damage;
   victim.hitFlash = 1;
   victim.lastDamage = damage;
+  victim.lastCritical = critical;
   victim.lastHitWeapon = weapon;
   victim.hitFromX = attacker.x; // which way the blood sprays (render only)
   victim.hitFromY = attacker.y;
@@ -141,7 +156,7 @@ function dealDamage(world, attacker, victim, weapon, share) {
   else if (damage >= COMBAT.screamDamage && rng() < 0.6) scream(world, victim);
 }
 
-function gunshot(world, shooter, weapon, target, hit) {
+function gunshot(world, shooter, weapon, target, hit, critical = false) {
   const radius = WEAPONS[weapon].panicRadius;
   for (const o of world.villagers) {
     if (!o.alive || o === shooter) continue;
@@ -156,7 +171,7 @@ function gunshot(world, shooter, weapon, target, hit) {
   world.events.push({
     type: 'gunshot', turn: world.turn, time: world.time, weapon,
     shooterId: shooter.id, shooterFaction: shooter.faction, x: shooter.x, y: shooter.y, place: nearestPlace(world, shooter.x, shooter.y).id,
-    targetId: target.id, tx: target.x, ty: target.y, hit, // so the renderer can draw the shot
+    targetId: target.id, tx: target.x, ty: target.y, hit, critical, // so the renderer can draw the shot
     facing: shooter.facing,
   });
 }
@@ -167,7 +182,7 @@ function gunshot(world, shooter, weapon, target, hit) {
  */
 export function blast(world, seat, x, y, r, { minDamage = 14, maxDamage = 60, minKnock = 380, maxKnock = 800, source = { kind: 'card', id: 'bomb', seat, actionId: `${world.turn}:${seat}:card:bomb` } } = {}) {
   const owners = world.villagers.filter((v) => v.alive && v.faction === seat);
-  const planter = owners.sort((p, q) => Math.hypot(p.x - x, p.y - y) - Math.hypot(q.x - x, q.y - y))[0];
+  const planter = world.villagers[source.shooterId] ?? owners.sort((p, q) => Math.hypot(p.x - x, p.y - y) - Math.hypot(q.x - x, q.y - y))[0];
   world.events.push({ type: 'explosion', turn: world.turn, time: world.time, x, y, r, source: { ...source } });
   let hit = 0;
   for (const v of world.villagers) {
@@ -185,15 +200,33 @@ export function blast(world, seat, x, y, r, { minDamage = 14, maxDamage = 60, mi
     v.hp -= damage;
     v.hitFlash = 1;
     v.lastDamage = damage;
+    v.lastCritical = false;
     v.lastHitWeapon = 'none';
     v.hitFromX = x;
     v.hitFromY = y;
     if (v.hp <= 0) {
-      kill(world, planter ?? null, v, source.id === 'fireball' ? 'fireball' : 'bomb', source);
+      kill(world, planter ?? null, v, source.id === 'rocket' ? 'rocket' : source.id === 'fireball' ? 'fireball' : 'bomb', source);
     }
   }
   world.drama += TENSION.gunshotDrama * 2;
   return hit;
+}
+
+/** Continuous power damage keeps exact attribution even if its caster has been eliminated. */
+export function powerDamage(world, victim, amount, source, weapon = source.id) {
+  if (!victim.alive || amount <= 0) return;
+  const damage = amount * (world.time < victim.blessUntil ? 0.4 : 1);
+  victim.hp -= damage;
+  victim.lastDamage = damage;
+  victim.lastCritical = false;
+  victim.lastHitWeapon = weapon;
+  victim.hitFlash = 1;
+  victim.hitFromX = source.x ?? victim.x;
+  victim.hitFromY = source.y ?? victim.y;
+  if (victim.hp <= 0) {
+    const proxy = world.villagers.find(v => v.alive && v.faction === source.seat) ?? null;
+    kill(world, proxy, victim, weapon, source);
+  }
 }
 
 /** Time bombs (a card): tick down, then go off. */
@@ -217,7 +250,7 @@ function kill(world, killer, victim, weapon, source = null) {
   if (killer) killer.kills++;
 
   const killerFaction = source?.seat ?? killer.faction;
-  const gk = source?.seat ?? groupOf(killer);
+  const gk = source ? source.seat < 0 ? 4 : source.seat : groupOf(killer);
   const gv = groupOf(victim);
 
   // Witnesses: this is the escalation loop. Anyone who liked the victim turns on the killer's group.
@@ -266,6 +299,7 @@ function kill(world, killer, victim, weapon, source = null) {
   world.drama += TENSION.killDrama;
   world.events.push({
     type: 'kill', turn: world.turn, time: world.time, weapon, witnesses,
+    critical: victim.lastCritical,
     killerId: killer?.id ?? -1, victimId: victim.id,
     killerFaction, victimFaction: victim.faction,
     x: victim.x, y: victim.y,

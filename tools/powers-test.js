@@ -57,7 +57,7 @@ const freeze = (g) => { for (const v of g.world.villagers) { v.timer = 99; v.vx 
 // miracle: heals
 {
   const g = town(32);
-  const v = alive(g, 1)[0];
+  const v = alive(g, 0)[0];
   v.hp = 30;
   const r = castPower(g, 0, 'miracle', { villagerId: v.id });
   check(r.ok && v.hp >= 30 + POWERS.miracle.heal - 1, `miracle: healed from 30 to ${Math.round(v.hp)}`);
@@ -212,9 +212,10 @@ for (const id of ['rain', 'fog']) {
 {
   const g = town(44);
   g.power[0] = 1;
-  check(!castPower(g, 0, 'lightning', { x: 900, y: 500 }).ok, 'cost: a 2-point miracle is refused with 1 point left');
+  check(!castPower(g, 0, 'fireball', { x: 900, y: 500 }).ok, 'cost: a 2-point miracle is refused with 1 point left');
   g.power[0] = 3;
   const mine = alive(g, 0)[0];
+  mine.hp = 30;
   castPower(g, 0, 'fog', { x: 900, y: 500 });
   castPower(g, 0, 'rain', { x: 900, y: 500 });
   castPower(g, 0, 'miracle', { villagerId: mine.id });

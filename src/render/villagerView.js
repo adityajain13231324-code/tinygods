@@ -29,6 +29,7 @@ export class VillagerView {
 
   /** Calm view: hide thought bubbles (and, in main.js, speech and stains) so a big fight is easier to read. */
   static calm = false;
+  static effectTime = 0;
 
   /**
    * @param {import('../sim/villager.js').Villager} v
@@ -122,6 +123,11 @@ export class VillagerView {
 
     this.ring.visible = v.faction === VillagerView.highlightSeat && v.alive;
     this.root.addChild(this.ring, this.shadow, this.tomb, this.rig, this.thoughtBox, this.hpBar);
+    this.ice = new Graphics().poly([-23, 1, -23, -38, -12, -49, 17, -46, 25, -29, 23, 1]).fill({ color: 0xa9eaff, alpha: 0.3 }).stroke({ color: 0xdcfaff, width: 2 });
+    this.ice.moveTo(-23, -30).lineTo(17, -46).moveTo(-12, -49).lineTo(5, -10).lineTo(23, 1).stroke({ color: 0xdcfaff, width: 1, alpha: 0.7 });
+    this.strengthAura = new Graphics().ellipse(0, 1, 27, 11).stroke({ color: 0xffbe65, width: 3 }).poly([-7, -63, 2, -63, -2, -56, 6, -56, -5, -44, -2, -53, -9, -53]).fill(0xffce79);
+    this.root.addChild(this.strengthAura, this.ice);
+    this.ice.visible = this.strengthAura.visible = false;
     if (!v.alive) { this.rig.visible = false; this.tomb.visible = true; this.shadow.visible = false; }
 
     // Forget what was drawn so the next update redraws it in the new colours.
@@ -148,6 +154,9 @@ export class VillagerView {
     this.root.position.set(v.px + (v.x - v.px) * alpha, v.py + (v.y - v.py) * alpha);
 
     if (v.faction !== this.shownFaction) this.build(); // they changed sides
+    const frozen = v.alive && v.frozenUntil > VillagerView.effectTime;
+    this.ice.visible = frozen;
+    this.strengthAura.visible = v.alive && v.damageBonus > 0;
     if (!v.alive) {
       this.updateDead(time);
       return;
@@ -161,7 +170,7 @@ export class VillagerView {
     const moving = speed > 8;
     const action = this.pickAction(v, moving);
     this.action = action;
-    this.animate(v, action, moving, time);
+    this.animate(v, frozen ? 'idle' : action, frozen ? false : moving, frozen ? v.frozenSince : time);
     this.behind.scale.x = v.facing;
     this.front.scale.x = v.facing;
 
@@ -171,7 +180,7 @@ export class VillagerView {
       this.staggerDir = v.hitFromX <= v.x ? 1 : -1;
     }
     this.lastHp = v.hp;
-    this.body.tint = this.stagger > 0.6 ? 0xffffff : this.bodyTint(v, action, time);
+    this.body.tint = frozen ? 0x9cddff : this.stagger > 0.6 ? 0xffffff : this.bodyTint(v, action, time);
     this.face.x = v.facing * 2; // eyes drift toward where they are looking
 
     // Chatting villagers take turns: the one whose turn it is has an open mouth (and speech.js
@@ -697,6 +706,11 @@ function drawWeapon(g, weapon, ammo) {
   g.clear();
   const line = (x1, y1, x2, y2, w, c) => g.moveTo(x1, y1).lineTo(x2, y2).stroke({ width: w, color: c, cap: 'round' });
   switch (weapon) {
+    case 'rocket':
+      g.roundRect(-10, -6, 33, 11, 3).fill(0x667e47).stroke({ width: 2, color: INK });
+      g.poly([23, -6, 31, 0, 23, 5]).fill(0xd4b36e);
+      g.rect(-8, 3, 5, 8).fill(INK);
+      break;
     case 'pan':
       line(0, 3, 0, -4, 3, INK);
       g.circle(0, -11, 7).fill(0x555555).stroke({ width: 1.5, color: INK });
