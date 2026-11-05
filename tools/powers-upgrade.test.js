@@ -165,7 +165,33 @@ test('new typed powers resolve, dawn bombs remain cards, rival healing is reject
     const r = resolvePower(g, 0, p.actions[0].power); assert.ok(r.ok, text); assert.equal(r.id, id);
   }
   assert.equal(resolvePower(g, 0, { id: 'miracle', villagerId: foe(g).id }).ok, false);
+  for (const group of [1, 2, 3, 4]) {
+    const before = authoritativeState(g);
+    const r = resolvePower(g, 0, { id: 'strength', group });
+    assert.equal(r.ok, false);
+    assert.deepEqual(authoritativeState(g), before);
+  }
   g.phase = 'command'; assert.equal(parseCommand('plant a time bomb at the plaza', g, 0).actions[0].kind, 'card');
+});
+
+test('drag Gust keeps its direction after a moving target and network stamping; legacy destinations remain valid', () => {
+  const g = fresh(), v = at(own(g));
+  const args = { villagerId: v.id, dx: 130, dy: 40, extra: 'discard' };
+  assert.ok(validatePower(g, 0, 'gust', args).ok);
+  const wire = normalizePowerArgs('gust', args);
+  assert.deepEqual(wire, { villagerId: v.id, dx: 130, dy: 40 });
+  v.x = 1550; // Moved past the old absolute release point before the cast is applied.
+  assert.ok(castPower(g, 0, 'gust', wire).ok);
+  assert.ok(v.kx > 0 && v.ky > 0);
+  assert.ok(Math.abs(v.ky / v.kx - 40 / 130) < 1e-10);
+  const h = fresh(), b = own(h);
+  assert.ok(validatePower(h, 0, 'gust', { villagerId: b.id, placeId: 'plaza' }).ok);
+  assert.ok(validatePower(h, 0, 'gust', { villagerId: b.id, tx: 950, ty: 570 }).ok);
+  for (const delta of [{dx:0,dy:0}, {dx:NaN,dy:10}, {dx:20}, {dx:1e100,dy:20}]) {
+    const before = authoritativeState(h);
+    assert.equal(castPower(h, 0, 'gust', { villagerId: b.id, placeId: 'plaza', ...delta }).ok, false);
+    assert.deepEqual(authoritativeState(h), before);
+  }
 });
 
 test('recap records rocket/freeze/Strength visuals and restores exact authoritative state', () => {

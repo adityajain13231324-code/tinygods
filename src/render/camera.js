@@ -147,6 +147,7 @@ export class Camera {
       this.zoomAt(Math.exp(-e.deltaY * 0.0015), e.offsetX, e.offsetY);
     }, { passive: false });
     canvas.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0) return; // Secondary buttons must never target a power.
       pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (pts.size === 1) {
         multi = false;
@@ -162,6 +163,7 @@ export class Camera {
     });
     const end = (e) => { pts.delete(e.pointerId); pinch = 0; };
     canvas.addEventListener('pointerup', (e) => {
+      if (e.button !== 0 || !pts.has(e.pointerId)) return;
       if (aiming === e.pointerId) { aiming = null; this.onAimEnd?.(...xy(e)); }
       else if (!multi && moved < 5 && pts.size === 1) this.onTap?.(...xy(e));
       end(e);

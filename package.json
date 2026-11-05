@@ -8,6 +8,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "node --test tools/*.test.js",
+    "test:browser-inputs": "node tools/browser-inputs.mjs",
     "check": "node tools/verify.js",
     "smoke": "node tools/sim-smoke.js",
     "net-test": "node tools/net-test.js"

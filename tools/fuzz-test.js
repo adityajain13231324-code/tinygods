@@ -87,7 +87,7 @@ function playMatch(seed) {
           const id = pick(POWER_IDS);
           const alive = g.world.villagers.filter((v) => v.alive);
           const target = pick(alive);
-          const args = { tx: rnd() * WORLD.width, ty: rnd() * WORLD.height, x: rnd() * WORLD.width, y: rnd() * WORLD.height, villagerId: target?.id, group: Math.floor(rnd() * 6) - 1, placeId: pick(['plaza', 'pond', 'nowhere', 'armory', 'market']), good: rnd() < 0.5 };
+          const args = { dx: rnd() * 1000 - 500, dy: rnd() * 800 - 400, tx: rnd() * WORLD.width, ty: rnd() * WORLD.height, x: rnd() * WORLD.width, y: rnd() * WORLD.height, villagerId: target?.id, group: Math.floor(rnd() * 6) - 1, placeId: pick(['plaza', 'pond', 'nowhere', 'armory', 'market']), good: rnd() < 0.5 };
           if (rnd() < 0.05) { args.villagerId = 999; args.x = NaN; }
           g.power[seat] = Math.max(g.power[seat], 3);
           const cr = castPower(g, seat, id, args);

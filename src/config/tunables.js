@@ -454,7 +454,7 @@ export const POWERS = {
   miracle: { cost: 1, heal: 45, opinion: 15 },
   whisper: { cost: 1, shift: 30 },
   fog: { cost: 1, radius: 125, seconds: 14 },
-  gust: { cost: 1, push: 640 },
+  gust: { cost: 1, push: 640, radius: 90 },
   earthquake: { cost: 2, shove: 380, damage: 3 },
   tornado: { cost: 2, radius: 170, pull: 520 },
   fireball: { cost: 2, radius: 85, minDamage: 12, maxDamage: 38 },

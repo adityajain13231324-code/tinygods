@@ -11,7 +11,7 @@ import { mulberry32 } from '../src/sim/rng.js';
 
 const MATCHES = Number(process.argv[2] ?? 6);
 const PHRASES = ['hate the tides', 'arm up', 'send three villagers to the armory', 'scare the sparks', 'hunt the tides', 'guard the plaza', 'throw a party at the pond', 'assault the sprouts', 'stand down', 'accuse the sparks'];
-const POWERS = [['lightning', { x: 900, y: 600 }], ['earthquake', {}], ['fog', { x: 700, y: 500 }], ['fireball', { x: 1100, y: 400 }], ['tornado', { x: 800, y: 700 }], ['timebomb', { x: 950, y: 570 }], ['blackout', {}], ['whirlpool', { x: 950, y: 570 }], ['launcher', { x: 950, y: 570 }], ['freeze', { x: 950, y: 570 }], ['strength', {}], ['gust', { tx: 950, ty: 570 }]];
+const POWERS = [['lightning', { x: 900, y: 600 }], ['earthquake', {}], ['fog', { x: 700, y: 500 }], ['fireball', { x: 1100, y: 400 }], ['tornado', { x: 800, y: 700 }], ['timebomb', { x: 950, y: 570 }], ['blackout', {}], ['whirlpool', { x: 950, y: 570 }], ['launcher', { x: 950, y: 570 }], ['freeze', { x: 950, y: 570 }], ['strength', {}], ['gust', { tx: 950, ty: 570 }], ['gust', { dx: 140, dy: -70 }]];
 let failed = 0;
 
 function playMatch(seed, humans, dropSeat = -1) {

@@ -576,6 +576,7 @@ export function resolvePower(game, seat, spec) {
     case 'blackout':
       return { ok: true, id: spec.id, args: {} };
     case 'strength': {
+      if (spec.group !== undefined && spec.group !== null && spec.group !== seat) return { ok: false, error: 'Strength only works on your own faction.' };
       const v = spec.villagerId !== undefined ? world.villagers[spec.villagerId] : alive.filter(q => q.faction === seat && !q.damageBonus).sort((a,b) => (b.state === 'attack') - (a.state === 'attack') || b.aggression - a.aggression)[0];
       if (!v?.alive || v.faction !== seat) return { ok: false, error: 'Choose a living villager from your faction.' };
       return { ok: true, id: spec.id, args: { villagerId: v.id } };

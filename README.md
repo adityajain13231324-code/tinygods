@@ -42,6 +42,7 @@ works from a sub-folder.
 |---|---|
 | `npm run smoke` | headless sim sanity check (no browser) |
 | `npm test` | integrity, protocol, provenance, public-information and benchmark regressions |
+| `npm run test:browser-inputs` | optional desktop/phone input regressions; requires Playwright and a built preview on port 4181 |
 | `npm run check` | all regression/behavior checks, delayed network matches, fuzz and production build |
 | `node tools/simulate.js --matches 500 --bots mixed --seed 1` | balance report over many bot-only matches |
 | `node tools/ai-health.js 12` | villager AI health: flip-flopping and stuck villagers |

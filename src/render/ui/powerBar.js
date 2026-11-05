@@ -39,31 +39,41 @@ export function createPowerBar(root, ctx, game, camera, stage) {
     label: 'Live miracle command', action: 'Cast miracle',
     placeholder: 'Or type a miracle: "fireball the Tides", "earthquake", "heal my weakest"',
     handle(text) {
-      const r = parseCommand(text, game, ctx.seat);
-      if (!r.ok) return r;
       const done = [];
+      const finish = result => {
+        note = [...(!result.ok ? done : []), result.message ?? ''].filter(Boolean).join(' ');
+        noteBad = !result.ok;
+        if (done.length) { selected = null; cancelAim(); }
+        return { ...result, message: note };
+      };
+      const r = parseCommand(text, game, ctx.seat);
+      if (!r.ok) return finish(r);
       for (const a of r.actions) {
         if (a.kind !== 'power') {
-          return { ok: false, message: `${a.label} is something you decide at dawn, before the town acts. Try a miracle now.`, suggestions: ['lightning on the plaza', 'heal my weakest', 'fog', 'whisper that the tides are dangerous'] };
+          return finish({ ok: false, message: `${a.label} is something you decide at dawn, before the town acts. Try a miracle now.`, suggestions: ['lightning on the plaza', 'heal my weakest', 'fog', 'whisper that the tides are dangerous'] });
         }
         const res = resolvePower(game, ctx.seat, a.power);
-        if (!res.ok) return { ok: false, message: res.error, suggestions: ['lightning on the plaza', 'fog on the market', 'heal my weakest'] };
+        if (!res.ok) return finish({ ok: false, message: res.error, suggestions: ['lightning on the plaza', 'fog on the market', 'heal my weakest'] });
         const cast = ctx.cast(res.id, res.args);
-        if (!cast.ok) return { ok: false, message: cast.error, suggestions: [] };
+        if (!cast.ok) return finish({ ok: false, message: cast.error, suggestions: [] });
         done.push(cast.message);
       }
-      return { ok: true, message: done.join(' ') };
+      return finish({ ok: true, message: done.join(' ') });
     },
   });
 
   const point = (sx, sy) => ({ x: (sx - stage.x) / camera.scale, y: (sy - stage.y) / camera.scale });
   const radius = () => Math.max(POWERS.targetRadius, 22 / camera.scale);
+  const gustArgs = (from, to) => ({
+    dx: Math.max(-WORLD.width, Math.min(WORLD.width, (to.x - from.x) / camera.scale)),
+    dy: Math.max(-WORLD.height, Math.min(WORLD.height, (to.y - from.y) / camera.scale)),
+  });
   const target = (p) => nearestPowerTarget(game, ctx.seat, selected, p.x, p.y, radius(), { group, good });
   const cancelAim = () => { drag = null; pointer = null; aim.clear(); cursor.hidden = true; };
   function cast(args) {
     const r = ctx.cast(selected, args);
     say(r.ok ? r.message : r.error, !r.ok);
-    if (r.ok) { selected = null; cancelAim(); }
+    if (r.ok) { selected = null; panel.classList.remove('expanded'); cancelAim(); }
     shownKey = '';
   }
   function mapTap(sx, sy) {
@@ -94,16 +104,18 @@ export function createPowerBar(root, ctx, game, camera, stage) {
     if (p.x < 0 || p.y < 0 || p.x > WORLD.width || p.y > WORLD.height) return;
     const def = POWER_DEFS[selected];
     const single = def.needs.startsWith('villager');
-    const r = single ? radius() : (POWERS[selected]?.radius ?? POWERS[selected]?.pickupRadius ?? 40);
     const v = drag ? game.world.villagers[drag.id] : single ? target(p) : null;
-    const valid = !single || (v && (selected !== 'whisper' || group !== null));
+    const r = drag && v ? POWERS.gust.radius : single ? radius() : (POWERS[selected]?.radius ?? POWERS[selected]?.pickupRadius ?? 40);
+    const valid = !single || (v?.alive && (selected !== 'whisper' || group !== null));
     const color = !valid ? 0xff8b8b : selected === 'whirlpool' ? 0xffb166 : 0x9ee5ff;
-    aim.circle(p.x, p.y, r).fill({ color, alpha: 0.12 }).stroke({ color, width: 2 / camera.scale, alpha: 0.9 });
+    aim.circle(drag && v ? v.x : p.x, drag && v ? v.y : p.y, r).fill({ color, alpha: 0.12 }).stroke({ color, width: 2 / camera.scale, alpha: 0.9 });
     if (valid && v) aim.ellipse(v.x, v.y, 25, 12).stroke({ color: 0xffdf7c, width: 3 / camera.scale });
-    if (drag && v) {
-      const a = Math.atan2(p.y - v.y, p.x - v.x);
-      aim.moveTo(v.x, v.y - 18).lineTo(p.x, p.y).stroke({ color: 0xffdf7c, width: 3 / camera.scale });
-      aim.poly([p.x, p.y, p.x - 18 * Math.cos(a - 0.5), p.y - 18 * Math.sin(a - 0.5), p.x - 18 * Math.cos(a + 0.5), p.y - 18 * Math.sin(a + 0.5)]).fill(0xffdf7c);
+    if (drag && v?.alive) {
+      const { dx, dy } = gustArgs(drag, pointer);
+      const end = { x: Math.max(0, Math.min(WORLD.width, v.x + dx)), y: Math.max(0, Math.min(WORLD.height, v.y - 18 + dy)) };
+      const a = Math.atan2(dy, dx);
+      aim.moveTo(v.x, v.y - 18).lineTo(end.x, end.y).stroke({ color: 0xffdf7c, width: 3 / camera.scale });
+      aim.poly([end.x, end.y, end.x - 18 * Math.cos(a - 0.5), end.y - 18 * Math.sin(a - 0.5), end.x - 18 * Math.cos(a + 0.5), end.y - 18 * Math.sin(a + 0.5)]).fill(0xffdf7c);
     }
     cursor.textContent = def.icon;
     cursor.style.left = `${pointer.x + 16}px`;
@@ -123,12 +135,11 @@ export function createPowerBar(root, ctx, game, camera, stage) {
     const start = drag;
     drag = null;
     if (Math.hypot(x - start.x, y - start.y) < 12) { say('Drag a little farther, then release.', true); return; }
-    const p = point(x, y);
-    cast({ villagerId: start.id, tx: Math.max(0, Math.min(WORLD.width, p.x)), ty: Math.max(0, Math.min(WORLD.height, p.y)) });
+    cast({ villagerId: start.id, ...gustArgs(start, { x, y }) });
   }
   window.addEventListener('keydown', e => {
     if (e.key === 'Escape') { selected = null; cancelAim(); shownKey = ''; }
-  });
+  }, true); // Observe Escape before the command input stops camera shortcuts.
 
   function say(text, bad = false) {
     note = text;
@@ -139,6 +150,10 @@ export function createPowerBar(root, ctx, game, camera, stage) {
   function build() {
     const scrollTop = panel.querySelector('.sheet-body')?.scrollTop ?? 0;
     const gridScroll = panel.querySelector('.powergrid')?.scrollTop ?? 0;
+    const active = panel.contains(document.activeElement) ? document.activeElement : null;
+    const editing = active === type.root.querySelector('input');
+    const caret = editing ? [active.selectionStart, active.selectionEnd, active.selectionDirection] : null;
+    const focusKey = active?.dataset.focusKey;
     const focused = panel.contains(document.activeElement) ? document.activeElement?.dataset.power : null;
     panel.replaceChildren();
     const left = game.power[ctx.seat] ?? 0;
@@ -172,6 +187,7 @@ export function createPowerBar(root, ctx, game, camera, stage) {
         if (def.needs === 'none') {
           const r = ctx.cast(id, {});
           say(r.ok ? r.message : r.error, !r.ok);
+          if (r.ok) { selected = null; panel.classList.remove('expanded'); }
           shownKey = '';
           return;
         }
@@ -189,6 +205,7 @@ export function createPowerBar(root, ctx, game, camera, stage) {
       r.append(el('span', 'label', 'About'));
       for (let g = 0; g < 5; g++) {
         const b = el('button', `opt${group === g ? ' on' : ''}`);
+        b.dataset.focusKey = `whisper-group-${g}`;
         if (g < 4) {
           const dot = el('i');
           dot.style.background = css(FACTIONS[g].color);
@@ -199,6 +216,7 @@ export function createPowerBar(root, ctx, game, camera, stage) {
         r.append(b);
       }
       const tone = el('button', `opt${good ? ' on' : ''}`, good ? 'Say something good' : 'Say something bad');
+      tone.dataset.focusKey = 'whisper-tone';
       tone.onclick = () => { good = !good; shownKey = ''; };
       r.append(tone);
       panel.append(r);
@@ -219,7 +237,13 @@ export function createPowerBar(root, ctx, game, camera, stage) {
     finishSheet(panel, `Miracles · ${left} power`, foot);
     panel.querySelector('.sheet-body').scrollTop = scrollTop;
     row.scrollTop = gridScroll;
-    if (focused) row.querySelector(`[data-power="${focused}"]`)?.focus({ preventScroll: true });
+    if (editing) {
+      type.focus();
+      active.setSelectionRange(...caret);
+    } else if (focused) row.querySelector(`[data-power="${focused}"]`)?.focus({ preventScroll: true });
+    else if (focusKey) panel.querySelector(`[data-focus-key="${focusKey}"]`)?.focus({ preventScroll: true });
+    panel.querySelector('.sheet-body').scrollTop = scrollTop;
+    row.scrollTop = gridScroll;
   }
 
   let castQueued = false;

@@ -87,10 +87,12 @@ export function validatePower(game, seat, id, args = {}) {
   if (id === 'whisper' && (!Number.isInteger(args.group) || args.group < 0 || args.group > 4)) return { ok: false, error: 'Whisper about which faction?' };
   if (id === 'whisper' && args.group === groupOf(v)) return { ok: false, error: `${v.name} knows their own group too well to be fooled` };
   if (id === 'gust') {
+    const direction = Object.hasOwn(args, 'dx') || Object.hasOwn(args, 'dy');
+    if (direction && !(Number.isFinite(args.dx) && Number.isFinite(args.dy) && Math.abs(args.dx) <= WORLD.width && Math.abs(args.dy) <= WORLD.height && Math.hypot(args.dx, args.dy) >= 8)) return { ok: false, error: 'Drag a little farther to choose a valid direction.' };
     const point = Number.isFinite(args.tx) && Number.isFinite(args.ty) && args.tx >= 0 && args.tx <= WORLD.width && args.ty >= 0 && args.ty <= WORLD.height;
     const place = world.places.some(p => p.id === args.placeId);
-    if (!point && !place) return { ok: false, error: 'Drag a direction, or name a destination place.' };
-    if (point && Math.hypot(args.tx - v.x, args.ty - v.y) < 8) return { ok: false, error: 'Drag a little farther to choose a direction.' };
+    if (!direction && !point && !place) return { ok: false, error: 'Drag a direction, or name a destination place.' };
+    if (!direction && point && Math.hypot(args.tx - v.x, args.ty - v.y) < 8) return { ok: false, error: 'Drag a little farther to choose a direction.' };
   }
   if (id === 'weapon' && v.faction !== seat) return { ok: false, error: 'You can only arm your own villagers.' };
   if (id === 'weapon' && effectiveWeapon(v) !== 'none') return { ok: false, error: `${v.name} is already armed.` };
@@ -102,7 +104,14 @@ export function normalizePowerArgs(id, args = {}) {
   const needs = POWER_DEFS[id].needs;
   if (needs === 'none') return {};
   if (needs === 'point') return { x: args.x, y: args.y };
-  return { villagerId: args.villagerId, ...(needs === 'villager+group' ? { group: args.group, good: args.good ?? false } : {}), ...(needs === 'villager+direction' ? Number.isFinite(args.tx) && Number.isFinite(args.ty) ? { tx: args.tx, ty: args.ty } : { placeId: args.placeId } : {}) };
+  const clean = { villagerId: args.villagerId };
+  if (needs === 'villager+group') return { ...clean, group: args.group, good: args.good ?? false };
+  if (needs === 'villager+direction') {
+    if (Number.isFinite(args.dx) && Number.isFinite(args.dy)) return { ...clean, dx: args.dx, dy: args.dy };
+    if (Number.isFinite(args.tx) && Number.isFinite(args.ty)) return { ...clean, tx: args.tx, ty: args.ty };
+    return { ...clean, placeId: args.placeId };
+  }
+  return clean;
 }
 
 export function castPower(game, seat, id, args = {}) {
@@ -318,11 +327,13 @@ export function castPower(game, seat, id, args = {}) {
     }
     case 'gust': {
       const place = world.places.find((p) => p.id === args.placeId);
-      const destination = Number.isFinite(args.tx) ? { x: args.tx, y: args.ty } : place;
+      const direction = Number.isFinite(args.dx) && Number.isFinite(args.dy);
+      const destination = direction ? { x: Math.max(0, Math.min(WORLD.width, v.x + args.dx)), y: Math.max(0, Math.min(WORLD.height, v.y + args.dy)) } : Number.isFinite(args.tx) ? { x: args.tx, y: args.ty } : place;
       if (v.state === 'attack') startIdle(world, v, 'gust');
       goToPlace(world, v, { ...destination, radius: 0 }, 'follow');
-      shoveToward(v, destination.x, destination.y, POWERS.gust.push);
-      for (const o of world.villagers) if (o.alive && o !== v && dist(o, v.x, v.y) < 90) shoveToward(o, destination.x, destination.y, 420);
+      if (direction) shoveFrom(v, v.x - args.dx, v.y - args.dy, POWERS.gust.push);
+      else shoveToward(v, destination.x, destination.y, POWERS.gust.push);
+      for (const o of world.villagers) if (o.alive && o !== v && dist(o, v.x, v.y) < POWERS.gust.radius) shoveToward(o, destination.x, destination.y, 420);
       message = place ? `${v.name} was blown toward the ${place.name}.` : `${v.name} was swept in your chosen direction.`;
       break;
     }
