@@ -8,6 +8,7 @@ import { createTypeBox } from './typeBox.js';
 import { POWER_CATS } from './cardStyle.js';
 import { finishSheet } from './sheet.js';
 import { powerUnlockError } from '../../sim/availability.js';
+import { livingGroups, groupHasMembers } from '../../sim/targets.js';
 
 /**
  * The live-miracle bar, shown while the town acts. Pick a power and click the map, or just type
@@ -159,7 +160,7 @@ export function createPowerBar(root, ctx, game, camera, stage) {
     const left = game.power[ctx.seat] ?? 0;
     const head = el('div', 'powerhead');
     const pips = el('span', 'pips');
-    for (let i = 0; i < POWERS.perTurn; i++) pips.append(el('i', i < left ? 'on' : ''));
+    for (let i = 0; i < Math.max(POWERS.perTurn, left); i++) pips.append(el('i', i < left ? 'on' : ''));
     head.append(el('b', '', 'Powers'), pips, el('span', 'sub', selected ? POWER_DEFS[selected].hint : 'Pick a power, then click the map. Unused power is lost.'));
     panel.append(head);
     const earlyLock = powerUnlockError(game, 'fireball');
@@ -167,7 +168,8 @@ export function createPowerBar(root, ctx, game, camera, stage) {
     type.root.querySelector('input').placeholder = earlyLock ? 'Or type a miracle: "heal my weakest", "fog on the plaza"' : 'Or type a miracle: "fireball the Tides", "earthquake", "heal my weakest"';
 
     const row = el('div', 'powergrid');
-    for (const [id, def] of Object.entries(POWER_DEFS)) {
+    row.setAttribute('aria-label', 'Powers, lowest to highest cost');
+    for (const [id, def] of Object.entries(POWER_DEFS).sort(([, a], [, b]) => a.cost - b.cost)) {
       const b = el('button', `ptile${selected === id ? ' on' : ''}`);
       b.dataset.power = id;
       b.setAttribute('aria-pressed', String(selected === id));
@@ -203,7 +205,7 @@ export function createPowerBar(root, ctx, game, camera, stage) {
     if (selected === 'whisper') {
       const r = el('div', 'row');
       r.append(el('span', 'label', 'About'));
-      for (let g = 0; g < 5; g++) {
+      for (const g of livingGroups(game.world)) {
         const b = el('button', `opt${group === g ? ' on' : ''}`);
         b.dataset.focusKey = `whisper-group-${g}`;
         if (g < 4) {
@@ -277,7 +279,8 @@ export function createPowerBar(root, ctx, game, camera, stage) {
       }
       if (selected && (game.power[ctx.seat] < POWER_DEFS[selected].cost || game.usedPowers[ctx.seat].includes(selected))) { selected = null; cancelAim(); }
       if (selected && powerUnlockError(game, selected)) { selected = null; cancelAim(); }
-      const key = `${game.turn}:${ctx.seat}:${game.power[ctx.seat]}:${game.usedPowers[ctx.seat].join(',')}:${selected}:${group}:${good}:${!!powerUnlockError(game, 'timebomb')}`;
+      if (group !== null && !groupHasMembers(game.world, group)) group = null;
+      const key = `${game.turn}:${ctx.seat}:${game.power[ctx.seat]}:${game.usedPowers[ctx.seat].join(',')}:${selected}:${group}:${good}:${!!powerUnlockError(game, 'timebomb')}:${livingGroups(game.world).join(',')}`;
       if (key !== shownKey) {
         shownKey = key;
         build();

@@ -6,6 +6,7 @@ import { startRumor } from './rumors.js';
 import { shuffle } from './rng.js';
 import { armoryReachable } from './world.js';
 import { planWorkOrders, WORK_VERBS } from './workPlan.js';
+import { groupHasMembers } from './targets.js';
 
 // An order is plain data, so humans, bots and (later) the network all use the same shape:
 //   { verb: 'hate', target: { kind: 'group', id: 1 } | { kind: 'place', id: 'well' } | null, strength: 1..3 }
@@ -44,6 +45,7 @@ export function validateOrder(order, world, seat = null) {
     const t = order.target;
     if (!record(t) || !verb.targets.includes(t.kind)) return { ok: false, error: `${verb.label} needs a ${verb.targets.join(' or ')} target` };
     if (t.kind === 'group' && !(Number.isInteger(t.id) && t.id >= 0 && t.id < NUM_GROUPS)) return { ok: false, error: 'Bad group' };
+    if (t.kind === 'group' && !groupHasMembers(world, t.id)) return { ok: false, error: `No living ${GROUP_NAMES[t.id]} remain. Choose another target.` };
     if (t.kind === 'place' && !world.places.some((p) => p.id === t.id)) return { ok: false, error: 'Bad place' };
     if (t.kind === 'villager' && (!Number.isInteger(t.id) || !world.villagers[t.id]?.alive)) return { ok: false, error: 'That villager is not around' };
     if (Number.isInteger(seat) && (['hunt', 'seize'].includes(order.verb) && world.villagers[t.id]?.faction === seat

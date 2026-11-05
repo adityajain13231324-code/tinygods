@@ -51,12 +51,12 @@ export function applyLoyalty(game) {
     if (v.opinion[f] >= LOYALTY.defectBelow || left[f] >= LOYALTY.maxPerFactionPerTurn || rng() >= LOYALTY.defectChance) continue;
     const p = v.partnerId >= 0 ? world.villagers[v.partnerId] : null;
     let dest = -1; // neutral by default
-    if (p?.alive && p.faction !== f) {
+    if (p?.alive && p.faction !== f && (p.faction < 0 || !game.eliminated[p.faction])) {
       dest = p.faction;
     } else {
       let best = LOYALTY.joinAbove;
       for (let g = 0; g < POPULATION.factions; g++) {
-        if (g !== f && v.opinion[g] > best) {
+        if (g !== f && !game.eliminated[g] && v.opinion[g] > best) {
           best = v.opinion[g];
           dest = g;
         }
@@ -72,7 +72,7 @@ export function applyLoyalty(game) {
     let best = -1;
     let bestOpinion = LOYALTY.recruitAbove;
     for (let g = 0; g < POPULATION.factions; g++) {
-      if (v.opinion[g] > bestOpinion && joined[g] < LOYALTY.recruitMax) {
+      if (!game.eliminated[g] && v.opinion[g] > bestOpinion && joined[g] < LOYALTY.recruitMax) {
         bestOpinion = v.opinion[g];
         best = g;
       }

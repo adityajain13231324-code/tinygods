@@ -262,6 +262,8 @@ export const COMBAT = {
   firearmEngageBonus: 0.15, // percentage-point bonus on the spontaneous engagement roll
   firearmEscalationMultiplier: 0.85,
   frozenHitBonus: 0.20,
+  retreatRocketChance: 0.75, // per ready firing opportunity, not per tick
+  pursuedRocketChance: 0.90,
   fistShoveSpeed: 220, // a brawler's shove: a short stumble (about 70 px), not a separation
   fistShove: 0.10, // in a fist fight, this share of moves is a shove (no damage, big push)
   fistShout: 0.03, // ...and this share is a shout that rattles whoever is listening

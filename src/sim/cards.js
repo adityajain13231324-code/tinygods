@@ -5,6 +5,7 @@ import { switchSides } from './loyalty.js';
 import { groupOf } from './villager.js';
 import { shuffle } from './rng.js';
 import { cardUnlockError } from './availability.js';
+import { groupHasMembers } from './targets.js';
 
 // Cards: each dawn every leader is dealt a hand and may play ONE (free, secret). They are the
 // moves orders can't do, and each one is meant to change the turn in a way you can see.
@@ -12,7 +13,7 @@ import { cardUnlockError } from './availability.js';
 
 export const CARD_DEFS = {
   // turning the town
-  forged: { name: 'Forged Letter', needs: 'group', blurb: 'The whole town reads a damning fake letter: everyone outside that faction turns on it and gets angrier, and it gains 6 notoriety.' },
+  forged: { name: 'Forged Letter', needs: 'group', blurb: 'The whole town reads a damning fake letter: everyone outside that group turns on it and gets angrier. A faction with a leader also gains 6 notoriety.' },
   prophecy: { name: 'Prophecy', needs: 'group', blurb: 'Doom is foretold: that faction\'s villagers lose their nerve, start the turn panicking, and are far less aggressive.' },
   alibi: { name: 'Alibi', needs: null, blurb: 'Your notoriety is wiped and the whole town warms to you.' },
   // information and economy
@@ -26,7 +27,7 @@ export const CARD_DEFS = {
   treaty: { name: 'Peace Treaty', needs: 'group', blurb: 'You and that faction cannot start fights with each other for the first 30 seconds (the whole town phase).' },
   // pressure
   raid: { name: 'Armory Raid', needs: 'group', blurb: 'Empty a faction\'s armory shelf and take up to three weapons from its villagers for your own unarmed ones.' },
-  spoiled: { name: 'Spoiled Bread', needs: 'group', blurb: 'A bad batch: a faction\'s villagers start the turn sick, 20 hp down (never fatal).' },
+  spoiled: { name: 'Spoiled Bread', needs: 'group', blurb: 'A bad batch: a faction\'s villagers start the turn sick, up to 20 HP down (never fatal).' },
   alarm: { name: 'False Alarm', needs: 'group', blurb: 'Bells ring: a faction\'s villagers panic, are thrown outward from their crowd, and lose their nerve.' },
   kidnap: { name: 'Kidnap', needs: 'group', blurb: 'Their four most aggressive villagers are whisked away and fall asleep for most of the turn.' },
   bomb: { name: 'Time Bomb', needs: 'place', blurb: 'Plant a bomb at a place. It goes off 12 seconds into the turn and hurts everyone close except your own faction (who are only thrown about).' },
@@ -37,6 +38,21 @@ export const CARD_DEFS = {
 };
 
 export const CARD_IDS = Object.keys(CARD_DEFS);
+
+export function cardTargetError(game, seat, id, group) {
+  const def = CARD_DEFS[id];
+  if (!Number.isInteger(group) || group < 0 || group > 4) return `${def.name} needs a faction`;
+  if (id !== 'spy' && group === seat) return `${def.name} cannot target your own faction`;
+  if (['spy', 'raid'].includes(id) && group > 3) return `${def.name} needs a faction with a leader`;
+  if (group < 4 && game.eliminated?.[group]) return `The ${GROUP_NAMES[group]} have been eliminated. Choose a living target.`;
+  if (!groupHasMembers(game.world, group)) return `No living ${GROUP_NAMES[group]} remain. Choose another target.`;
+  return null;
+}
+
+export function cardTargetGroups(game, seat, id) {
+  if (CARD_DEFS[id]?.needs !== 'group') return [];
+  return [0, 1, 2, 3, 4].filter(group => !cardTargetError(game, seat, id, group));
+}
 
 /** Deal a fresh hand (uses its own random stream so it never disturbs the town's). */
 export function dealHand(game) {
@@ -52,9 +68,8 @@ export function validateCard(game, seat, card) {
   if (locked) return { ok: false, error: locked };
   if (def.needs === 'place' && !PLACES.some((p) => p.id === card.place)) return { ok: false, error: `${def.name} needs a place` };
   if (def.needs === 'group') {
-    if (!Number.isInteger(card.group) || card.group < 0 || card.group > 4) return { ok: false, error: `${def.name} needs a faction` };
-    if (card.id !== 'spy' && card.group === seat) return { ok: false, error: `${def.name} cannot target your own faction` };
-    if (['spy', 'raid'].includes(card.id) && card.group > 3) return { ok: false, error: `${def.name} needs a faction with a leader` };
+    const error = cardTargetError(game, seat, card.id, card.group);
+    if (error) return { ok: false, error };
   }
   return { ok: true };
 }
@@ -79,6 +94,10 @@ export function applyCard(game, seat, card) {
   const { world } = game;
   const g = card.group;
   const note = (text) => game.feedback[seat].push(`${CARD_DEFS[card.id].name}: ${text}`);
+  if (CARD_DEFS[card.id].needs === 'group') {
+    const error = cardTargetError(game, seat, card.id, g);
+    if (error) { note(error); return; }
+  }
   switch (card.id) {
     case 'forged': {
       let n = 0;
@@ -88,8 +107,8 @@ export function applyCard(game, seat, card) {
         v.aggression = Math.min(100, v.aggression + 18);
         n++;
       }
-      game.notoriety[g] += 6;
-      note(`${n} villagers now distrust the ${GROUP_NAMES[g]}, who also gain notoriety.`);
+      if (g < 4) game.notoriety[g] += 6;
+      note(`${n} villagers now distrust the ${GROUP_NAMES[g]}${g < 4 ? ', who also gain notoriety' : ''}.`);
       break;
     }
     case 'prophecy':
@@ -178,7 +197,7 @@ export function applyCard(game, seat, card) {
       break;
     }
     case 'spoiled':
-      for (const v of members(world, g)) v.hp = Math.max(10, v.hp - 20);
+      for (const v of members(world, g)) v.hp = Math.max(Math.min(10, v.hp), v.hp - 20);
       note(`the ${GROUP_NAMES[g]} are badly sick.`);
       break;
     case 'alarm': {

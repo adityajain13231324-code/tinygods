@@ -5,6 +5,7 @@ import { blast, powerDamage } from './combat.js';
 import { groupOf, isFirearm, effectiveWeapon } from './villager.js';
 import { shoveFrom, shoveToward } from './shove.js';
 import { powerUnlockError } from './availability.js';
+import { groupHasMembers } from './targets.js';
 
 // God powers: live miracles used while the town acts. Each costs Power points (they refill every
 // turn, unspent points are lost). Like orders they are secret: the town sees what happens, not who did it.
@@ -85,6 +86,7 @@ export function validatePower(game, seat, id, args = {}) {
   if (def.needs === 'point' && !(Number.isFinite(args.x) && Number.isFinite(args.y))) return { ok: false, error: 'Pick a spot on the map' };
   if (def.needs === 'point' && (args.x < 0 || args.x > WORLD.width || args.y < 0 || args.y > WORLD.height)) return { ok: false, error: 'Pick a spot inside the town' };
   if (id === 'whisper' && (!Number.isInteger(args.group) || args.group < 0 || args.group > 4)) return { ok: false, error: 'Whisper about which faction?' };
+  if (id === 'whisper' && !groupHasMembers(world, args.group)) return { ok: false, error: 'That group has no living villagers left. Choose another group.' };
   if (id === 'whisper' && args.group === groupOf(v)) return { ok: false, error: `${v.name} knows their own group too well to be fooled` };
   if (id === 'gust') {
     const direction = Object.hasOwn(args, 'dx') || Object.hasOwn(args, 'dy');

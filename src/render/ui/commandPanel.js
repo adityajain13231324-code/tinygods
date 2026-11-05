@@ -1,7 +1,8 @@
 import { FACTIONS, GROUP_NAMES, NEUTRAL_LOOK, PLACES, VERBS } from '../../config/content.js';
 import { CARD_CATS, CARD_LOOK, VERB_LOOK, VERB_ORDER } from './cardStyle.js';
 import { GHOST, INFLUENCE, TURN } from '../../config/tunables.js';
-import { CARD_DEFS, describeCard } from '../../sim/cards.js';
+import { CARD_DEFS, cardTargetGroups, describeCard, validateCard } from '../../sim/cards.js';
+import { livingGroups, groupHasMembers } from '../../sim/targets.js';
 import { describeOrder, plainOrder, validateOrders } from '../../sim/orders.js';
 import { parseCommand } from '../../sim/parser.js';
 import { isGhost } from '../../sim/turn.js';
@@ -30,6 +31,7 @@ export function createCommandPanel(root, ctx) {
   let draft = { verb: null, target: null, who: null, strength: 1 }; // the order being built in the menu
   let menuError = '';
   let shownKey = '';
+  let shownTargets = '';
   let lastGame = null;
   let currentTb = null; // the typing box on screen right now
   const previewTimers = new Set();
@@ -96,6 +98,8 @@ export function createCommandPanel(root, ctx) {
         if (!game.hand[ctx.seat].includes(a.card.id)) {
           return { ok: false, message: `You do not hold ${a.label} this turn. Your hand: ${game.hand[ctx.seat].map((id) => CARD_DEFS[id].name).join(', ')}.`, suggestions: [] };
         }
+        const check = validateCard(game, ctx.seat, a.card);
+        if (!check.ok) return { ok: false, message: check.error, suggestions: [] };
         nextCard = a.card;
         notes.push(`Card ready: ${describeCard(a.card)}.`);
       } else {
@@ -174,7 +178,7 @@ export function createCommandPanel(root, ctx) {
       row.append(el('span', 'steplabel', draft.verb === 'hunt' || draft.verb === 'escort' ? 'Who?' : kinds.includes('place') && !kinds.includes('group') ? 'Where?' : 'Target'));
       if (kinds.includes('group')) {
         const own = ['hate', 'fear', 'assault', 'accuse'].includes(draft.verb);
-        for (let g = 0; g < 5; g++) {
+        for (const g of livingGroups(game.world)) {
           if (own && g === ctx.seat) continue;
           const look = g < 4 ? FACTIONS[g] : NEUTRAL_LOOK;
           const on = draft.target?.kind === 'group' && draft.target.id === g;
@@ -395,10 +399,12 @@ export function createCommandPanel(root, ctx) {
         tile.style.setProperty('--i', String(i));
         tile.title = def.blurb;
         const locked = cardUnlockError(game, id);
-        tile.disabled = !!locked;
-        if (locked) tile.title = locked;
-        tile.setAttribute('aria-label',`${def.name}${locked ? ': '+locked : ''}`);
-        tile.append(el('span', 'gc-cat', cat.name), el('span', 'gc-icon', look.icon), el('span', 'gc-name', def.name), el('span', 'gc-free', locked ? id==='bomb'?'Day 5':'Day 3' : 'free'));
+        const noTargets = def.needs === 'group' && cardTargetGroups(game, ctx.seat, id).length === 0;
+        const unavailable = locked ?? (noTargets ? 'No living eligible targets.' : null);
+        tile.disabled = !!unavailable;
+        if (unavailable) tile.title = unavailable;
+        tile.setAttribute('aria-label',`${def.name}${unavailable ? ': '+unavailable : ''}`);
+        tile.append(el('span', 'gc-cat', cat.name), el('span', 'gc-icon', look.icon), el('span', 'gc-name', def.name), el('span', 'gc-free', locked ? id==='bomb'?'Day 5':'Day 3' : noTargets ? 'No target' : 'free'));
         tile.onclick = () => {
           ctx.sound?.('card');
           card = card?.id === id ? null : { id, group: def.needs === 'group' ? null : undefined, place: def.needs === 'place' ? null : undefined };
@@ -413,9 +419,7 @@ export function createCommandPanel(root, ctx) {
         info.style.setProperty('--cat', CARD_CATS[CARD_LOOK[card.id].cat].color);
         info.append(el('b', '', def.name), el('span', 'sub', def.blurb));
         if (def.needs === 'group') {
-          for (let g = 0; g < 5; g++) {
-            if (g === ctx.seat && card.id !== 'spy') continue;
-            if (g === 4 && (card.id === 'spy' || card.id === 'raid')) continue;
+          for (const g of cardTargetGroups(game, ctx.seat, card.id)) {
             const b = el('button', `opt${card.group === g ? ' on' : ''}`, GROUP_NAMES[g]);
             b.onclick = () => { card.group = g; build(game); };
             info.append(b);
@@ -482,8 +486,10 @@ export function createCommandPanel(root, ctx) {
         return;
       }
       const key = `${game.turn}:${ctx.seat}`;
+      const targets = `${livingGroups(game.world).join(',')}:${game.eliminated.join(',')}`;
       if (key !== shownKey) {
         shownKey = key;
+        shownTargets = targets;
         staged = [];
         card = null;
         typedNote = '';
@@ -492,6 +498,15 @@ export function createCommandPanel(root, ctx) {
         draft = { verb: null, target: null, who: null, strength: 1 };
         menuError = '';
         ctx.queuedPowers.length = 0;
+        build(game);
+      } else if (targets !== shownTargets) {
+        shownTargets = targets;
+        if (card && CARD_DEFS[card.id].needs === 'group' && !cardTargetGroups(game, ctx.seat, card.id).includes(card.group)) {
+          if (card.group !== null) { typedNote = 'That card target is no longer available. Choose another living target.'; typedBad = true; }
+          if (cardTargetGroups(game, ctx.seat, card.id).length) card.group = null;
+          else { card = null; typedNote = 'No living eligible targets remain for that card.'; typedBad = true; }
+        }
+        if (draft.target?.kind === 'group' && !groupHasMembers(game.world, draft.target.id)) draft.target = null;
         build(game);
       }
     },

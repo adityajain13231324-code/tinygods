@@ -7,12 +7,41 @@ import { shoveFrom } from './shove.js';
 
 const clamp = (x, lo, hi) => Math.min(hi, Math.max(lo, x));
 
+function retreatRocketTarget(world, a) {
+  if (a.weapon !== 'rocket' || a.ammo <= 0 || a.fx.standdown || a.carry || a.carrying) return null;
+  if (a.state !== 'flee' && !(a.fx.avoid.length && ['idle', 'wander', 'guard', 'seek'].includes(a.state))) return null;
+  let best = null, bestScore = Infinity;
+  for (const b of world.villagers) {
+    if (!b.alive || groupOf(b) === groupOf(a) || b.id === a.partnerId) continue;
+    const distance = Math.hypot(b.x - a.x, b.y - a.y);
+    if (distance > WEAPONS.rocket.range) continue;
+    const pursuing = b.state === 'attack' && b.targetId === a.id;
+    const hostile = a.grudge[groupOf(b)] > 0 || a.grievance[b.id] >= a.tolerance * GRIEVANCE.fightAt || a.opinion[groupOf(b)] < -COMBAT.provocation;
+    if (!pursuing && (!hostile || world.time < a.calmUntil || world.time < a.truceUntil[b.id] || world.time < b.truceUntil[a.id])) continue;
+    const score = distance - (pursuing ? WEAPONS.rocket.range : 0);
+    if (score < bestScore) { best = b; bestScore = score; }
+  }
+  return best;
+}
+
 /** Swings for everyone who is in 'attack' state and in reach. Runs once per tick. */
 export function resolveCombat(world, dt) {
   for (const a of world.villagers) {
     if (!a.alive) continue;
     a.cd = Math.max(0, a.cd - dt);
-    if (world.time < world.blackoutUntil || world.time < a.frozenUntil) continue;
+    if (world.peaceful || world.time < world.blackoutUntil || world.time < a.frozenUntil) continue;
+    if (a.state !== 'attack' && a.cd <= 0) {
+      const target = retreatRocketTarget(world, a);
+      if (target) {
+        a.cd = WEAPONS.rocket.interval;
+        const pursuing = target.state === 'attack' && target.targetId === a.id;
+        if (world.rng() < (pursuing ? COMBAT.pursuedRocketChance : COMBAT.retreatRocketChance)) {
+          a.swing = 1;
+          a.facing = target.x >= a.x ? 1 : -1;
+          strike(world, a, target, 'rocket');
+        }
+      }
+    }
     if (a.state !== 'attack') continue;
     const target = world.villagers[a.targetId];
     if (!target || !target.alive) continue;

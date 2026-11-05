@@ -1,5 +1,5 @@
 import { FACTIONS, GROUP_NAMES, PLACES } from '../config/content.js';
-import { CARD_DEFS } from './cards.js';
+import { CARD_DEFS, cardTargetError } from './cards.js';
 import { POWER_DEFS, hotspot } from './powers.js';
 import { describeOrder } from './orders.js';
 import { cardUnlockError, powerUnlockError } from './availability.js';
@@ -323,6 +323,8 @@ function parseClause(rawClause, game, seat) {
     if (def.needs === 'group') {
       const g = group ?? (named.length ? (named[0].faction >= 0 ? named[0].faction : 4) : null);
       if (g === null) return fail(`Which faction should the ${def.name} be aimed at?`, game, seat, { card: id });
+      const error = cardTargetError(game, seat, id, g);
+      if (error) return fail(error, game, seat, { card: id });
       return { ok: true, action: { kind: 'card', card: { id, group: g }, label: def.name } };
     }
     return { ok: true, action: { kind: 'card', card: { id }, label: def.name } };
