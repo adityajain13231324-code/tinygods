@@ -444,9 +444,19 @@ export class Effects {
     }
     if (!v.alive) return;
 
-    if (v.hitFlash > f.hit + 0.5) {
+    const waterTotal = v.whirlpoolDamage ?? 0;
+    if (waterTotal < (f.waterSeen ?? 0)) f.waterPending = 0; // turn reset or replay rewind
+    f.waterPending = (f.waterPending ?? 0) + Math.max(0, waterTotal - (f.waterSeen ?? 0));
+    f.waterSeen = waterTotal;
+    if (f.waterPending >= 0.5 && time >= (f.nextWater ?? 0)) {
+      this.number(view.root.x, hy - 6, `-${Math.round(f.waterPending)} HP`, 0x92e5ff);
+      this.emit('sparkle', view.root.x, view.bodyY(), { vy: -25, tint: 0x92e5ff, life: 0.5 });
+      f.waterPending = 0;
+      f.nextWater = time + 0.45;
+    }
+    if (v.lastHitWeapon !== 'whirlpool' && v.hitFlash > f.hit + 0.5) {
       for (let i = 0; i < 3; i++) this.emit('star', view.root.x + (Math.random() - 0.5) * 16, view.bodyY() - 6, { vy: -30 - Math.random() * 20, life: 0.5, s0: 0.7, s1: 1.2, spin: 6 });
-      this.number(view.root.x, hy - 6, v.lastHitWeapon === 'whirlpool' ? 'VORTEX' : `${v.lastCritical ? 'CRIT ' : '-'}${Math.round(v.lastDamage)}`, v.lastCritical ? 0xffdf7c : v.lastDamage >= 25 ? 0xff7a5a : 0xffffff);
+      this.number(view.root.x, hy - 6, `${v.lastCritical ? 'CRIT ' : '-'}${Math.round(v.lastDamage)}`, v.lastCritical ? 0xffdf7c : v.lastDamage >= 25 ? 0xff7a5a : 0xffffff);
       if (VillagerView.bloodEnabled && !['shove', 'whirlpool'].includes(v.lastHitWeapon)) this.spray(view.root.x, view.bodyY(), v.hitFromX, v.hitFromY, v.lastDamage >= 25 ? 6 : 3);
       this.audio?.play(HIT_SOUND[v.lastHitWeapon] ?? 'slap', view.root.x);
     }

@@ -259,6 +259,9 @@ export const NOTORIETY = {
 export const COMBAT = {
   headshotChance: 0.2,
   headshotMultiplier: 2,
+  firearmEngageBonus: 0.15, // percentage-point bonus on the spontaneous engagement roll
+  firearmEscalationMultiplier: 0.85,
+  frozenHitBonus: 0.20,
   fistShoveSpeed: 220, // a brawler's shove: a short stumble (about 70 px), not a separation
   fistShove: 0.10, // in a fist fight, this share of moves is a shove (no damage, big push)
   fistShout: 0.03, // ...and this share is a shout that rattles whoever is listening
@@ -466,10 +469,10 @@ export const POWERS = {
   weapon: { cost: 1 }, // hands one of your own villagers a weapon
   sleep: { cost: 1, seconds: 8 },
   timebomb: { cost: 2, radius: 120, seconds: 12 },
-  blackout: { cost: 3, seconds: 8, heal: 20 },
-  whirlpool: { cost: 3, radius: 155, seconds: 3, maxDamage: 30, pull: 650 },
-  launcher: { cost: 3, pickupRadius: 24, rocketSpeed: 500 },
-  freeze: { cost: 2, radius: 135, seconds: 4 },
+  blackout: { cost: 3, seconds: 12, heal: 20, minDamage: 5, maxDamage: 10, retargetSeconds: 4 },
+  whirlpool: { cost: 3, radius: 155, seconds: 3, maxDamage: 39, pull: 650 },
+  launcher: { cost: 3, pickupRadius: 24, rocketSpeed: 500, damageMultiplier: 0.65, radiusMultiplier: 1.15 },
+  freeze: { cost: 2, radius: 135, seconds: 7 },
   strength: { cost: 1, minBonus: 0.1, maxBonus: 0.5 },
 };
 

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createGame, updateGame } from '../src/sim/turn.js';
 import { castPower, validatePower, normalizePowerArgs, nearestPowerTarget, POWER_DEFS } from '../src/sim/powers.js';
 import { resolveCombat, updateBombs } from '../src/sim/combat.js';
-import { stepWorld } from '../src/sim/brain.js';
+import { stepWorld, startAttack } from '../src/sim/brain.js';
 import { updatePowerEffects } from '../src/sim/powerEffects.js';
 import { authoritativeState } from '../src/sim/state.js';
 import { parseCommand, resolvePower } from '../src/sim/parser.js';
@@ -47,38 +47,38 @@ test('Miracle rejects rivals and full health without spending power or seeded RN
   assert.deepEqual(authoritativeState(g), before);
 });
 
-test('Whirlpool hurts allies and rivals equally, caps centre damage at 30, expires, and respects Aegis', () => {
+test('Whirlpool hurts allies and rivals equally, caps centre damage at 39, expires, and respects Aegis', () => {
   const g = fresh(), a = at(own(g)), b = at(foe(g));
   const c = at(g.world.villagers.find(v => v.faction === 2)); c.blessUntil = 100;
   const edge = at(g.world.villagers.find(v => v.faction === 3), 950 + POWERS.whirlpool.radius, 570);
   assert.ok(castPower(g, 0, 'whirlpool', { x: 950, y: 570 }).ok);
   for (let i = 0; i < 60; i++) { g.world.time += 0.05; updatePowerEffects(g.world, 0.05); }
   g.world.time = 13.001; updatePowerEffects(g.world, 0.001);
-  assert.ok(Math.abs(a.hp - 70) < 1e-8); assert.equal(a.hp, b.hp);
-  assert.ok(Math.abs(c.hp - 88) < 1e-8); assert.equal(edge.hp, 100);
+  assert.ok(Math.abs(a.hp - 61) < 1e-8); assert.equal(a.hp, b.hp);
+  assert.ok(Math.abs(c.hp - 84.4) < 1e-8); assert.equal(edge.hp, 100);
   assert.equal(g.world.whirlpools.length, 0);
   const hp = a.hp; g.world.time += 10; updatePowerEffects(g.world, 10); assert.equal(a.hp, hp);
 });
 
-test('Freeze immobilizes everyone for 4 seconds and suppresses attacks even after Enrage', () => {
-  const g = fresh(), [a, b] = duel(g); a.weapon = 'none';
-  assert.ok(castPower(g, 0, 'freeze', { x: a.x, y: a.y }).ok);
-  assert.equal(a.frozenUntil, 14); assert.equal(b.frozenUntil, 14);
-  assert.ok(castPower(g, 1, 'enrage', { villagerId: a.id }).ok);
-  const x = a.x, y = a.y, hp = b.hp;
-  for (let i = 0; i < 79; i++) stepWorld(g.world, 0.05);
-  assert.equal(a.x, x); assert.equal(a.y, y); assert.equal(b.hp, hp);
-  g.world.time = 14.01; a.state = 'attack'; a.targetId = b.id; a.cd = 0;
-  g.world.rng = () => 0.1; resolveCombat(g.world, 0.05); assert.ok(b.hp < hp);
+test('Freeze spares allies and immobilizes rivals for 7 seconds, even after Enrage', () => {
+  const g = fresh(), [a,b] = duel(g); a.state='idle'; a.weapon='none';
+  assert.ok(castPower(g,0,'freeze',{x:a.x,y:a.y}).ok);
+  assert.equal(a.frozenUntil,0); assert.equal(b.frozenUntil,17);
+  assert.ok(castPower(g,1,'enrage',{villagerId:b.id}).ok);
+  const x=b.x,y=b.y,hp=a.hp;
+  for(let i=0;i<139;i++)stepWorld(g.world,.05);
+  assert.equal(b.x,x);assert.equal(b.y,y);assert.equal(a.hp,hp);
+  g.world.time=17.01;at(a,b.x+10,b.y);b.state='attack';b.targetId=a.id;b.cd=0;
+  g.world.rng=()=>.1;resolveCombat(g.world,.05);assert.ok(a.hp<hp);
 });
 
-test('Blackout heals only living allies by 20 and blocks combat for exactly 8 seconds', () => {
-  const g = fresh(), [a, b] = duel(g); a.hp = 85; b.hp = 50;
-  const dead = g.world.villagers.find(v => v.faction === 0 && v !== a); dead.alive = false; dead.hp = 0;
-  assert.ok(castPower(g, 0, 'blackout', {}).ok);
-  assert.equal(a.hp, 100); assert.equal(b.hp, 50); assert.equal(dead.hp, 0); assert.equal(g.world.blackoutUntil, 18);
-  for (const time of [10, 12, 17.99]) { g.world.time = time; a.state = 'attack'; a.targetId = b.id; a.cd = 0; resolveCombat(g.world, 0.05); assert.equal(b.hp, 50); }
-  g.world.time = 18; a.cd = 0; g.world.rng = () => 0.1; resolveCombat(g.world, 0.05); assert.ok(b.hp < 50);
+test('Blackout heals allies, damages enemies once, and blocks combat for exactly 12 seconds', () => {
+  const g=fresh(),[a,b]=duel(g);a.hp=85;b.hp=50;
+  const dead=g.world.villagers.find(v=>v.faction===0&&v!==a);dead.alive=false;dead.hp=0;
+  assert.ok(castPower(g,0,'blackout',{}).ok);
+  const hp=b.hp;assert.ok(hp>=40&&hp<=45);assert.equal(a.hp,100);assert.equal(dead.hp,0);assert.equal(g.world.blackoutUntil,22);
+  for(const time of [10,12,21.999]){g.world.time=time;a.state='attack';a.targetId=b.id;a.cd=0;resolveCombat(g.world,.05);assert.equal(b.hp,hp);}
+  g.world.time=22;a.cd=0;g.world.rng=()=>.1;resolveCombat(g.world,.05);assert.ok(b.hp<hp);
 });
 
 test('a launcher is picked up by the first nearby villager of any faction, freezes cannot pick up', () => {
@@ -90,18 +90,19 @@ test('a launcher is picked up by the first nearby villager of any faction, freez
   assert.equal(validatePower(g, 1, 'weapon', { villagerId: rival.id }).ok, false);
 });
 
-test('five rockets deplete the launcher; delayed half-Fireball blasts spare the shooter faction', () => {
+test('five rockets deplete the launcher; stronger delayed blasts spare the shooter faction', () => {
   const g = fresh(), [a, b] = duel(g, 'rocket'); a.ammo = 5;
   const ally = at(g.world.villagers.find(v => v.faction === 0 && v !== a), b.x, b.y);
   g.world.rng = () => 0.4;
   for (let i = 0; i < 5; i++) {
+    b.hp = 100;
     a.cd = 0; a.state = 'attack'; a.targetId = b.id;
     resolveCombat(g.world, 0.05);
     assert.equal(g.world.rockets.length, 1);
     const r = g.world.rockets[0]; assert.equal(r.seat, 0);
     g.world.time = r.at + 0.001; updatePowerEffects(g.world, 0.05);
     assert.equal(g.world.rockets.length, 0); assert.equal(ally.hp, 100);
-    assert.ok(Math.abs(b.hp - (100 - (i + 1) * POWERS.fireball.maxDamage * 0.5)) < 1e-8);
+    assert.ok(Math.abs(b.hp - (100 - POWERS.fireball.maxDamage * POWERS.launcher.damageMultiplier)) < 1e-8);
   }
   assert.equal(a.weapon, 'none'); assert.equal(a.ammo, 0);
 });
@@ -147,7 +148,7 @@ test('Time Bomb has the existing 12-second fuse and ally damage immunity', () =>
 
 test('new powers validate gates, resources and normalized drag direction without side effects', () => {
   const g = fresh(); assert.equal(Object.keys(POWER_DEFS).length, 21); assert.equal(POWER_DEFS.lightning.cost, 1);
-  for (const id of ['timebomb', 'whirlpool', 'launcher']) { g.turn = 4; assert.equal(validatePower(g, 0, id, { x: 950, y: 570 }).ok, false); }
+  for (const id of ['timebomb', 'whirlpool', 'launcher', 'blackout']) { g.turn = 4; assert.equal(validatePower(g, 0, id, { x: 950, y: 570 }).ok, false); }
   g.turn = 5; const v = own(g);
   const args = { villagerId: v.id, tx: 950, ty: 570, malicious: 12 };
   assert.ok(validatePower(g, 0, 'gust', args).ok);
@@ -195,7 +196,7 @@ test('drag Gust keeps its direction after a moving target and network stamping; 
 });
 
 test('recap records rocket/freeze/Strength visuals and restores exact authoritative state', () => {
-  const g = fresh(), v = own(g); v.weapon = 'rocket'; v.ammo = 3; v.damageBonus = 0.37; v.frozenUntil = 14;
+  const g = fresh(), v = own(g); v.weapon = 'rocket'; v.ammo = 3; v.damageBonus = 0.37; v.frozenUntil = 14; v.whirlpoolDamage = 17.123456789;
   g.world.blackoutUntil = 18; g.world.weaponDrops.push({ id: 'drop', x: 500, y: 500 });
   g.recorder.capture(g.world); g.world.time += 0.1; g.recorder.capture(g.world); g.phase = 'recap';
   const before = authoritativeState(g), replay = new Replay({ game: g, camera: { cut() {}, hold: 0 } });
@@ -222,4 +223,69 @@ test('neutral rocket kills and eliminated Whirlpool casters have valid recorded 
     assert.match(cause.reason, neutral ? /neutrals fired the rocket/ : /Embers cast Whirlpool/);
     assert.doesNotThrow(() => buildHighlights(g, 5));
   }
+});
+
+test('Blackout breaks target locks and chooses a different valid foe after daylight', () => {
+  for (const ordered of [false,true]) {
+    const g=fresh(),a=at(own(g)),b=at(foe(g),980,570),c=at(g.world.villagers.find(v=>v.faction===1&&v!==b),1010,570);
+    Object.assign(a,{trait:null,partnerId:-1,aggression:100,courage:100,panic:0,calmUntil:0});
+    a.grievance.fill(0);a.grudge.fill(0);a.grievance[b.id]=a.grievance[c.id]=ordered?0:a.tolerance*2;
+    if(ordered)a.fx.assault={kind:'group',id:1};
+    startAttack(g.world,a,b);assert.ok(castPower(g,0,'blackout',{}).ok);
+    assert.equal(a.targetId,null);assert.equal(a.blackoutTargetId,b.id);
+    assert.equal(castPower(g,1,'enrage',{villagerId:b.id}).ok,false);
+    startAttack(g.world,a,b);assert.notEqual(a.state,'attack');
+    g.world.time=22.01;a.thinkTimer=0;a.brewId=c.id;a.brewUntil=0;
+    stepWorld(g.world,.05);assert.equal(a.targetId,c.id);assert.equal(a.state,'attack');
+  }
+});
+
+test('Blackout damage is seeded, enemy-only, shielded normally, and records lethal provenance', () => {
+  for(const [roll,damage] of [[0,5],[.99999,10]]) {
+    const g=fresh(),a=own(g),b=foe(g),c=g.world.villagers.find(v=>v.faction===2);
+    a.hp=50;b.hp=100;c.hp=100;c.blessUntil=100;g.world.rng=()=>roll;
+    assert.ok(castPower(g,0,'blackout',{}).ok);
+    assert.equal(a.hp,70);assert.equal(b.hp,100-damage);assert.equal(c.hp,100-damage*.4);
+  }
+  const g=fresh(),b=foe(g);b.hp=1;castPower(g,0,'blackout',{});
+  const e=g.world.events.find(e=>e.type==='kill'&&e.victimId===b.id);
+  assert.equal(e.source.id,'blackout');assert.match(attributeKill(g,5,e).reason,/cast Blackout/);
+});
+
+test('frozen targets gain exactly 20 percentage points of hit vulnerability', () => {
+  for(const [roll,normal,frozen] of [[.49999,true,true],[.5,false,true],[.69999,false,true],[.7,false,false]]) {
+    for(const icy of [false,true]) {
+      const g=fresh(),[a,b]=duel(g);a.courage=b.courage=50;b.frozenUntil=icy?17:0;
+      let n=0;g.world.rng=()=>n++===0?roll:.5;
+      resolveCombat(g.world,.05);
+      assert.equal(b.hp<100,icy?frozen:normal);
+    }
+  }
+});
+
+test('launcher holders actually fire after acquiring a target instead of reverting to fists', () => {
+  const g=fresh(),[a,b]=duel(g,'rocket');a.ammo=5;a.escalation=0;a.grievance[b.id]=0;
+  startAttack(g.world,a,b);assert.equal(a.escalation,2);
+  resolveCombat(g.world,.05);assert.equal(a.ammo,4);assert.equal(g.world.rockets.length,1);
+  assert.equal(b.hp,100); // delayed impact, not an immediate melee strike
+});
+
+test('loaded firearms gain the engagement bonus; dry weapons and Stand Down do not', () => {
+  for(const [weapon,ammo,standdown,expected] of [['none',0,false,false],['gun',0,false,false],['gun',3,false,true],['rocket',5,false,true],['gun',3,true,false]]) {
+    const g=fresh(),a=at(own(g)),b=at(foe(g),980,570);
+    Object.assign(a,{weapon,ammo,trait:null,partnerId:-1,aggression:10,courage:50,thinkTimer:0,brewId:b.id,brewUntil:0,calmUntil:0});
+    a.grievance.fill(0);a.grudge.fill(0);a.grievance[b.id]=a.tolerance*2;a.fx.standdown=standdown;
+    g.world.rng=()=>.6;stepWorld(g.world,.05);
+    assert.equal(a.state==='attack',expected,`${weapon}, ammo ${ammo}, standdown ${standdown}`);
+  }
+});
+
+test('rocket damage is 30% stronger and its 15% wider blast still spares allies', () => {
+  const g=fresh(),[a,b]=duel(g,'rocket');a.ammo=1;
+  const edge=at(g.world.villagers.find(v=>v.faction===2),b.x+POWERS.fireball.radius*1.1,b.y);
+  const ally=at(g.world.villagers.find(v=>v.faction===0&&v!==a),edge.x,edge.y);
+  resolveCombat(g.world,.05);g.world.time+=1;updatePowerEffects(g.world,1);
+  assert.ok(Math.abs((100-b.hp)/(POWERS.fireball.maxDamage*.5)-1.3)<1e-10);
+  assert.ok(edge.hp<100);assert.equal(ally.hp,100);
+  assert.equal(POWERS.launcher.radiusMultiplier,1.15);assert.equal(POWERS.whirlpool.maxDamage,30*1.3);
 });

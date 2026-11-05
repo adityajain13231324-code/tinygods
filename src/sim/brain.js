@@ -290,7 +290,10 @@ const cantStart = (v) => v.fx.standdown || v.trait === 'medic' || v.hp < COMBAT.
 /** Which weapons am I willing to use against this opponent? 0 fists, 1 melee, 2 firearms. */
 function escalationFor(v, target) {
   const r = ratio(v, target);
-  let level = r >= GRIEVANCE.gunAt ? 2 : r >= GRIEVANCE.weaponAt ? 1 : 0;
+  const armed = isFirearm(effectiveWeapon(v));
+  if (armed && (v.weapon === 'rocket' || v.fx.assault || v.fx.hunt != null)) return 2;
+  const gunAt = GRIEVANCE.gunAt * (armed ? COMBAT.firearmEscalationMultiplier : 1);
+  let level = r >= gunAt ? 2 : r >= GRIEVANCE.weaponAt ? 1 : 0;
   if (target.state === 'attack' && target.targetId === v.id) level = Math.max(level, target.escalation); // answer in kind
   if (v.hp < GRIEVANCE.scuffleHp) level = Math.max(level, 1); // hurt people fight dirty
   return level;
@@ -372,6 +375,8 @@ function inFog(world, v) {
 function pickFight(world, v) {
   if (cantStart(v) || world.time < v.calmUntil || inFog(world, v)) return stopGlare(world, v);
   let target = null;
+  let former = null;
+  let formerD = world.seekRadius;
   let bestD = world.seekRadius;
   for (const o of world.villagers) {
     if (o === v || !o.alive) continue;
@@ -380,16 +385,21 @@ function pickFight(world, v) {
     if (!fedUp && v.grudge[g] <= 0) continue;
     if (v.grudge[g] <= 0 && avoidsGroup(v, g)) continue; // avoiders never start it
     let d = dist(v, o.x, o.y);
+    if (o.id === v.blackoutTargetId && world.time < v.blackoutRetargetUntil) {
+      if (d < formerD) { former = o; formerD = d; }
+      continue;
+    }
     if (v.state === 'attack' && o.id === v.targetId) d *= 0.55; // stick with the current opponent unless another is much closer
     if (d < bestD) {
       bestD = d;
       target = o;
     }
   }
+  target ??= former;
   if (!target) return stopGlare(world, v);
 
   if (v.state === 'attack' && v.targetId === target.id) return true;
-  const nerve = v.aggression + world.rng() * COMBAT.attackRoll;
+  const nerve = v.aggression + world.rng() * COMBAT.attackRoll + (isFirearm(effectiveWeapon(v)) ? COMBAT.attackRoll * COMBAT.firearmEngageBonus : 0);
   if (v.state !== 'attack' && nerve <= v.courage * COMBAT.attackCourageFactor) return stopGlare(world, v);
 
   // Nobody goes from calm to killing: they scowl first (the angrier the town, the shorter the scowl).
@@ -645,10 +655,11 @@ function obeyOrders(world, v) {
     const isFoe = (o) => o.alive && o !== v && o.faction !== v.faction && (place ? dist(o, place.x, place.y) < place.radius * 1.3 : groupOf(o) === as.id);
     const cur = v.state === 'attack' ? world.villagers[v.targetId] : null;
     if (!cur || !isFoe(cur)) {
+      const switchTarget = world.time < v.blackoutRetargetUntil && world.villagers.some(o => isFoe(o) && o.id !== v.blackoutTargetId && dist(v, o.x, o.y) < 700);
       let best = null;
       let bestD = Infinity;
       for (const o of world.villagers) {
-        if (!isFoe(o)) continue;
+        if (!isFoe(o) || switchTarget && o.id === v.blackoutTargetId) continue;
         const d = dist(v, o.x, o.y);
         if (d < bestD) { bestD = d; best = o; }
       }
@@ -960,7 +971,7 @@ export function startIdle(world, v, why = '') {
 }
 
 export function startAttack(world, v, target, cause = 'fed up') {
-  if (world.peaceful) return; // the first days are calm: shouting, yes; fighting, no
+  if (world.peaceful || world.time < world.blackoutUntil) return;
   if (v.state !== 'attack') note(world, `idle->attack: ${cause}`);
   else if (v.targetId !== target.id) note(world, `retarget: ${cause}`);
   v.state = 'attack';

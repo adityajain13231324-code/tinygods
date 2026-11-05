@@ -2,19 +2,19 @@ import { REPLAY, SIM } from '../config/tunables.js';
 
 // Records the visible state of every villager ten times a second during the sim phase, so
 // the recap can replay a highlight. Only the fields the renderer needs are stored, as plain
-// numbers in one Float32Array per frame (60 villagers x 24 numbers x 4 bytes = 5.76 KB),
+// numbers in one Float32Array per frame (60 villagers x 25 numbers x 4 bytes = 6 KB),
 // plus a small snapshot of persistent power visuals for that frame.
 // Playback temporarily writes these into villagers while the sim is stopped. Replay
 // keeps a separate exact snapshot to restore the live state without Float32 rounding.
 
 const STATES = ['idle', 'wander', 'seek', 'talk', 'guard', 'attack', 'flee', 'mourn', 'dead'];
 const EXPRESSIONS = ['calm', 'happy', 'love', 'angry', 'scared', 'suspicious', 'sad', 'dead'];
-const WEAPON_NAMES = ['none', 'pan', 'bat', 'knife', 'gun', 'shotgun', 'rocket', 'whirlpool', 'bomb', 'fireball', 'shove'];
+const WEAPON_NAMES = ['none', 'pan', 'bat', 'knife', 'gun', 'shotgun', 'rocket', 'whirlpool', 'bomb', 'fireball', 'shove', 'blackout'];
 const THOUGHTS = [null, 'heart', 'angry', 'sweat', 'question', 'skull', 'shield', 'flag'];
 
 const ACTIVITIES = [null, 'dance', 'rest', 'shop', 'pray', 'train', 'fish', 'garden', 'eat'];
 
-export const FIELDS = 24;
+export const FIELDS = 25;
 export const FRAME_SECONDS = REPLAY.everyTicks / SIM.tickHz;
 
 export function encode(v, a, o) {
@@ -42,6 +42,7 @@ export function encode(v, a, o) {
   a[o + 21] = v.frozenSince;
   a[o + 22] = v.damageBonus;
   a[o + 23] = v.lastCritical ? 1 : 0;
+  a[o + 24] = v.whirlpoolDamage;
 }
 
 export function decode(a, o, v) {
@@ -69,6 +70,7 @@ export function decode(a, o, v) {
   v.frozenSince = a[o + 21];
   v.damageBonus = a[o + 22];
   v.lastCritical = a[o + 23] === 1;
+  v.whirlpoolDamage = a[o + 24];
 }
 
 export class Recorder {

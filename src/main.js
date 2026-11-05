@@ -91,9 +91,9 @@ const crowd = stage.addChild(new Container());
 crowd.sortableChildren = true;
 const linesLayer = stage.addChild(new Container());
 const spotLayer = stage.addChild(new Container());
-stage.addChild(effects.layer);
 const powerWorld = new PowerWorldView(app);
 stage.addChild(powerWorld.root);
+stage.addChild(effects.layer); // Damage numbers and hit feedback stay above water effects.
 
 // ---- UI ----
 const ctx = {

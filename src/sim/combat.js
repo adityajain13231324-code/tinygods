@@ -92,10 +92,11 @@ function strike(world, attacker, victim, weapon) {
 
   if (weapon !== 'none') logPair(world, attacker, victim, 'weapon', weapon);
 
-  const hitChance = Math.max(
+  const baseHitChance = Math.max(
     stats.minHit ?? 0,
     clamp(COMBAT.hitBase + (attacker.courage - victim.courage) / COMBAT.hitSpread, COMBAT.hitMin, COMBAT.hitMax),
   );
+  const hitChance = Math.min(1, baseHitChance + (victim.frozenUntil > world.time ? COMBAT.frozenHitBonus : 0));
   const hit = rng() < hitChance;
   const critical = hit && isFirearm(weapon) && rng() < COMBAT.headshotChance;
 
@@ -217,6 +218,7 @@ export function powerDamage(world, victim, amount, source, weapon = source.id) {
   if (!victim.alive || amount <= 0) return;
   const damage = amount * (world.time < victim.blessUntil ? 0.4 : 1);
   victim.hp -= damage;
+  if (weapon === 'whirlpool') victim.whirlpoolDamage += damage;
   victim.lastDamage = damage;
   victim.lastCritical = false;
   victim.lastHitWeapon = weapon;

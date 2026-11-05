@@ -1,7 +1,7 @@
 import { ARMORY, POWERS, TURN, WEAPONS, WORLD } from '../config/tunables.js';
 import { GROUP_NAMES } from '../config/content.js';
 import { goToPlace, startAttack, startIdle } from './brain.js';
-import { blast } from './combat.js';
+import { blast, powerDamage } from './combat.js';
 import { groupOf, isFirearm, effectiveWeapon } from './villager.js';
 import { shoveFrom, shoveToward } from './shove.js';
 import { powerUnlockError } from './availability.js';
@@ -35,10 +35,10 @@ export const POWER_DEFS = {
   weapon: { name: 'Arm', icon: '🗡️', cost: POWERS.weapon.cost, needs: 'villager', hint: 'Aim near an unarmed ally. Arms exactly one.', blurb: 'Give one nearby own villager a weapon. The circle helps you aim; it does not arm the whole group.' },
   disarm: { name: 'Disarm', icon: '🪓', cost: POWERS.disarm.cost, needs: 'point', hint: 'Click a spot: weapons fly out of hands.', blurb: 'Everyone near the spot drops their weapon and is shoved away.' },
   timebomb: { name: 'Time Bomb', icon: '💣', cost: POWERS.timebomb.cost, needs: 'point', hint: 'Place a bomb. It explodes after 12 seconds.', blurb: 'A visible blast with a 12-second fuse. Plant before the last 12 seconds. Your faction takes no HP damage.' },
-  blackout: { name: 'Blackout', icon: '🌘', cost: POWERS.blackout.cost, needs: 'none', hint: 'Eight seconds of night and confusion.', blurb: 'Stops attacks for 8 seconds and heals every living ally by 20 HP. Existing bombs and rockets remain live.' },
-  whirlpool: { name: 'Whirlpool', icon: '🌀', cost: POWERS.whirlpool.cost, needs: 'point', hint: 'Pulls and damages EVERYONE, including your allies.', blurb: 'A 3-second water vortex pulls everyone inward. Up to 30 damage at the centre, including your own faction.' },
-  launcher: { name: 'Rocket Launcher', icon: '🚀', cost: POWERS.launcher.cost, needs: 'point', hint: 'Drop a launcher here. Anyone can pick it up.', blurb: 'First villager reaching the crate gets 5 rockets. Half-damage Fireball blasts spare the holder’s faction. Unclaimed crates expire at dusk.' },
-  freeze: { name: 'Freeze', icon: '❄️', cost: POWERS.freeze.cost, needs: 'point', hint: 'Freeze everyone in the circle for 4 seconds.', blurb: 'Stops movement and attacks for 4 seconds, including allies. Frozen villagers can still take damage.' },
+  blackout: { name: 'Blackout', icon: '🌘', cost: POWERS.blackout.cost, needs: 'none', hint: '12 seconds of night: break targets, heal allies, hurt enemies.', blurb: 'Stops attacks for 12 seconds. Rivals and neutrals take 5-10 damage; living allies heal up to 20 HP. Fighters reassess targets afterward, favoring a different valid foe. Existing hazards remain live.' },
+  whirlpool: { name: 'Whirlpool', icon: '🌀', cost: POWERS.whirlpool.cost, needs: 'point', hint: 'Pulls and damages EVERYONE, including your allies.', blurb: 'A 3-second water vortex pulls everyone inward. Up to 39 damage at the centre, including your own faction. Blue numbers show actual damage.' },
+  launcher: { name: 'Rocket Launcher', icon: '🚀', cost: POWERS.launcher.cost, needs: 'point', hint: 'Drop a launcher here. Anyone can pick it up.', blurb: 'First villager reaching the crate gets 5 rockets. Blasts deal 65% of Fireball damage with 15% more radius and spare the holder’s faction. Unclaimed crates expire at dusk.' },
+  freeze: { name: 'Freeze', icon: '❄️', cost: POWERS.freeze.cost, needs: 'point', hint: 'Freeze enemies in the circle for 7 seconds. Allies are safe.', blurb: 'Stops rivals and neutrals moving or attacking for 7 seconds. Your faction is unaffected. Frozen targets are 20 percentage points easier to hit.' },
   strength: { name: 'Strength', icon: '💪', cost: POWERS.strength.cost, needs: 'villager', hint: 'Aim near one ally to strengthen them.', blurb: 'One own villager gains a random 10-50% attack bonus for the rest of this turn. Does not stack.' },
 };
 
@@ -190,14 +190,23 @@ export function castPower(game, seat, id, args = {}) {
       message = 'Time Bomb planted. It detonates in 12 seconds.';
       break;
     }
-    case 'blackout':
+    case 'blackout': {
+      const oldTargets = new Map(world.villagers.filter(o => o.alive && o.state === 'attack').map(o => [o.id, o.targetId]));
       world.blackoutUntil = Math.max(world.blackoutUntil, world.time + POWERS.blackout.seconds);
       for (const o of world.villagers) if (o.alive) {
-        if (o.state === 'attack') startIdle(world, o, 'blackout');
+        if (oldTargets.has(o.id)) {
+          o.blackoutTargetId = oldTargets.get(o.id);
+        }
+        if (o.blackoutTargetId >= 0) o.blackoutRetargetUntil = world.blackoutUntil + POWERS.blackout.retargetSeconds;
+        if (['attack', 'seek', 'talk'].includes(o.state)) startIdle(world, o, 'blackout');
+        o.brewId = -1;
+        o.thinkTimer = 0;
         if (o.faction === seat) o.hp = Math.min(100, o.hp + POWERS.blackout.heal);
+        else powerDamage(world, o, POWERS.blackout.minDamage + Math.floor(world.rng() * (POWERS.blackout.maxDamage - POWERS.blackout.minDamage + 1)), { kind: 'power', id, seat, actionId: `${world.turn}:${seat}:power:${id}` });
       }
-      message = 'Night falls for 8 seconds. Every living ally recovered up to 20 HP.';
+      message = 'Night falls for 12 seconds. Enemies lose 5-10 HP, allies heal up to 20 HP, and attack targets are broken.';
       break;
+    }
     case 'whirlpool': {
       const start = world.time;
       const source = { kind: 'power', id, seat, x: args.x, y: args.y, actionId: `${world.turn}:${seat}:power:${id}` };
@@ -211,14 +220,14 @@ export function castPower(game, seat, id, args = {}) {
       break;
     case 'freeze': {
       let n = 0;
-      for (const o of world.villagers) if (o.alive && dist(o, args.x, args.y) <= POWERS.freeze.radius) {
+      for (const o of world.villagers) if (o.alive && o.faction !== seat && dist(o, args.x, args.y) <= POWERS.freeze.radius) {
         o.frozenSince = world.time;
         o.frozenUntil = Math.max(o.frozenUntil, world.time + POWERS.freeze.seconds);
         o.vx = o.vy = o.kx = o.ky = 0;
         if (o.state === 'attack') startIdle(world, o, 'freeze');
         n++;
       }
-      message = `Froze ${n} villager${n === 1 ? '' : 's'} for 4 seconds.`;
+      message = `Froze ${n} rival or neutral villager${n === 1 ? '' : 's'} for 7 seconds. Your faction is unaffected.`;
       break;
     }
     case 'strength': {

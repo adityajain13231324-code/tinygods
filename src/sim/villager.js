@@ -78,6 +78,9 @@ export function createVillager(rng, { id, name, shape, faction, x, y, count = 60
     scuffle: false,
     followId: -1, // who a 'guard' (follow / bodyguard) state is tracking
     calmUntil: 0, // after breaking off a fight, no new fights until this sim time
+    blackoutTargetId: -1,
+    blackoutRetargetUntil: 0,
+    whirlpoolDamage: 0, // cumulative actual damage, for readable water damage ticks/replays
     peaceCooldown: 0, // a peacemaker who just separated people waits before trying again
     heard: new Set(), // rumor ids already heard
     believed: [], // rumors this villager believes (and repeats)

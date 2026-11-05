@@ -34,6 +34,6 @@ export function updatePowerEffects(world, dt) {
     const r = world.rockets[i];
     if (world.time < r.at) continue;
     world.rockets.splice(i, 1);
-    blast(world, r.seat, r.tx, r.ty, POWERS.fireball.radius, { minDamage: POWERS.fireball.minDamage * 0.5 * r.bonus, maxDamage: POWERS.fireball.maxDamage * 0.5 * r.bonus, minKnock: 300, maxKnock: 600, source: r.source });
+    blast(world, r.seat, r.tx, r.ty, POWERS.fireball.radius * POWERS.launcher.radiusMultiplier, { minDamage: POWERS.fireball.minDamage * POWERS.launcher.damageMultiplier * r.bonus, maxDamage: POWERS.fireball.maxDamage * POWERS.launcher.damageMultiplier * r.bonus, minKnock: 300, maxKnock: 600, source: r.source });
   }
 }
