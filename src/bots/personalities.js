@@ -49,9 +49,9 @@ export const PERSONALITIES = {
 
   // Loves, protects, and turtles up harder after taking losses.
   pacifist(info, rng) {
-    const rivals = others(info);
+    const rivals = shuffle(rng, others(info));
     if (info.lostSomeone) return fit([order('arm', null, 1), order('protect', group(info.seat), 3)], info.influence);
-    if (info.anyKills) return fit([order('arm', null, 1), order('love', group(rivals[0] ?? info.seat), 1)], info.influence);
+    if (info.anyKills) return fit([order('protect', group(info.seat), 2), info.lastVerbs.has('arm') ? order('love', group(rivals[0] ?? info.seat), 1) : order('arm', null, 1)], info.influence);
     const friend = rivals[Math.floor(rng() * rivals.length)];
     if (info.turn >= 2 && !info.lastVerbs.has('arm')) return fit([order('arm', null, 2), order('love', group(friend ?? info.seat), 1)], info.influence);
     const parties = ['plaza', 'park', 'pond', 'bakery', 'market'];

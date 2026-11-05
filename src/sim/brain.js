@@ -3,7 +3,8 @@ import { breakBond, createBond, isFree } from './bonds.js';
 import { logPair } from './history.js';
 import { exchangeRumors } from './rumors.js';
 import { range } from './rng.js';
-import { clampIn } from './world.js';
+import { clampIn, walkingGoal, armoryReachable } from './world.js';
+export { walkingGoal } from './world.js';
 import { groupOf, effectiveWeapon, usableWeapon, isFirearm } from './villager.js';
 import { resolveCombat, shoutAt, shoveVictim, updateBombs } from './combat.js';
 import { shoveFrom } from './shove.js';
@@ -60,11 +61,14 @@ export function stepWorld(world, dt = 1 / SIM.tickHz) {
 // ---- Thinking ----------------------------------------------------------------
 
 function think(world, v) {
-  decide(world, v);
+  const before = world.traceDecision ? v.state : null;
+  const reason = decide(world, v);
+  world.traceDecision?.({ time: world.time, turn: world.turn, id: v.id, before, after: v.state, reason, x: v.x, y: v.y, targetId: v.targetId, targetX: v.targetX, targetY: v.targetY, timer: v.timer, purpose: v.purpose });
   if (world.cosmetics) updateThought(world, v); // visual only; skipped in headless balance runs
 }
 
 function decide(world, v) {
+  if (v.state === 'wander') [v.targetX, v.targetY] = walkingGoal(world, v.targetX, v.targetY);
   // Read Stand Down before the combat branch can return. Immediate danger may still
   // trigger self-defence, but an existing voluntary chase must stop on the next thought.
   if (v.fx.standdown) {
@@ -72,37 +76,38 @@ function decide(world, v) {
     if (v.state === 'attack' && !v.panic) startIdle(world, v, 'stand down');
   }
   updateGrievance(world, v);
-  if (reactToDanger(world, v)) return;
+  if (reactToDanger(world, v)) return 'danger';
 
   // Grief first: someone they liked just died, so they stand frozen for a moment.
   if (v.state === 'mourn') {
     if (v.timer <= 0) startIdle(world, v);
-    return;
+    return 'grief';
   }
 
   if (v.state === 'flee') {
     if (v.timer <= 0) startIdle(world, v);
-    return;
+    return 'flee recovery';
   }
 
   doActivity(world, v);
   festivalBonds(world, v);
-  if (traitDuties(world, v)) return;
-  if (partnerDuties(world, v)) return;
-  if (scuffleCheck(world, v)) return;
-  if (maybeArgue(world, v)) return;
-  if (pickFight(world, v)) return;
+  if (traitDuties(world, v)) return 'temperament duty';
+  if (partnerDuties(world, v)) return 'partner defence';
+  if (scuffleCheck(world, v)) return 'scuffle';
+  if (maybeArgue(world, v)) return 'argument';
+  if (pickFight(world, v)) return 'fight choice';
 
   if (v.state === 'attack') {
     const t = world.villagers[v.targetId];
     if (!t.alive || dist(v, t.x, t.y) > Math.max(COMBAT.giveUpRadius, world.seekRadius * 1.5)) startIdle(world, v, t.alive ? 'target too far' : 'target dead');
-    return;
+    return 'pursuit';
   }
 
-  if (interceptForProtected(world, v)) return;
-  if (obeyOrders(world, v)) return;
-  if (stayWithPartner(world, v)) return;
+  if (interceptForProtected(world, v)) return 'protect intercept';
+  if (obeyOrders(world, v)) return 'order';
+  if (stayWithPartner(world, v)) return 'partner company';
   peaceful(world, v);
+  return 'peaceful activity';
 }
 
 // ---- Things to do, and bonds ---------------------------------------------------
@@ -586,6 +591,11 @@ function obeyOrders(world, v) {
       v.armDone = true;
     } else {
       const armory = world.places.find((p) => p.id === 'armory');
+      if (!armoryReachable(world)) {
+        v.armDone = true;
+        if (v.purpose === 'arm') startIdle(world, v, 'armory outside safe area');
+        return false;
+      }
       if (dist(v, armory.x, armory.y) < 60) {
         world.armoryPool[groupOf(v)]--;
         v.weapon = v.trait === 'gunslinger' ? ARMORY.gunslingerWeapon : ARMORY.weapons[Math.floor(world.rng() * ARMORY.weapons.length)];
@@ -807,7 +817,7 @@ export function goToPlace(world, v, place, purpose) {
   v.state = 'wander';
   v.expression = 'calm';
   v.purpose = purpose;
-  [v.targetX, v.targetY] = clampIn(world, place.x + Math.cos(angle) * d, place.y + Math.sin(angle) * d);
+  [v.targetX, v.targetY] = walkingGoal(world, place.x + Math.cos(angle) * d, place.y + Math.sin(angle) * d);
 }
 
 /** Peaceful life. Under a follow/protect order villagers stay put and just chat. */
@@ -905,7 +915,7 @@ function choose(world, v) {
     const d = Math.sqrt(rng()) * place.radius * 0.8;
     v.state = 'wander';
     v.purpose = null;
-    [v.targetX, v.targetY] = clampIn(world, place.x + Math.cos(angle) * d, place.y + Math.sin(angle) * d);
+    [v.targetX, v.targetY] = walkingGoal(world, place.x + Math.cos(angle) * d, place.y + Math.sin(angle) * d);
   } else if (roll < wander + socialize) {
     const other = randomFreeVillager(world, v);
     if (other) {

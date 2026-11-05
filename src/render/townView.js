@@ -50,6 +50,19 @@ export class TownView {
     }
 
     this.fx = this.root.addChild(new Graphics()); // smoke, ripples, ducks, flags, blades, rain, cloud shadows
+    this.smokeLayer = this.root.addChild(new Container());
+    this.smokeFree = [];
+    const smokeShape = new Graphics().circle(0, 0, 16).fill(0xf0f0f0);
+    this.smokeTexture = app.renderer.generateTexture({ target: smokeShape, frame: new Rectangle(-17, -17, 34, 34), resolution: 2 });
+    smokeShape.destroy();
+    this.rainLayer = this.root.addChild(new Container());
+    const dropShape = new Graphics().rect(0, 0, 1.2, 1).fill(0xcfe6ff);
+    const dropTexture = app.renderer.generateTexture({ target: dropShape, resolution: 2 });
+    dropShape.destroy();
+    for (const d of this.rain) {
+      d.sprite = this.rainLayer.addChild(new Sprite(dropTexture));
+      d.sprite.alpha = 0.45;
+    }
     this.tint = this.root.addChild(new Graphics()); // the mood of the sky
     this.shade = this.root.addChild(new Graphics()); // dims the town during a camera cut
 
@@ -197,17 +210,26 @@ export class TownView {
     this.smokeTimer -= dt;
     if (this.smokeTimer <= 0) {
       this.smokeTimer = 0.5;
-      for (const c of this.chimneys) this.smoke.push({ x: c.x, y: c.y, age: 0, life: 4 + Math.random() * 2, drift: (Math.random() - 0.3) * 8 });
+      for (const c of this.chimneys) {
+        const sprite = this.smokeFree.pop() ?? this.smokeLayer.addChild(new Sprite(this.smokeTexture));
+        sprite.anchor.set(0.5);
+        sprite.visible = true;
+        this.smoke.push({ x: c.x, y: c.y, age: 0, life: 4 + Math.random() * 2, drift: (Math.random() - 0.3) * 8, sprite });
+      }
     }
     for (let i = this.smoke.length - 1; i >= 0; i--) {
       const p = this.smoke[i];
       p.age += dt;
       if (p.age > p.life) {
+        p.sprite.visible = false;
+        this.smokeFree.push(p.sprite);
         this.smoke.splice(i, 1);
         continue;
       }
       const k = p.age / p.life;
-      fx.circle(p.x + p.drift * p.age + Math.sin(p.age * 2) * 3, p.y - p.age * 14, 4 + k * 10).fill({ color: 0xf0f0f0, alpha: 0.5 * (1 - k) });
+      p.sprite.position.set(p.x + p.drift * p.age + Math.sin(p.age * 2) * 3, p.y - p.age * 14);
+      p.sprite.scale.set((4 + k * 10) / 16);
+      p.sprite.alpha = 0.5 * (1 - k);
     }
 
     // Pond: shimmering highlights, ripples, and two ducks.
@@ -264,6 +286,7 @@ export class TownView {
       const colour = k < 0.5 ? 0xffa04a : k < 0.8 ? 0xc0392b : 0x1c1830;
       tint.rect(0, 0, W, H).fill({ color: colour, alpha: 0.05 + k * 0.22 });
     }
+    this.rainLayer.visible = t > 70;
     if (t > 70) {
       const wind = 40 + (t - 70) * 2;
       for (const d of this.rain) {
@@ -273,7 +296,9 @@ export class TownView {
           d.y = -20;
           d.x = Math.random() * (W + 200);
         }
-        fx.moveTo(d.x, d.y).lineTo(d.x - wind * 0.04, d.y + 14 * d.s).stroke({ width: 1.2, color: 0xcfe6ff, alpha: 0.45 });
+        d.sprite.position.set(d.x, d.y);
+        d.sprite.rotation = Math.atan2(wind * 0.04, 14 * d.s);
+        d.sprite.height = Math.hypot(wind * 0.04, 14 * d.s);
       }
     }
 

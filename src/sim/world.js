@@ -1,10 +1,22 @@
-import { WORLD, POPULATION, WEAPON_START, MAX_GUNS_PER_FACTION, ARMORY, WEAPONS, TRAITS, GRIEVANCE, STATS, COMBAT } from '../config/tunables.js';
+import { WORLD, WALL, POPULATION, WEAPON_START, MAX_GUNS_PER_FACTION, ARMORY, WEAPONS, TRAITS, GRIEVANCE, STATS, COMBAT } from '../config/tunables.js';
 import { NAMES, PLACES, SHAPES, NEUTRAL, NEUTRAL_GROUP } from '../config/content.js';
 import { mulberry32, pick, range, shuffle } from './rng.js';
 import { createVillager, groupOf } from './villager.js';
 
 /** Keep a point inside the current safe area. */
 export const clampIn = (world, x, y) => [Math.min(world.bounds.x1, Math.max(world.bounds.x0, x)), Math.min(world.bounds.y1, Math.max(world.bounds.y0, y))];
+/** Walking destinations stay out of the wall steering zone, including a closing storm. */
+export function walkingGoal(world, x, y) {
+  const b = world.bounds;
+  const mx = Math.min(WALL.reach * 0.75, (b.x1 - b.x0) * 0.2);
+  const my = Math.min(WALL.reach * 0.75, (b.y1 - b.y0) * 0.2);
+  return [Math.max(b.x0 + mx, Math.min(b.x1 - mx, x)), Math.max(b.y0 + my, Math.min(b.y1 - my, y))];
+}
+export function armoryReachable(world) {
+  const p = world.places.find(p => p.id === 'armory');
+  const [x, y] = walkingGoal(world, p.x, p.y);
+  return Math.hypot(x - p.x, y - p.y) < 60;
+}
 export const clampX = (x) => Math.min(WORLD.width - WORLD.margin, Math.max(WORLD.margin, x));
 export const clampY = (y) => Math.min(WORLD.height - WORLD.margin, Math.max(WORLD.margin, y));
 

@@ -5,6 +5,7 @@ import { Cutscenes } from './render/cutscene.js';
 import { Director } from './render/director.js';
 import { Effects } from './render/effects.js';
 import { Spotlight } from './render/spotlight.js';
+import { OrderPreview } from './render/orderPreview.js';
 import { Speech } from './render/speech.js';
 import { TownView } from './render/townView.js';
 import { VillagerView } from './render/villagerView.js';
@@ -99,6 +100,8 @@ const ctx = {
   online: !!online,
   isHost: online?.role === 'host',
   passReady: true, // false while the "pass the device" screen is up
+  previewOrders: orders => orderPreview.show(orders),
+  clearOrderPreview: () => orderPreview.clear(),
   speed: 1,
   paused: false,
   setSpeed(n) { if (!online) ctx.speed = n; },
@@ -159,6 +162,8 @@ const ctx = {
   },
 };
 const uiRoot = document.getElementById('ui');
+const orderPreview = new OrderPreview(linesLayer, uiRoot, game, ctx);
+window.addEventListener('keydown', e => { if (e.key === 'Escape') orderPreview.clear(); });
 const cutscenes = new Cutscenes({ uiRoot, game, camera, replay, audio });
 cutscenes.noDay = !!online;
 const hud = createHud(uiRoot, ctx);
@@ -362,6 +367,7 @@ function frame(frameSeconds) {
   }
 
   hover.update();
+  orderPreview.update();
   hud.update(game);
   command.update(game);
   powerBar.update();

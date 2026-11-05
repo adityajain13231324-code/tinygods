@@ -1,4 +1,4 @@
-import { Container, Graphics, Sprite, Text } from 'pixi.js';
+import { Container, Graphics, Rectangle, Sprite, Text } from 'pixi.js';
 import { VillagerView, heart } from './villagerView.js';
 
 const MAX_PARTICLES = 320;
@@ -16,8 +16,16 @@ export class Effects {
     this.audio = audio;
     this.views = null; // set by main.js, so shots can find the shooter
     this.layer = new Container();
-    this.decals = new Graphics(); // blood stains on the ground (added under the crowd by main.js)
+    this.decals = new Container(); // cached sprites: never retriangulate every stain each frame
     this.decalList = [];
+    this.decalFree = [];
+    const round = new Graphics().ellipse(0, 0, 16, 8.8).fill(0x9e1b24)
+      .ellipse(-4, -0.5, 6.4, 3.2).fill({ color: 0xc72b36, alpha: 0.7 });
+    const streak = new Graphics().roundRect(-16, -4, 32, 8, 4).fill(0x9e1b24)
+      .roundRect(-8, -2, 19.2, 4, 2).fill({ color: 0xc72b36, alpha: 0.7 });
+    this.decalTextures = [round, streak].map(target => app.renderer.generateTexture({ target, frame: new Rectangle(-20, -12, 40, 24), resolution: 2 }));
+    round.destroy();
+    streak.destroy();
     this.beams = new Graphics(); // bullet tracers and muzzle flashes
     this.tracers = [];
     this.fogG = new Graphics(); // patches of god-made fog
@@ -151,8 +159,20 @@ export class Effects {
 
   /** A stain on the ground that fades slowly. Optionally a streak (angle, stretch). */
   stain(x, y, r = 4 + Math.random() * 4, streak = null) {
-    if (this.decalList.length >= 420) this.decalList.shift();
-    this.decalList.push({ x: x + (Math.random() - 0.5) * 6, y, r: r * 1.3, age: 0, life: 70, angle: streak?.angle ?? 0, stretch: streak?.stretch ?? 1 });
+    const sprite = (this.decalList.length >= 420 ? this.decalList.shift().sprite : this.decalFree.pop()) ?? this.decals.addChild(new Sprite());
+    const radius = r * 1.3;
+    const stretch = streak?.stretch ?? 1;
+    sprite.texture = this.decalTextures[stretch > 1 ? 1 : 0];
+    sprite.anchor.set(0.5);
+    sprite.visible = true;
+    sprite.alpha = 0.7;
+    sprite.position.set(x + (Math.random() - 0.5) * 6, y);
+    // Match the old projected streak's angle and length.
+    const angle = streak?.angle ?? 0;
+    const projection = Math.hypot(Math.cos(angle), Math.sin(angle) * 0.4);
+    sprite.rotation = stretch > 1 ? Math.atan2(Math.sin(angle) * 0.4, Math.cos(angle)) : 0;
+    sprite.scale.set(radius * (stretch > 1 ? stretch * projection : 1) / 16, stretch > 1 ? radius * 1.1 / 8 : radius / 16);
+    this.decalList.push({ age: 0, life: 70, sprite });
   }
 
   /** A god power was used: show the effect (but never who used it). */
@@ -369,25 +389,16 @@ export class Effects {
   }
 
   drawDecals(dt) {
-    const g = this.decals;
-    g.clear();
     for (let i = this.decalList.length - 1; i >= 0; i--) {
       const d = this.decalList[i];
       d.age += dt;
       if (d.age > d.life) {
+        d.sprite.visible = false;
+        this.decalFree.push(d.sprite);
         this.decalList.splice(i, 1);
         continue;
       }
-      const a = 0.7 * Math.min(1, (d.life - d.age) / 12);
-      if (d.stretch > 1) {
-        const dx = Math.cos(d.angle) * d.r * d.stretch;
-        const dy = Math.sin(d.angle) * d.r * d.stretch * 0.4;
-        g.moveTo(d.x - dx, d.y - dy).lineTo(d.x + dx, d.y + dy).stroke({ width: d.r * 1.1, color: 0x9e1b24, alpha: a, cap: 'round' });
-        g.moveTo(d.x - dx * 0.5, d.y - dy * 0.5).lineTo(d.x + dx * 0.7, d.y + dy * 0.7).stroke({ width: d.r * 0.5, color: 0xc72b36, alpha: a * 0.7, cap: 'round' });
-        continue;
-      }
-      g.ellipse(d.x, d.y, d.r, d.r * 0.55).fill({ color: 0x9e1b24, alpha: a });
-      g.ellipse(d.x - d.r * 0.25, d.y - 0.5, d.r * 0.4, d.r * 0.2).fill({ color: 0xc72b36, alpha: a * 0.7 });
+      d.sprite.alpha = 0.7 * Math.min(1, (d.life - d.age) / 12);
     }
   }
 

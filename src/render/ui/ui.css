@@ -695,3 +695,8 @@ button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-v
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
 }
+/* Transient order preview, outside the centre of the playfield. */
+.target-preview-hint { position:absolute; left:12px; top:130px; max-width:min(410px,calc(100vw - 24px)); padding:7px 11px; border:1px solid #a99a5b; border-radius:10px; background:#172219ed; color:#fff1bd; font-size:12px; line-height:1.4; pointer-events:none; z-index:12; }
+.target-preview-hint[hidden] { display:none; }
+#command .staged .preview-order { font:inherit; color:var(--ink); background:none; border:0; padding:0; margin:0; text-align:left; min-width:0; white-space:normal; }
+@media(max-width:700px) { .target-preview-hint { top:108px; font-size:11px; max-width:calc(100vw - 24px); } }

@@ -10,7 +10,7 @@ let failed = 0;
 const check = (ok, text) => { console.log(`${ok ? 'PASS' : 'FAIL'}  ${text}`); if (!ok) failed++; };
 
 function dawn(seed) {
-  const g = createGame({ seed, seats, cosmetics: true });
+  const g = createGame({ seed, seats: seats.map(s => ({ ...s })), cosmetics: true });
   for (let i = 0; g.world.peaceful && i < 5000; i++) {
     if (g.phase === 'command') submitOrders(g, 0, []);
     updateGame(g, 1);
@@ -19,9 +19,12 @@ function dawn(seed) {
   g.turn = g.world.turn = 5; // effect fixture after damaging-area unlock
   return g;
 }
-function town(seed) {
-  const g = dawn(seed);
-  submitOrders(g, 0, []);
+function town(seed, isolated = false) {
+  // A single-effect fixture must not contain rival bot miracles or earlier injuries.
+  // Complete bot matches are covered separately by smoke, network and fuzz checks.
+  const g = isolated ? createGame({ seed, seats: seats.map(s => ({ ...s, kind: 'human' })), cosmetics: true }) : dawn(seed);
+  if (isolated) { g.turn = g.world.turn = 5; g.world.peaceful = false; }
+  for (let seat = 0; seat < (isolated ? 4 : 1); seat++) submitOrders(g, seat, []);
   while (g.phase === 'command') updateGame(g, 1);
   g.power[0] = 9;
   return g;
@@ -62,12 +65,12 @@ const freeze = (g) => { for (const v of g.world.villagers) { v.timer = 99; v.vx 
 // aegis: takes less damage
 {
   const dmg = (shield) => {
-    const g = town(33);
+    const g = town(33, true);
     freeze(g);
     const v = alive(g, 1)[0];
-    if (shield) castPower(g, 0, 'aegis', { villagerId: v.id });
+    if (shield) check(castPower(g, 0, 'aegis', { villagerId: v.id }).ok, 'aegis: shield cast succeeds');
     const hp = v.hp;
-    castPower(g, 0, 'fireball', { x: v.x, y: v.y });
+    check(castPower(g, 0, 'fireball', { x: v.x, y: v.y }).ok, 'aegis: comparison blast succeeds');
     return hp - v.hp;
   };
   const plain = dmg(false);
@@ -76,13 +79,14 @@ const freeze = (g) => { for (const v of g.world.villagers) { v.timer = 99; v.vx 
 }
 // sleep: frozen for about 8 seconds, then moves again
 {
-  const g = town(34);
+  const g = town(34, true);
   const v = alive(g, 1)[0];
   const x = v.x;
   const y = v.y;
-  castPower(g, 0, 'sleep', { villagerId: v.id });
+  const cast = castPower(g, 0, 'sleep', { villagerId: v.id });
+  const asleep = cast.ok && v.state === 'mourn' && v.timer >= 7.9;
   run(g, 6);
-  const still = Math.hypot(v.x - x, v.y - y) < 45; // crowds still jostle a sleeper a little
+  const still = asleep && v.state === 'mourn' && v.timer > 0 && Math.hypot(v.x - x, v.y - y) < 45; // crowds still jostle a sleeper a little
   run(g, 5);
   check(still && v.state !== 'mourn', `sleep: stayed put for 6 s (${Math.round(Math.hypot(v.x - x, v.y - y))} px), awake and ${v.state} after 11 s`);
 }

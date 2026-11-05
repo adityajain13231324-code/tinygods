@@ -11,7 +11,7 @@ function canonical(value) {
 
 export function authoritativeState(game) {
   const { timer, acc, recorder, suggestRound, world, botRng, cardRng, eventRng, ...state } = game;
-  const { rng, pairLog, dbg, cosmetics, ...town } = world;
+  const { rng, pairLog, dbg, cosmetics, traceDecision, ...town } = world;
   return canonical({ ...state, world: town, random: [rng.getState(), botRng.getState(), cardRng.getState(), eventRng.getState()] });
 }
 

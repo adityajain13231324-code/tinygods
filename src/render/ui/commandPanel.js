@@ -32,6 +32,31 @@ export function createCommandPanel(root, ctx) {
   let shownKey = '';
   let lastGame = null;
   let currentTb = null; // the typing box on screen right now
+  const previewTimers = new Set();
+  function bindPreview(node, orders, addsOrder = true) {
+    let timer, held = false, down;
+    const show = () => ctx.previewOrders?.(orders());
+    const stop = () => { clearTimeout(timer); previewTimers.delete(timer); };
+    node.addEventListener('pointerenter', e => { if (e.pointerType !== 'touch' && !node.disabled) show(); });
+    node.addEventListener('pointerleave', () => { stop(); ctx.clearOrderPreview?.(); });
+    node.addEventListener('focus', () => { if (!node.disabled) show(); });
+    node.addEventListener('blur', () => ctx.clearOrderPreview?.());
+    node.addEventListener('pointerdown', e => {
+      held = false;
+      if (e.pointerType !== 'touch' || node.disabled) return;
+      down = { x: e.clientX, y: e.clientY };
+      timer = setTimeout(() => { previewTimers.delete(timer); held = true; show(); }, 350);
+      previewTimers.add(timer);
+    });
+    node.addEventListener('pointermove', e => { if (down && Math.hypot(e.clientX - down.x, e.clientY - down.y) > 12) stop(); });
+    node.addEventListener('pointerup', () => { stop(); down = null; });
+    node.addEventListener('pointercancel', () => { stop(); held = false; down = null; ctx.clearOrderPreview?.(); });
+    node.addEventListener('contextmenu', e => e.preventDefault());
+    node.addEventListener('click', e => {
+      if (held) { held = false; e.preventDefault(); e.stopImmediatePropagation(); }
+    }, true);
+    node.setAttribute('aria-description', `Hover, focus or hold to preview. ${addsOrder ? 'Tap or click to add.' : 'Tap or click to preview this staged order.'} Gold outlines show your villagers; blue shows the target.`);
+  }
 
   const influenceLeft = (game) => game.influence[ctx.seat] - staged.reduce((n, o) => n + o.strength, 0);
 
@@ -212,6 +237,7 @@ export function createCommandPanel(root, ctx) {
     const add = el('button', 'go', 'Add order');
     const order = draftOrder(game);
     add.disabled = !order;
+    bindPreview(add, () => order ? [order] : []);
     add.onclick = () => {
       const check = validateOrders([...staged, order], game.influence[ctx.seat], game.world, game.verbsLastTurn[ctx.seat], ghost, ctx.seat);
       if (!check.ok) { menuError = check.error; build(game); return; }
@@ -230,6 +256,9 @@ export function createCommandPanel(root, ctx) {
   }
 
   function build(game) {
+    for (const timer of previewTimers) clearTimeout(timer);
+    previewTimers.clear();
+    ctx.clearOrderPreview?.();
     const scrollTop = currentTb ? panel.querySelector('.sheet-body')?.scrollTop ?? 0 : 0;
     const active = panel.contains(document.activeElement) ? document.activeElement : null;
     const focusedLabel = active?.tagName === 'BUTTON' ? active.textContent : null;
@@ -278,6 +307,7 @@ export function createCommandPanel(root, ctx) {
         const q = el('button', 'quick', visibleLabel);
         q.setAttribute('aria-label',label);
         q.disabled=!ok;q.title=ok?label:error;
+        bindPreview(q, () => orders);
         q.onclick = () => {
           const check=validateOrders([...staged,...orders],game.influence[ctx.seat],game.world,game.verbsLastTurn[ctx.seat],ghost,ctx.seat);
           if(!check.ok){typedNote=check.error;typedBad=true;build(game);return;}
@@ -317,7 +347,12 @@ export function createCommandPanel(root, ctx) {
       staged.forEach((o, i) => {
         // each staged order has a little strength dial: − 1 2 3 +
         const c = el('span', 'orderchip');
-        c.append(el('span', 'oc-text', describeOrder({ ...o, strength: 0 }).replace(' ()', '')));
+        const text = el('button', 'oc-text preview-order', describeOrder({ ...o, strength: 0 }).replace(' ()', ''));
+        text.type = 'button';
+        text.title = 'Preview this order on the town';
+        bindPreview(text, () => [o], false);
+        text.onclick = () => ctx.previewOrders?.([o]);
+        c.append(text);
         const dial = el('span', 'dial');
         const set = (n) => {
           const next = staged.map((x, j) => (j === i ? { ...x, strength: n } : x));
@@ -402,12 +437,15 @@ export function createCommandPanel(root, ctx) {
     submit.onclick = () => {
       if (!commitPending(game).ok) { build(game); return; }
       const result = ctx.submit(staged, stagedCard());
+      ctx.clearOrderPreview?.();
       if (!result.ok) { typedNote = result.error; typedBad = true; build(game); }
     };
     foot.append(submit);
     finishSheet(panel, `Plan orders · ${FACTIONS[ctx.seat].name}`, foot);
     const body = panel.querySelector('.sheet-body');
     body.scrollTop = scrollTop;
+    const preview = menuOpen ? draftOrder(game) : null;
+    if (preview) ctx.previewOrders?.([preview]);
     if (typing) tb.focus();
     else if (focusedLabel) [...panel.querySelectorAll('button')].filter(b => b.textContent === focusedLabel)[focusedIndex]?.focus({ preventScroll: true });
     body.scrollTop = scrollTop;

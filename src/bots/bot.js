@@ -6,7 +6,8 @@ import { CARD_DEFS } from '../sim/cards.js';
 import { castPower, hotspot } from '../sim/powers.js';
 import { groupOf } from '../sim/villager.js';
 import { shuffle } from '../sim/rng.js';
-import { cardUnlockError } from '../sim/availability.js';
+import { cardUnlockError, powerUnlockError } from '../sim/availability.js';
+import { defensivePlan, publicPosition } from './tactics.js';
 
 /**
  * A bot's guesses for the turn's highlights. It reasons only from what any player can see:
@@ -26,7 +27,7 @@ export function botGuesses(game, seat) {
       out[h.id] = h.killerFaction; // "whoever's villagers did the killing probably ordered it"
     } else if (rivals.length > 0) {
       // "who benefits": the strongest rival
-      out[h.id] = rivals.sort((a, b) => living[b] - living[a])[0];
+      out[h.id] = shuffle(rng, rivals).sort((a, b) => living[b] - living[a])[0];
     } else {
       out[h.id] = -1;
     }
@@ -54,13 +55,24 @@ export function botDecide(game, seat) {
     lostSomeone: last ? last.living[seat] < before : false,
     anyKills: game.stats.firstKillTurn !== null,
     lastVerbs: game.verbsLastTurn[seat],
+    personality: game.seats[seat].personality,
   };
   const personality = PERSONALITIES[game.seats[seat].personality] ?? PERSONALITIES.chaos;
-  const wanted = personality(info, game.botRng);
+  const ordinary = personality(info, game.botRng);
+  const defence = defensivePlan(info, publicPosition(game.world), game.botRng);
+  const reserved = new Set(defence.flatMap(o => o.subject?.ids ?? []));
+  const available = game.world.villagers.filter(v => v.alive && v.faction === seat && !reserved.has(v.id)).map(v => v.id);
+  const wanted = [...defence, ...ordinary.filter(o => !reserved.size || available.length).map(o => reserved.size ? { ...o, subject: { kind: 'villagers', ids: available } } : o)];
 
   // Bots obey the same rules as humans (Hate cooldown, influence...): keep only what is legal.
   const legal = [];
   for (const o of wanted) {
+    const duplicate = legal.findIndex(p => p.verb === o.verb && JSON.stringify(p.target) === JSON.stringify(o.target) && JSON.stringify(p.subject) === JSON.stringify(o.subject));
+    if (duplicate >= 0) {
+      const stronger = legal.map((p, i) => i === duplicate ? { ...p, strength: Math.max(p.strength, o.strength) } : p);
+      if (validateOrders(stronger, game.influence[seat], game.world, game.verbsLastTurn[seat], false, seat).ok) legal[duplicate] = stronger[duplicate];
+      continue;
+    }
     if (validateOrders([...legal, o], game.influence[seat], game.world, game.verbsLastTurn[seat], false, seat).ok) legal.push(o);
   }
   // Difficulty: easy bots hesitate (skip orders, push less hard); normal and hard play it all.
@@ -68,7 +80,7 @@ export function botDecide(game, seat) {
   let out = legal.map((o) => ({ ...o, strength: Math.min(o.strength, d.maxStrength) }));
   if (d.orderSkip) out = out.filter(() => game.botRng() >= d.orderSkip);
   // Hard bots spend what is left on a third order: more weapons in more hands.
-  if (d.extraArm && out.length < 3 && !out.some((o) => o.verb === 'arm')) {
+  if (d.extraArm && !reserved.size && out.length < 3 && !out.some((o) => o.verb === 'arm')) {
     const left = game.influence[seat] - out.reduce((n, o) => n + o.strength, 0);
     const extra = { verb: 'arm', target: null, strength: Math.min(2, left) };
     if (left >= 1 && validateOrders([...out, extra], game.influence[seat], game.world, game.verbsLastTurn[seat], false, seat).ok) out.push(extra);
@@ -130,6 +142,12 @@ export function botPowers(game) {
     const spot = hotspot(world);
     const myFight = spot && world.villagers.some((v) => v.alive && v.faction === seat && v.state === 'attack' && Math.hypot(v.x - spot.x, v.y - spot.y) < 130);
     const personality = s.personality ?? 'chaos';
+    const emergency = shuffle(rng, mine.filter(v => v.hp <= 30 && world.villagers.some(o => o.alive && o.faction !== seat && o.state === 'attack' && (o.targetId === v.id || Math.hypot(o.x - v.x, o.y - v.y) < 180))))
+      .sort((a, b) => a.hp - b.hp)[0];
+    if (emergency) {
+      if (castPower(game, seat, 'miracle', { villagerId: emergency.id }).ok) return;
+      if (emergency.blessUntil <= world.time && castPower(game, seat, 'aegis', { villagerId: emergency.id }).ok) return;
+    }
     if (hurt && rng() < 0.7 && castPower(game, seat, 'miracle', { villagerId: hurt.id }).ok) return;
     // Offence: a fireball or tornado on the biggest crowd of rivals that has none of mine in it.
     if (d.offence && (personality === 'warmonger' || personality === 'opportunist' || personality === 'chaos')) {
@@ -137,9 +155,11 @@ export function botPowers(game) {
       const crowd = foes.map((m) => ({ m, n: foes.filter((o) => Math.hypot(o.x - m.x, o.y - m.y) < 90).length, own: mine.filter((o) => Math.hypot(o.x - m.x, o.y - m.y) < 130).length }))
         .filter((c) => c.own === 0).sort((p, q) => q.n - p.n)[0];
       if (crowd && crowd.n >= 3 && game.power[seat] >= 2) {
-        if (castPower(game, seat, rng() < 0.6 ? 'fireball' : 'tornado', { x: crowd.m.x, y: crowd.m.y }).ok) return;
+        const id = !powerUnlockError(game, 'fireball') && rng() < 0.6 ? 'fireball' : 'tornado';
+        if (castPower(game, seat, id, { x: crowd.m.x, y: crowd.m.y }).ok) return;
       }
-      const armed = foes.filter((v) => v.weapon !== 'none' && v.state === 'attack')[0];
+      const danger = v => mine.reduce((n, o) => n + (Math.hypot(o.x - v.x, o.y - v.y) < 180 ? 1 + (100 - o.hp) / 100 : 0), 0);
+      const armed = shuffle(rng, foes.filter((v) => v.weapon !== 'none' && v.state === 'attack' && danger(v) > 0)).sort((a, b) => danger(b) - danger(a))[0];
       if (armed && game.power[seat] >= 2 && castPower(game, seat, 'disarm', { x: armed.x, y: armed.y }).ok) return;
     }
     // Defence: shield a hurt villager, or call rain over a fight that is not mine to win.
@@ -149,7 +169,7 @@ export function botPowers(game) {
     if (spot && personality === 'pacifist' && castPower(game, seat, 'fog', { x: spot.x, y: spot.y }).ok) return;
     if (d.offence && (personality === 'warmonger' || personality === 'chaos' || personality === 'gossip')) {
       const living = livingByFaction(world);
-      const rivals = [0, 1, 2, 3].filter((g) => g !== seat && living[g] > 0);
+      const rivals = shuffle(rng, [0, 1, 2, 3].filter((g) => g !== seat && living[g] > 0));
       if (rivals.length === 0) return;
       const g = rivals.sort((a, b) => living[b] - living[a])[0];
       const target = world.villagers.filter((v) => v.alive && groupOf(v) !== g && groupOf(v) !== seat);

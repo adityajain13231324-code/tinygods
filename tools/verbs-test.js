@@ -8,7 +8,7 @@ let failed = 0;
 const check = (ok, text) => { console.log(`${ok ? 'PASS' : 'FAIL'}  ${text}`); if (!ok) failed++; };
 
 function start(seed) {
-  const g = createGame({ seed, seats, cosmetics: true });
+  const g = createGame({ seed, seats: seats.map(s => ({ ...s })), cosmetics: true });
   for (let i = 0; g.world.peaceful && i < 5000; i++) {
     if (g.phase === 'command') submitOrders(g, 0, []);
     updateGame(g, 1);
@@ -44,13 +44,35 @@ const brawl = (g) => {
   Object.assign(mine,{state:'attack',targetId:target.id,x:800,y:500,panic:0,thinkTimer:0,trait:null,hp:100,scuffleChecked:true,partnerId:-1});
   Object.assign(target,{x:1050,y:500,timer:999,hp:100,trait:null,partnerId:-1});
 };
+// Hold the other factions' plans and live miracles still when measuring one verb.
+// Otherwise improved defensive bots can heal a Hunt target or move an Avoid target.
+const controlled = g => {
+  for (let seat = 1; seat < 4; seat++) {
+    g.seats[seat] = { ...g.seats[seat], kind: 'human' };
+    g.pending[seat] = null;
+    assert.equal(submitOrders(g, seat, []).ok, true);
+  }
+  for (const v of g.world.villagers) {
+    Object.assign(v, { state: 'idle', targetId: null, timer: 999, calmUntil: 9999, hp: 100, partnerId: -1, panic: 0, trait: null, kx: 0, ky: 0, vx: 0, vy: 0 });
+    v.grievance.fill(0);
+    v.opinion.fill(0);
+  }
+};
+const nearbyRivals = g => {
+  controlled(g);
+  for (const v of g.world.villagers) {
+    v.x = (v.faction === 0 ? 800 : v.faction === 1 ? 930 : 1500) + (v.id % 3) * 20;
+    v.y = (v.faction === 0 || v.faction === 1 ? 470 : 850) + (v.id % 4) * 20;
+    v.px = v.x; v.py = v.y;
+  }
+};
 
 compare('hate', 'hate the tides really hard', 1, (g) => r1(avg(side(g, 0).map((v) => v.opinion[1]))), (a, b) => a < b - 10);
 compare('love', 'love the tides', 1, (g) => r1(avg(side(g, 0).map((v) => v.opinion[1]))), (a, b) => a > b + 5);
 compare('fear', 'be afraid of the tides', 1, (g) => r1(avg(side(g, 0).map((v) => v.fear[1]))), (a, b) => a > b + 5);
 compare('scare', 'scare the tides', 10, (g) => side(g, 1).filter((v) => v.state === 'flee').length, (a, b) => a >= b + 2);
 compare('protect', 'protect my people', 6, (g) => side(g, 0).filter((v) => v.guardBonus > 0).length, (a, b) => a > b);
-compare('avoid', 'stay away from the tides', 12, (g) => r1(avg(side(g, 0).map((v) => Math.min(...side(g, 1).map((o) => Math.hypot(o.x - v.x, o.y - v.y)))))), (a, b) => a > b * 1.15);
+compare('avoid', 'stay away from the tides', 12, (g) => r1(avg(side(g, 0).map((v) => Math.min(...side(g, 1).map((o) => Math.hypot(o.x - v.x, o.y - v.y)))))), (a, b) => a > b * 1.15, nearbyRivals);
 compare('go to a place', 'send everyone to the pond', 26, (g) => { const p = g.world.places.find((q) => q.id === 'pond'); return side(g, 0).filter((v) => Math.hypot(v.x - p.x, v.y - p.y) < 140).length; }, (a, b) => a >= b + 5);
 {
   const target=start(72).world.villagers.find(v=>v.alive&&v.faction===1);
@@ -75,6 +97,12 @@ compare('run away', 'run away from everyone', 14, (g) => r1(avg(side(g, 0).map((
 {
   const g0 = start(73);
   const prey = g0.world.villagers.find((v) => v.faction === 1).name.toLowerCase();
-  compare('hunt', `hunt ${prey}`, 25, (g) => { const p = g.world.villagers.find((v) => v.name.toLowerCase() === prey); return p.alive ? Math.round(100 - p.hp) : 100; }, (a, b) => a > b + 15, undefined, 73);
+  compare('hunt', `hunt ${prey}`, 25, (g) => { const p = g.world.villagers.find((v) => v.name.toLowerCase() === prey); return p.alive ? Math.round(100 - p.hp) : 100; }, (a, b) => a > b + 15, g => {
+    nearbyRivals(g);
+    const target = g.world.villagers.find(v => v.name.toLowerCase() === prey);
+    assert.ok(target?.alive, 'the Hunt target must be alive before the order');
+    target.weapon = 'none'; target.courage = 100; target.speed = 35;
+    for (const v of side(g, 0)) { v.speed = 70; v.courage = 100; v.weapon = 'bat'; }
+  }, 73);
 }
 process.exit(failed ? 1 : 0);

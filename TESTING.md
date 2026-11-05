@@ -4,6 +4,8 @@ Run `npm ci`, then `npm run check`. For separate saved outputs run `node tools/v
 
 The suite includes exact replay restoration and future outcomes, malformed local/network input, reciprocal Love bonds, Sickness bounds/ties, blast provenance, historical faction labels, full RNG/state diagnostics, Stand Down, legal-hand card trials, all original order/power/card effects, delayed multiplayer with mixed replays and dropouts, fuzzing and a production build. Failures exit nonzero.
 
+The November 5 upgrade adds read-only target-preview, seeded targeting, public tactical planning, emergency power and safe walking regressions. Run `node tools/ai-trace.js 12 17000` for bounded decision/position traces. See [the upgrade results](docs/UPGRADES-2026-11-05.md) for current browser, render-performance and matched AI evidence.
+
 Browser journeys and screenshots are saved beside the game in Tiny-Gods-Fix-Verification. The local scripts document when simulation was accelerated through rendered frame calls. Real WebRTC tests use isolated browser contexts; this is still one computer/network.
 
 ## Owner playtest

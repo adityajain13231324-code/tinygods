@@ -4,6 +4,7 @@ import { isFirearm, groupOf } from './villager.js';
 import { formLoveBonds } from './bonds.js';
 import { startRumor } from './rumors.js';
 import { shuffle } from './rng.js';
+import { armoryReachable } from './world.js';
 
 // An order is plain data, so humans, bots and (later) the network all use the same shape:
 //   { verb: 'hate', target: { kind: 'group', id: 1 } | { kind: 'place', id: 'well' } | null, strength: 1..3 }
@@ -183,6 +184,7 @@ export function applyOrders(world, seat, orders, lastVerbs = null) {
     }
     if (subjects) notes.push(`${describeOrder(order)}: ${subjects.size} villager${subjects.size > 1 ? 's' : ''} got the word.`);
     const S = order.strength;
+    if (order.verb === 'arm' && !armoryReachable(world)) notes.push('Arm up: the storm has cut off the armory. Existing firearms can still reload; use the Arm miracle for new weapons.');
     // Using the same verb two turns running makes people numb to it.
     const tired = lastVerbs?.has(order.verb) ? ORDERS.fatigue : 1;
     let matched = 0;
