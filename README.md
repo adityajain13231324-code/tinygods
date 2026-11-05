@@ -26,6 +26,8 @@ The compact power dock scrolls through 21 powers, ordered from lowest to highest
 
 Launcher holders can return fire while fleeing or following Run/Avoid orders without stopping their retreat. Card, order and Whisper targets only offer living eligible groups. See [retreat and target fixes](docs/RETREAT-AND-TARGETS-2026-11-05.md) for the rules and local checks.
 
+From day 3, each dawn adds 3 power to your saved balance. All unused power carries over, including Spy's bonus: save 2, start next turn with 5. Each power still works once per turn, and damage powers unlock on day 5. Eliminated factions receive no power; a new match starts fresh. See [power carryover rules and verification](docs/POWER-CARRYOVER-2026-11-05.md).
+
 Easy bots receive 1 less influence per dawn and hesitate more. Normal adds no influence bonus. Hard bots receive 2 extra influence per dawn, add an affordable arming order, and use cards and powers more often. Bot personalities are distinct strategies with different measured win rates, not equivalent skill levels.
 **Play online**: one player creates a room and shares the 5-letter code (or the invite link); up to 4 people join from their own devices, bots fill empty seats. No game server is needed: browsers connect to each other (WebRTC via the free PeerJS broker), and the host's browser runs the room. If the host closes the tab the match ends. `npm run net-test` checks that every browser stays in sync.
 

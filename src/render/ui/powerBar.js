@@ -33,6 +33,7 @@ export function createPowerBar(root, ctx, game, camera, stage) {
   cursor.hidden = true;
   root.append(cursor);
   let shownKey = '';
+  let shownContext = '';
   let note = '';
   let noteBad = false;
 
@@ -160,8 +161,11 @@ export function createPowerBar(root, ctx, game, camera, stage) {
     const left = game.power[ctx.seat] ?? 0;
     const head = el('div', 'powerhead');
     const pips = el('span', 'pips');
-    for (let i = 0; i < Math.max(POWERS.perTurn, left); i++) pips.append(el('i', i < left ? 'on' : ''));
-    head.append(el('b', '', 'Powers'), pips, el('span', 'sub', selected ? POWER_DEFS[selected].hint : 'Pick a power, then click the map. Unused power is lost.'));
+    pips.setAttribute('role', 'img');
+    pips.setAttribute('aria-label', `${left} power available`);
+    for (let i = 0; i < (left > 6 ? POWERS.perTurn : Math.max(POWERS.perTurn, left)); i++) pips.append(el('i', i < left ? 'on' : ''));
+    if (left > 6) pips.append(el('span', 'power-total', `${left} total`));
+    head.append(el('b', '', 'Powers'), pips, el('span', 'sub', selected ? POWER_DEFS[selected].hint : 'Pick a power, then click the map. Unused power carries over.'));
     panel.append(head);
     const earlyLock = powerUnlockError(game, 'fireball');
     if (earlyLock) panel.append(el('div', 'sub', earlyLock));
@@ -255,6 +259,20 @@ export function createPowerBar(root, ctx, game, camera, stage) {
     aimOut() { if (!drag) { pointer = null; aim.clear(); cursor.hidden = true; } },
     get selected() { return selected; },
     update() {
+      const context = `${game.turn}:${ctx.seat}`;
+      if (context !== shownContext) {
+        shownContext = context;
+        shownKey = '';
+        selected = null;
+        group = null;
+        good = false;
+        note = '';
+        noteBad = false;
+        type.setDraft('');
+        type.say('');
+        type.root.querySelector('.typechips').replaceChildren();
+        cancelAim();
+      }
       const open = game.phase === 'sim' && !game.world.peaceful && !game.eliminated[ctx.seat] && ctx.passReady && !ctx.cutsceneActive?.();
       panel.hidden = !open;
       if (!open) {

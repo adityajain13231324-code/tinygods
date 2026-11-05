@@ -453,7 +453,7 @@ export const ART = {
 // have a few Power points to spend on live miracles.
 export const CARDS = { handSize: 4 };
 export const POWERS = {
-  perTurn: 3, // points refill every turn; unspent points are lost. Locked while the town is at peace.
+  perTurn: 3, // added each turn; all unspent points carry over. Locked while the town is at peace.
   targetRadius: 85, // selection aid only: single-target powers still affect exactly one villager
   lightning: { cost: 1, radius: 125, damage: 4, calmSeconds: 10 },
   miracle: { cost: 1, heal: 45, opinion: 15 },

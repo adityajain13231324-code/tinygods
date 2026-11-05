@@ -17,7 +17,7 @@ export const CARD_DEFS = {
   prophecy: { name: 'Prophecy', needs: 'group', blurb: 'Doom is foretold: that faction\'s villagers lose their nerve, start the turn panicking, and are far less aggressive.' },
   alibi: { name: 'Alibi', needs: null, blurb: 'Your notoriety is wiped and the whole town warms to you.' },
   // information and economy
-  spy: { name: 'Spy', needs: 'group', blurb: 'Learn what a rival ordered, and steal a moment of their power: +1 Power this turn.' },
+  spy: { name: 'Spy', needs: 'group', blurb: 'Learn what a rival ordered, and steal a moment of their power: +1 Power, which can be saved.' },
   census: { name: 'Census', needs: null, blurb: 'Count who is armed and how healthy every faction is, and collect +2 influence in taxes next turn.' },
   warchest: { name: 'War Chest', needs: null, blurb: 'A big stash for later: +4 influence next turn.' },
   // friends and foes

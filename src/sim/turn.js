@@ -206,7 +206,7 @@ function beginTurn(game) {
   game.cardPending.fill(null);
   for (let seat = 0; seat < POPULATION.factions; seat++) {
     game.hand[seat] = game.eliminated[seat] ? [] : dealHand(game);
-    game.power[seat] = game.eliminated[seat] || world.peaceful ? 0 : POWERS.perTurn;
+    game.power[seat] = game.eliminated[seat] || world.peaceful ? 0 : game.power[seat] + POWERS.perTurn;
     game.usedPowers[seat] = [];
     game.feedback[seat] = [];
     game.cardRumors[seat] = [];
@@ -473,6 +473,6 @@ function addOutcomeFeedback(game, living) {
     const lost = kills.filter((e) => e.victimFaction === seat).length;
     if (won || lost) note.push(`Your faction killed ${won} and lost ${lost} this turn.`);
     else note.push('No blood was shed by or against your faction.');
-    if (game.power[seat] > 0) note.push(`You left ${game.power[seat]} power unused.`);
+    if (game.power[seat] > 0) note.push(`${game.power[seat]} power saved. Unused power carries between turns.`);
   }
 }

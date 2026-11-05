@@ -7,8 +7,8 @@ import { shoveFrom, shoveToward } from './shove.js';
 import { powerUnlockError } from './availability.js';
 import { groupHasMembers } from './targets.js';
 
-// God powers: live miracles used while the town acts. Each costs Power points (they refill every
-// turn, unspent points are lost). Like orders they are secret: the town sees what happens, not who did it.
+// God powers: live miracles used while the town acts. Each costs Power points (three are added
+// every active turn, and unspent points carry over). Like orders they are secret: the town sees what happens, not who did it.
 //   lightning  a bolt that scatters a brawl and calms everyone nearby
 //   miracle    heal one villager (and make their group like you a bit)
 //   whisper    plant a thought in one villager's head about a faction
