@@ -200,11 +200,11 @@ for (const id of ['rain', 'fog']) {
 }
 // earthquake: every fight stops
 {
-  const g = town(43);
-  for (const v of g.world.villagers) { v.aggression = 100; v.courage = 90; for (let i = 0; i < v.opinion.length; i++) v.opinion[i] = -100; }
-  run(g, 8);
+  const g = town(43, true);
+  const fighters = [0, 1, 2].flatMap(f => alive(g, f).slice(0, 2));
+  fighters.forEach((v, i) => { v.state = 'attack'; v.targetId = fighters[(i + 2) % fighters.length].id; });
   const before = g.world.villagers.filter((v) => v.alive && v.state === 'attack').length;
-  castPower(g, 0, 'earthquake', {});
+  check(castPower(g, 0, 'earthquake', {}).ok, 'earthquake: cast succeeds');
   const after = g.world.villagers.filter((v) => v.alive && v.state === 'attack').length;
   check(before >= 4 && after === 0, `earthquake: fighters ${before} -> ${after} at once`);
 }

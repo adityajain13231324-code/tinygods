@@ -226,6 +226,7 @@ export class Mixer {
   /** Cross-fade the layers to match the current tension (0..100). */
   setTension(t) {
     if (!this.ctx || Math.abs(t - this.lastTension) < 1) return;
+    const returningToCalm = this.lastTension > 55 && t <= 55;
     this.lastTension = t;
     const now = this.ctx.currentTime;
     this.music.gain.setTargetAtTime(0.085 * (1 - clamp01((t - 15) / 45)), now, 0.8);
@@ -233,6 +234,7 @@ export class Mixer {
     this.drone.gain.setTargetAtTime(0.11 * clamp01((t - 18) / 45), now, 0.8);
     this.chaos.gain.setTargetAtTime(0.1 * clamp01((t - 55) / 35), now, 0.8);
     this.updateMurmur();
+    if (returningToCalm) this.nextChord(); // resume the warm pad now, rather than waiting up to seven seconds
   }
 
   /** How many villagers are still around (0..1): a dwindling town gets quieter. */

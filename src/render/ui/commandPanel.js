@@ -35,7 +35,7 @@ export function createCommandPanel(root, ctx) {
   const previewTimers = new Set();
   function bindPreview(node, orders, addsOrder = true) {
     let timer, held = false, down;
-    const show = () => ctx.previewOrders?.(orders());
+    const show = () => { const wanted = orders(); ctx.previewOrders?.(wanted, [...staged, ...wanted.filter(o => !staged.includes(o))]); };
     const stop = () => { clearTimeout(timer); previewTimers.delete(timer); };
     node.addEventListener('pointerenter', e => { if (e.pointerType !== 'touch' && !node.disabled) show(); });
     node.addEventListener('pointerleave', () => { stop(); ctx.clearOrderPreview?.(); });
@@ -317,14 +317,14 @@ export function createCommandPanel(root, ctx) {
       };
       const common=el('div','quick-common');
       for(const s of quickSuggestions(game,ctx.seat,'all',staged).filter(s=>!s.label.includes('Attack')))common.append(makeButton(s,s.label==='🏃 Run from everyone'?'🏃 Run away':s.label));
-      const hide={label:'🙈 Hide',orders:[{verb:'follow',target:{kind:'place',id:'houses'},strength:1}]};
+      const hide={label:'🙈 Hide',orders:[{verb:'follow',target:{kind:'place',id:'houses'},strength:Math.max(1,Math.min(3,left))}]};
       const hideCheck=validateOrders([...staged,...hide.orders],game.influence[ctx.seat],game.world,game.verbsLastTurn[ctx.seat],ghost,ctx.seat);
       common.append(makeButton({...hide,ok:hideCheck.ok,error:hideCheck.error}));bar.append(common);
       for(let f=0;f<4;f++) {
         if(f===ctx.seat||!game.world.villagers.some(v=>v.alive&&v.faction===f))continue;
         const row=el('div','quick-faction');row.append(el('b','',FACTIONS[f].name));row.style.setProperty('--faction', '#'+FACTIONS[f].color.toString(16).padStart(6,'0'));
         const suggestions=quickSuggestions(game,ctx.seat,f,staged);
-        for(const verb of ['Attack','Scare','Love','Run']) {
+        for(const verb of ['Scare','Love','Run','Accuse','Attack']) {
           if(verb==='Attack'&&game.world.peaceful)continue;
           const s=suggestions.find(s=>s.label.includes(verb));if(s)row.append(makeButton(s,verb));
         }
@@ -351,7 +351,7 @@ export function createCommandPanel(root, ctx) {
         text.type = 'button';
         text.title = 'Preview this order on the town';
         bindPreview(text, () => [o], false);
-        text.onclick = () => ctx.previewOrders?.([o]);
+        text.onclick = () => ctx.previewOrders?.([o], staged);
         c.append(text);
         const dial = el('span', 'dial');
         const set = (n) => {
@@ -445,7 +445,7 @@ export function createCommandPanel(root, ctx) {
     const body = panel.querySelector('.sheet-body');
     body.scrollTop = scrollTop;
     const preview = menuOpen ? draftOrder(game) : null;
-    if (preview) ctx.previewOrders?.([preview]);
+    if (preview) ctx.previewOrders?.([preview], [...staged, preview]);
     if (typing) tb.focus();
     else if (focusedLabel) [...panel.querySelectorAll('button')].filter(b => b.textContent === focusedLabel)[focusedIndex]?.focus({ preventScroll: true });
     body.scrollTop = scrollTop;

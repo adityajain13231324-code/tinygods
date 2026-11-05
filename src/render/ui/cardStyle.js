@@ -54,7 +54,7 @@ export const VERB_LOOK = {
   festival: { icon: '🎉', tip: 'A party that calms everyone' },
   shove: { icon: '🫸', tip: 'Walk up to a faction and push them away' },
   seize: { icon: '🪢', tip: 'Grab one villager and drag them somewhere' },
-  scare: { icon: '👻', tip: 'Walk up to a faction and frighten them into running' },
+  scare: { icon: '👻', tip: 'Frighten a faction into running. Victims also resent your faction.' },
   scatter: { icon: '💨', tip: 'Everyone runs away from everyone' },
   ambush: { icon: '🥷', tip: 'Wait at a place and jump anyone who comes near' },
 };

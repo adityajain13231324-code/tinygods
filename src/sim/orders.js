@@ -5,6 +5,7 @@ import { formLoveBonds } from './bonds.js';
 import { startRumor } from './rumors.js';
 import { shuffle } from './rng.js';
 import { armoryReachable } from './world.js';
+import { planWorkOrders, WORK_VERBS } from './workPlan.js';
 
 // An order is plain data, so humans, bots and (later) the network all use the same shape:
 //   { verb: 'hate', target: { kind: 'group', id: 1 } | { kind: 'place', id: 'well' } | null, strength: 1..3 }
@@ -106,7 +107,7 @@ export function describeOrder(order) {
 export function plainOrder(order) {
   const s = order.subject;
   if (order.verb === 'arm') return `Up to ${Math.min(s?.kind === 'count' ? s.n : Infinity, order.strength * ORDERS.armPerStrength)} of your selected villagers will try to fetch weapons. The armory needs stock and time to reach.`;
-  const who = !s || s.kind === 'all' ? 'Everyone' : s.kind === 'count' ? `${s.n} villager${s.n > 1 ? 's' : ''}`
+  const who = !s || s.kind === 'all' ? WORK_VERBS.has(order.verb) ? 'The villagers assigned to this order' : 'Everyone' : s.kind === 'count' ? `Up to ${s.n} villager${s.n > 1 ? 's' : ''}`
     : s.kind === 'trait' ? `Your ${s.trait}s` : (s.names?.join(' & ') ?? 'Named villagers');
   const t = order.target ? targetName(order.target) : '';
   const the = order.target?.kind === 'villager' ? '' : 'the ';
@@ -164,7 +165,8 @@ function pickSubjects(world, seat, order) {
  */
 export function applyOrders(world, seat, orders, lastVerbs = null) {
   const notes = []; // plain-language results, for the leader's private feedback
-  for (const order of orders) {
+  const work = planWorkOrders(world, seat, orders);
+  for (const [orderIndex, order] of orders.entries()) {
     if (order.verb === 'hunt' && world.villagers[order.target.id].faction === seat) {
       notes.push('Hunt: you cannot hunt your own villager.');
       continue;
@@ -177,7 +179,9 @@ export function applyOrders(world, seat, orders, lastVerbs = null) {
       notes.push(`${order.verb === 'scare' ? 'Scare' : 'Assault'}: you cannot do that to your own faction.`);
       continue;
     }
-    const subjects = pickSubjects(world, seat, order);
+    const assigned = work.has(orderIndex) ? new Set(work.get(orderIndex)) : null;
+    const subjects = assigned ? order.subject && order.subject.kind !== 'all' ? assigned : null : pickSubjects(world, seat, order);
+    if (assigned) notes.push(`${VERBS[order.verb].label}: ${assigned.size} of yours assigned; competing tasks share villagers in proportion to strength.`);
     if (subjects && subjects.size === 0) {
       notes.push(`${describeOrder(order)}: nobody fits (temperaments only count once the town has seen them).`);
       continue;
@@ -191,21 +195,21 @@ export function applyOrders(world, seat, orders, lastVerbs = null) {
     let mismatched = 0;
     // Arm up sends only a few villagers to the armory (3 per point of strength), picked at random.
     const armPicks = order.verb === 'arm'
-      ? new Set(subjects ? [...subjects].slice(0, S * ORDERS.armPerStrength) : shuffle(world.rng, world.villagers.filter((v) => v.alive && v.faction === seat)).slice(0, S * ORDERS.armPerStrength).map((v) => v.id))
+      ? assigned ?? new Set(subjects ? [...subjects].slice(0, S * ORDERS.armPerStrength) : shuffle(world.rng, world.villagers.filter((v) => v.alive && v.faction === seat)).slice(0, S * ORDERS.armPerStrength).map((v) => v.id))
       : null;
     // Hunters: the nearest villagers of yours, a couple per point of strength.
     let hunters = null;
     if (order.verb === 'hunt') {
       const prey = world.villagers[order.target.id];
       const pool = world.villagers.filter((v) => v.alive && v.faction === seat && (!subjects || subjects.has(v.id)));
-      hunters = new Set(pool.sort((a, b) => Math.hypot(a.x - prey.x, a.y - prey.y) - Math.hypot(b.x - prey.x, b.y - prey.y)).slice(0, S * 2).map((v) => v.id));
+      hunters = assigned ?? new Set(pool.sort((a, b) => Math.hypot(a.x - prey.x, a.y - prey.y) - Math.hypot(b.x - prey.x, b.y - prey.y)).slice(0, S * 2).map((v) => v.id));
     }
     // Seize: the nearest villagers (one more than the strength, at least two) go and grab one enemy together.
     let grabbers = null;
     if (order.verb === 'seize') {
       const prey = world.villagers[order.target.id];
       const pool = world.villagers.filter((v) => v.alive && v.faction === seat && !v.fx.seize && (!subjects || subjects.has(v.id)));
-      grabbers = new Set(pool.sort((a, b) => Math.hypot(a.x - prey.x, a.y - prey.y) - Math.hypot(b.x - prey.x, b.y - prey.y)).slice(0, subjects ? 12 : S + 1).map((v) => v.id));
+      grabbers = assigned ?? new Set(pool.sort((a, b) => Math.hypot(a.x - prey.x, a.y - prey.y) - Math.hypot(b.x - prey.x, b.y - prey.y)).slice(0, subjects ? 12 : S + 1).map((v) => v.id));
       notes.push(grabbers.size >= 2 ? `Seize: ${grabbers.size} of yours are going for ${prey.name}.` : `Seize: not enough villagers to lift ${prey.name} (it takes two).`);
     }
     // Assault: a squad (3 per point of strength, the nearest to the enemy unless named) charges a faction.
@@ -217,11 +221,12 @@ export function applyOrders(world, seat, orders, lastVerbs = null) {
       const cx = where ? where.x : foes.reduce((n, v) => n + v.x, 0) / Math.max(1, foes.length);
       const cy = where ? where.y : foes.reduce((n, v) => n + v.y, 0) / Math.max(1, foes.length);
       const pool = world.villagers.filter((v) => v.alive && v.faction === seat && (!subjects || subjects.has(v.id)));
-      hunters = new Set(pool.sort((a, b) => Math.hypot(a.x - cx, a.y - cy) - Math.hypot(b.x - cx, b.y - cy)).slice(0, subjects ? 12 : S * 3).map((v) => v.id));
+      hunters = assigned ?? new Set(pool.sort((a, b) => Math.hypot(a.x - cx, a.y - cy) - Math.hypot(b.x - cx, b.y - cy)).slice(0, subjects ? 12 : S * 3).map((v) => v.id));
     }
 
     for (const v of world.villagers) {
       if (!v.alive) continue;
+      if (v.faction === seat && assigned && !assigned.has(v.id)) continue;
       let w;
       if (v.faction === seat) w = 1;
       else if (v.faction === -1) w = v.trust[seat];

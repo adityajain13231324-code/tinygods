@@ -89,6 +89,10 @@ function decide(world, v) {
     return 'flee recovery';
   }
 
+  // A chosen armory runner finishes the errand before optional arguments or duties.
+  // Immediate danger and existing panic/grief above can still interrupt them.
+  if (v.fx.arm && !v.armDone && obeyOrders(world, v)) return 'armory errand';
+
   doActivity(world, v);
   festivalBonds(world, v);
   if (traitDuties(world, v)) return 'temperament duty';
@@ -732,6 +736,8 @@ function obeyOrders(world, v) {
       prey.fear[groupOf(v)] = Math.min(100, prey.fear[groupOf(v)] + ORDERS.scareFear * S * 0.5);
       prey.courage = Math.max(10, prey.courage - ORDERS.scareCourage * S);
       prey.grievance[v.id] += ORDERS.scareGrudge * S; // bullying breeds resentment
+      const scarer = groupOf(v);
+      prey.opinion[scarer] = Math.max(-100, prey.opinion[scarer] - ORDERS.scareResentment * S * BRAIN.thinkInterval);
       if (world.rng() < ORDERS.scareFlee * S) {
         startFlee(world, prey, v.x, v.y);
         prey.panic = Math.max(prey.panic, 0.8);

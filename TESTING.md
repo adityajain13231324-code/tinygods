@@ -20,3 +20,5 @@ Browser journeys and screenshots are saved beside the game in Tiny-Gods-Fix-Veri
 - Play several strategies over many towns. Aggressive and defensive bot policies have different strengths; small simulated samples do not certify human balance or fun.
 
 Earlier milestone checklists are preserved under docs/history and contain obsolete rules. They are not the current acceptance contract.
+
+The latest [menu and order changes](docs/MENU-AND-ORDERS-2026-11-05.md) add four-point dawn income, strong quick actions, weighted physical squads, intimidation resentment and victory audio. The suite now has 39 regressions, including 300 varied squad plans and neutral-scarer provenance. Current local browser evidence is in Tiny-Gods-Menu-Polish.

@@ -3,9 +3,10 @@ import { VERBS } from '../config/content.js';
 import { groupOf } from './villager.js';
 import { validateOrder } from './orders.js';
 import { armoryReachable } from './world.js';
+import { planWorkOrders } from './workPlan.js';
 
 /** Read-only estimate. Random selections are shown as an eligible pool, never rolled. */
-export function previewOrder(world, seat, order) {
+export function previewOrder(world, seat, order, orders = [order]) {
   if (!validateOrder(order, world, seat).ok) return null;
   const mine = world.villagers.filter(v => v.alive && v.faction === seat);
   const target = order.target;
@@ -36,9 +37,13 @@ export function previewOrder(world, seat, order) {
     if (!uncertain) pool = nearest(pool, centre).slice(0, limit);
   }
   if (order.verb === 'escort') pool = pool.filter(v => v.id !== person.id);
+  const plan = orders.includes(order) ? orders : [...orders, order];
+  const work = planWorkOrders(world, seat, plan);
+  const assigned = work.get(plan.indexOf(order));
+  if (assigned) { pool = assigned.map(id => world.villagers[id]); limit = pool.length; uncertain = false; }
   limit = Math.min(limit, pool.length);
   const actors = pool.map(v => v.id);
   const destination = place || (order.verb === 'arm' ? world.places.find(p => p.id === 'armory') : null);
   return { actors, targets: targets.map(v => v.id), place: destination ? { x: destination.x, y: destination.y, radius: destination.radius } : null, uncertain,
-    label: `${VERBS[order.verb].label}: ${uncertain ? `up to ${limit} from ${actors.length} outlined villagers` : `${actors.length} own villager${actors.length === 1 ? '' : 's'}`}${uncertain ? ' · chosen at dawn' : ''}${order.verb === 'arm' && !armoryReachable(world) ? ' · armory cut off by storm' : ''}` };
+    label: `${VERBS[order.verb].label}: ${uncertain ? `up to ${limit} from ${actors.length} outlined villagers` : `${actors.length} own villager${actors.length === 1 ? '' : 's'}`}${uncertain ? ' · chosen at dawn' : assigned && work.size > 1 ? ' · shared by strength' : ''}${order.verb === 'arm' && !armoryReachable(world) ? ' · armory cut off by storm' : ''}` };
 }

@@ -100,7 +100,7 @@ const ctx = {
   online: !!online,
   isHost: online?.role === 'host',
   passReady: true, // false while the "pass the device" screen is up
-  previewOrders: orders => orderPreview.show(orders),
+  previewOrders: (orders, plan) => orderPreview.show(orders, plan),
   clearOrderPreview: () => orderPreview.clear(),
   speed: 1,
   paused: false,
@@ -353,7 +353,7 @@ function frame(frameSeconds) {
   speech.update(dt);
   spotlight.update(animTime);
   town.update(animTime, game.world.tension, game.world.bounds);
-  audio.setTension(game.world.tension);
+  audio.setTension(game.over || game.phase === 'ended' ? 0 : game.world.tension);
   crowdTimer -= dt;
   if (crowdTimer <= 0) {
     crowdTimer = 1;

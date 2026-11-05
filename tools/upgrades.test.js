@@ -17,9 +17,9 @@ test('previews never change simulation or any RNG, including random selection po
   const g = day(fresh()), before = authoritativeState(g);
   for (let n = 0; n < 100; n++) {
     const arm = previewOrder(g.world, 0, { verb: 'arm', strength: 1, target: null });
-    assert.equal(arm.uncertain, true);
-    assert.match(arm.label, /up to 3/);
-    assert.equal(arm.actors.length, 12);
+    assert.equal(arm.uncertain, false);
+    assert.match(arm.label, /3 own villagers/);
+    assert.equal(arm.actors.length, 3);
     previewOrder(g.world, 0, { verb: 'love', strength: 1, target: { kind: 'group', id: 1 }, subject: { kind: 'count', n: 4 } });
     assert.equal(previewOrder(g.world, 0, { verb: 'hunt', strength: 1, target: { kind: 'villager', id: 0 } }), null);
   }

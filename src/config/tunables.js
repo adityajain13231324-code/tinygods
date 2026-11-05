@@ -321,6 +321,7 @@ export const ORDERS = {
   scareCourage: 1.2, // courage lost per scare tick (x strength)
   scareFlee: 0.1, // chance per tick (x strength) that the victim bolts
   scareGrudge: 2.5, // ...and how much more they resent the scarer (bullying has a price)
+  scareResentment: 1, // opinion of the scarer's faction lost per second of direct intimidation, x strength
   shoveReach: 46, // shovers walk up to this close
   shoveEvery: 1.6, // seconds between one shover's shoves (divided by strength)
   shoveSpeed: 520, // knockback speed of a shove (about 160 px of travel)
@@ -340,7 +341,7 @@ export const ORDERS = {
 };
 
 export const INFLUENCE = {
-  perTurn: 5,
+  perTurn: 4,
   carryCap: 3,
   comebackBonus: 2, // for a faction with fewer than half the average living count
   comebackFraction: 0.5,

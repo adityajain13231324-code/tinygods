@@ -13,11 +13,11 @@ export class OrderPreview {
     this.hint.hidden = true;
     root.append(this.hint);
   }
-  show(orders) {
+  show(orders, plan = orders) {
     this.clear();
     const { game, ctx } = this;
     if (game.phase !== 'command' || !ctx.passReady || game.pending[ctx.seat] !== null) return;
-    const previews = orders.map(o => previewOrder(game.world, ctx.seat, o)).filter(Boolean);
+    const previews = orders.map(o => previewOrder(game.world, ctx.seat, o, plan)).filter(Boolean);
     if (!previews.length) return;
     this.key = `${game.turn}:${ctx.seat}`;
     const actors = new Set(previews.flatMap(p => p.actors));

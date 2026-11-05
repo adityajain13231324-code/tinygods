@@ -5,6 +5,11 @@ import { css, el } from './dom.js';
 import { ACHIEVEMENTS, loadStats } from '../../stats.js';
 import { activateDialog } from './dialog.js';
 import { createHowGuide } from './howGuide.js';
+import { installMenuClicks } from '../../audio/menuClicks.js';
+
+let menuClicks = null;
+let launching = false;
+window.addEventListener('pageshow', () => { launching = false; });
 
 const read = (key) => {
   try { return localStorage.getItem(key); } catch { return null; }
@@ -22,15 +27,20 @@ const dailySeed = () => {
 export const getDifficulty = () => (DIFFICULTY[read('tinygods.difficulty')] ? read('tinygods.difficulty') : 'normal');
 
 function launch(options) {
+  if (launching) return;
+  launching = true;
   const p = new URLSearchParams({ start: '1', difficulty: getDifficulty(), ...options });
-  location.search = p.toString();
+  const go = () => { location.search = p.toString(); };
+  const delay = menuClicks?.tail() ?? 0;
+  if (delay > 0) setTimeout(go, delay);
+  else go();
 }
 
 const HOW_TO_PLAY = [
   ['The goal', 'You secretly lead one faction of 12 villagers in a town of 60. The other factions belong to other players or bots. The last faction with a living villager wins the town.'],
   ['Each turn: give secret orders', 'Pick up to 3 orders by typing plain sentences ("send three villagers to the armory", "hunt Mia", "assault the Tides", "everyone stand down"). Bigger orders cost more influence. Nobody sees your orders.'],
   ['Then the town acts by itself', 'Your villagers (and neutrals who trust you) follow orders in their own way: each has a temperament, a temper and a daily mood. People scowl, argue, scuffle, then fight. Hover anyone to see why.'],
-  ['Rumors and love', 'Accuse starts a rumor about another faction that spreads by gossip. Love pairs your villagers with another faction; partners fight side by side. A Festival cools tempers. Villagers who lose faith can turn on you, or leave.'],
+  ['Rumors and love', 'Accuse starts a rumor about another faction that spreads by gossip. Scare raises fear, but victims resent the faction intimidating them. Love pairs your villagers with another faction; partners fight side by side. A Festival cools tempers. Villagers who lose faith can turn on you, or leave.'],
   ['Cards and miracles', 'Each dawn you are dealt cards: play one for a trick (forge a letter, bribe the neutrals, spy, raid an armory). Miracles start on day 3, but Fireball, Lightning, Earthquake and Time Bomb stay locked until day 5. Healing, fog and non-damaging effects remain available earlier. At the end, "The Truth" shows every order.'],
   ['Town events', 'From day 3, some dawns bring an event that changes that one turn for everybody: a heatwave, a harvest festival, a market day, an armory delivery, a sickness that hits the biggest faction.'],
   ['Good to know', 'Using the same order two turns running makes it weaker. Killing makes your faction notorious: the whole town trusts you less. Villagers wearing a ring are yours. Click Skip on any cutscene.'],
@@ -41,6 +51,7 @@ const FPS_CHOICES = [['0', 'Auto'], ['60', '60'], ['30', '30']];
 export function showMenu() {
   const root = el('div', 'menu menu2');
   document.body.append(root);
+  menuClicks = installMenuClicks(root);
 
   // Floating faction shapes for atmosphere.
   const bg = el('div', 'menu-bg');
@@ -97,7 +108,7 @@ export function showMenu() {
     b.append(head, el('span', 'menu2-sub', sub));
     const go = () => onClick?.();
     b.addEventListener('click', (e) => { if (!e.target.closest('.menu2-diff')) go(); });
-    b.addEventListener('keydown', (e) => { if (['Enter', ' '].includes(e.key) && e.target === b) { e.preventDefault(); go(); } });
+    b.addEventListener('keydown', (e) => { if (['Enter', ' '].includes(e.key) && e.target === b) { e.preventDefault(); if (!e.repeat) b.click(); } });
     modes.append(b);
     return b;
   };
@@ -136,7 +147,8 @@ export function showMenu() {
   if (rematch?.code) setTimeout(() => openOnline(rematch.code, rematch), 0);
   else if (invited) setTimeout(() => openOnline(invited), 0);
 
-  wrap.append(hero, modes);
+  const watermark = el('footer', 'menu2-watermark', '@adityajain1323');
+  wrap.append(hero, modes, watermark);
   root.append(bg, wrap);
   // stagger the cards in
   [...modes.children].forEach((c, i) => { c.style.animationDelay = `${0.08 * i + 0.1}s`; });
@@ -157,7 +169,7 @@ export function showMenu() {
       row.append(text, box);
       list.append(row);
     };
-    toggle('tinygods.muted', 'Sound', 'Hits, voices, ambience and music.', (v) => v !== '1', (on) => (on ? '0' : '1'));
+    toggle('tinygods.muted', 'Sound', 'Menu clicks, hits, voices, ambience and music.', (v) => v !== '1', (on) => (on ? '0' : '1'));
     toggle('tinygods.blood', 'Cartoon blood', 'Splatters and stains in fights.', (v) => v !== '0', (on) => (on ? '1' : '0'));
     toggle('tinygods.cutscenes', 'Cutscenes', 'The news and day cards between turns.', (v) => v !== '0', (on) => (on ? '1' : '0'));
     toggle('tinygods.news', 'News broadcasts', 'Breaking-news popups and TV news interludes. Turn recaps and important connection warnings remain available.', (v) => v !== '0', (on) => (on ? '1' : '0'));
