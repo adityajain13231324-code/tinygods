@@ -6,6 +6,7 @@ import { nearestPlace } from './world.js';
 import { shoveFrom } from './shove.js';
 
 const clamp = (x, lo, hi) => Math.min(hi, Math.max(lo, x));
+const protectedByShield = (world, v) => world.time < v.blessUntil || world.time < v.aegisUntil;
 
 function retreatRocketTarget(world, a) {
   if (a.weapon !== 'rocket' || a.ammo <= 0 || a.fx.standdown || a.carry || a.carrying) return null;
@@ -164,8 +165,18 @@ function dealDamage(world, attacker, victim, weapon, share, critical = false) {
   if (ap?.alive && ap.state === 'attack' && ap.targetId === victim.id && Math.hypot(ap.x - attacker.x, ap.y - attacker.y) <= BOND.teamRadius) {
     damage *= BOND.teamDamage;
   }
-  if (world.time < victim.blessUntil) damage *= 0.4; // under an Aegis
   damage *= (1 + (attacker.damageBonus ?? 0)) * (critical ? COMBAT.headshotMultiplier : 1);
+  if (isFirearm(weapon) && world.time < victim.aegisUntil) {
+    const source = { kind: 'power', id: 'aegis', seat: victim.aegisSeat, actionId: `${world.turn}:${victim.aegisSeat}:power:aegis`, defenderId: victim.id, originalShooterId: attacker.id, x: victim.x, y: victim.y };
+    victim.aegisUntil = 0;
+    victim.aegisSeat = -1;
+    world.events.push({ type: 'shieldReflect', turn: world.turn, time: world.time, weapon, critical, defenderId: victim.id, shooterId: attacker.id, x: victim.x, y: victim.y, tx: attacker.x, ty: attacker.y, source });
+    // Return the incoming hit (including its critical/Strength bonus), without another
+    // accuracy roll, ammo cost or recursive reflection. A shooter's own shields still reduce it.
+    powerDamage(world, attacker, damage, source, weapon, critical);
+    return;
+  }
+  if (protectedByShield(world, victim)) damage *= 0.4;
   victim.hp -= damage;
   victim.hitFlash = 1;
   victim.lastDamage = damage;
@@ -201,7 +212,8 @@ function gunshot(world, shooter, weapon, target, hit, critical = false) {
   world.events.push({
     type: 'gunshot', turn: world.turn, time: world.time, weapon,
     shooterId: shooter.id, shooterFaction: shooter.faction, x: shooter.x, y: shooter.y, place: nearestPlace(world, shooter.x, shooter.y).id,
-    targetId: target.id, tx: target.x, ty: target.y, hit, critical, // so the renderer can draw the shot
+    targetId: target.id, tx: target.x, ty: target.y, hit, critical,
+    blocked: hit && world.time < target.aegisUntil, // no blood on the reflected impact
     facing: shooter.facing,
   });
 }
@@ -226,7 +238,7 @@ export function blast(world, seat, x, y, r, { minDamage = 14, maxDamage = 60, mi
     v.panicX = x;
     v.panicY = y;
     let damage = v.faction === seat ? 0 : minDamage + (maxDamage - minDamage) * k; // your own people are flung about but not hurt
-    if (world.time < v.blessUntil) damage *= 0.4; // under an Aegis (or a Rally's short shield)
+    if (protectedByShield(world, v)) damage *= 0.4;
     v.hp -= damage;
     v.hitFlash = 1;
     v.lastDamage = damage;
@@ -243,13 +255,13 @@ export function blast(world, seat, x, y, r, { minDamage = 14, maxDamage = 60, mi
 }
 
 /** Continuous power damage keeps exact attribution even if its caster has been eliminated. */
-export function powerDamage(world, victim, amount, source, weapon = source.id) {
+export function powerDamage(world, victim, amount, source, weapon = source.id, critical = false) {
   if (!victim.alive || amount <= 0) return;
-  const damage = amount * (world.time < victim.blessUntil ? 0.4 : 1);
+  const damage = amount * (protectedByShield(world, victim) ? 0.4 : 1);
   victim.hp -= damage;
   if (weapon === 'whirlpool') victim.whirlpoolDamage += damage;
   victim.lastDamage = damage;
-  victim.lastCritical = false;
+  victim.lastCritical = critical;
   victim.lastHitWeapon = weapon;
   victim.hitFlash = 1;
   victim.hitFromX = source.x ?? victim.x;

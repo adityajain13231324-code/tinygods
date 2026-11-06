@@ -135,7 +135,7 @@ export class Effects {
     // Impact at the far end.
     if (e.hit) {
       this.emit('star', e.tx, ty, { vx: 0, vy: -20, life: 0.35, s0: 1.2, s1: 0.5, spin: 8 });
-      if (VillagerView.bloodEnabled) this.spray(e.tx, ty, e.x, e.y, shotgun ? 9 : 5);
+      if (!e.blocked && VillagerView.bloodEnabled) this.spray(e.tx, ty, e.x, e.y, shotgun ? 9 : 5);
     } else {
       const ex = mx + Math.cos(angle) * Math.hypot(e.tx - mx, ty - my) * 1.5;
       const ey = my + Math.sin(angle) * Math.hypot(e.tx - mx, ty - my) * 1.5;
@@ -373,8 +373,8 @@ export class Effects {
       const hy = t.y0 + (t.y1 - t.y0) * head;
       const tx = t.x0 + (t.x1 - t.x0) * tail;
       const ty = t.y0 + (t.y1 - t.y0) * tail;
-      g.moveTo(tx, ty).lineTo(hx, hy).stroke({ width: t.width + 1.8, color: 0xffb347, alpha: 0.35 * (1 - k), cap: 'round' });
-      g.moveTo(tx, ty).lineTo(hx, hy).stroke({ width: t.width, color: 0xfff7d6, alpha: 1 - k * 0.6, cap: 'round' });
+      g.moveTo(tx, ty).lineTo(hx, hy).stroke({ width: t.width + 1.8, color: t.color ?? 0xffb347, alpha: 0.35 * (1 - k), cap: 'round' });
+      g.moveTo(tx, ty).lineTo(hx, hy).stroke({ width: t.width, color: t.color ?? 0xfff7d6, alpha: 1 - k * 0.6, cap: 'round' });
     }
     for (let i = this.rings.length - 1; i >= 0; i--) {
       const r = this.rings[i];
@@ -417,6 +417,16 @@ export class Effects {
       }
       d.sprite.alpha = 0.7 * Math.min(1, (d.life - d.age) / 12);
     }
+  }
+
+  /** A mirror shatters and sends one cyan tracer back, without another muzzle flash. */
+  reflect(e) {
+    this.tracers.push({ x0: e.x, y0: e.y - 24, x1: e.tx, y1: e.ty - 22, age: 0, life: 0.25, width: 3, kind: 'tracer', color: 0x83e5ff });
+    for (let i = 0; i < 10; i++) {
+      const a = i / 10 * Math.PI * 2;
+      this.emit('sparkle', e.x + Math.cos(a) * 24, e.y - 24 + Math.sin(a) * 30, { vx: Math.cos(a) * 65, vy: Math.sin(a) * 65 - 10, life: 0.45, s0: 0.8, s1: 0.1, spin: 6, tint: 0xc8f4ff });
+    }
+    this.number(e.x, e.y - 65, 'REFLECT!', 0xa4edff);
   }
 
   /**

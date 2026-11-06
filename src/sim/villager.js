@@ -98,7 +98,9 @@ export function createVillager(rng, { id, name, shape, faction, x, y, count = 60
     guardBonus: 0,
 
     x, y, px: x, py: y, vx: 0, vy: 0,
-    blessUntil: 0, // sim time until which an Aegis halves incoming damage
+    blessUntil: 0, // Rally's temporary 60% damage reduction, independent of Aegis
+    aegisUntil: 0, // mirror shield: 60% reduction until expiry or its first bullet reflection
+    aegisSeat: -1, // caster owns reflected damage even when shielding another faction
     frozenUntil: 0,
     frozenSince: 0,
     damageBonus: 0,

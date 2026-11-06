@@ -2,7 +2,7 @@ import { REPLAY, SIM } from '../config/tunables.js';
 
 // Records the visible state of every villager ten times a second during the sim phase, so
 // the recap can replay a highlight. Only the fields the renderer needs are stored, as plain
-// numbers in one Float32Array per frame (60 villagers x 25 numbers x 4 bytes = 6 KB),
+// numbers in one Float32Array per frame (60 villagers x 27 numbers x 4 bytes, about 6.5 KB),
 // plus a small snapshot of persistent power visuals for that frame.
 // Playback temporarily writes these into villagers while the sim is stopped. Replay
 // keeps a separate exact snapshot to restore the live state without Float32 rounding.
@@ -14,7 +14,7 @@ const THOUGHTS = [null, 'heart', 'angry', 'sweat', 'question', 'skull', 'shield'
 
 const ACTIVITIES = [null, 'dance', 'rest', 'shop', 'pray', 'train', 'fish', 'garden', 'eat'];
 
-export const FIELDS = 25;
+export const FIELDS = 27;
 export const FRAME_SECONDS = REPLAY.everyTicks / SIM.tickHz;
 
 export function encode(v, a, o) {
@@ -43,6 +43,8 @@ export function encode(v, a, o) {
   a[o + 22] = v.damageBonus;
   a[o + 23] = v.lastCritical ? 1 : 0;
   a[o + 24] = v.whirlpoolDamage;
+  a[o + 25] = v.aegisUntil;
+  a[o + 26] = v.aegisSeat;
 }
 
 export function decode(a, o, v) {
@@ -71,6 +73,8 @@ export function decode(a, o, v) {
   v.damageBonus = a[o + 22];
   v.lastCritical = a[o + 23] === 1;
   v.whirlpoolDamage = a[o + 24];
+  v.aegisUntil = a[o + 25];
+  v.aegisSeat = a[o + 26];
 }
 
 export class Recorder {

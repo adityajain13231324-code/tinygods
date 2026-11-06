@@ -18,7 +18,7 @@ import { groupHasMembers } from './targets.js';
 export const POWER_DEFS = {
   // calm and protect
   miracle: { name: 'Miracle', icon: '✨', cost: POWERS.miracle.cost, needs: 'villager', hint: 'Aim near one injured ally to heal them.', blurb: 'Heal one nearby member of your own faction by 45 HP.' },
-  aegis: { name: 'Aegis', icon: '🛡️', cost: POWERS.aegis.cost, needs: 'villager', hint: 'Click a villager to shield them.', blurb: 'One villager takes 60% less damage for 16 seconds.' },
+  aegis: { name: 'Aegis', icon: '🛡️', cost: POWERS.aegis.cost, needs: 'villager', hint: 'Shield one villager for 6s; reflect the next bullet, then shatter.', blurb: 'A visible mirror shield lasts up to 6 seconds. It reduces damage by 60% while intact and blocks the next gun or shotgun hit, reflecting it at the shooter before shattering. Misses do not consume it. Rockets do not reflect; reflected shots cannot bounce again.' },
   rain: { name: 'Downpour', icon: '🌧️', cost: POWERS.rain.cost, needs: 'point', hint: 'Click a spot: everyone there cools off.', blurb: 'A heavy rain on a wide area: fights break up and tempers drop.' },
   fog: { name: 'Fog', icon: '🌫️', cost: POWERS.fog.cost, needs: 'point', hint: 'Click a spot for fog.', blurb: 'A patch of fog: fights inside stop at once and nobody in it can pick a new one for a while (they still defend themselves).' },
   sleep: { name: 'Sleep', icon: '💤', cost: POWERS.sleep.cost, needs: 'villager', hint: 'Click a villager to put them to sleep.', blurb: 'One villager freezes in place for 8 seconds.' },
@@ -161,8 +161,9 @@ export function castPower(game, seat, id, args = {}) {
       break;
     }
     case 'aegis':
-      v.blessUntil = world.time + POWERS.aegis.seconds;
-      message = `${v.name} is shielded.`;
+      v.aegisUntil = world.time + POWERS.aegis.seconds;
+      v.aegisSeat = seat;
+      message = `${v.name} has a 6-second mirror shield: the next bullet hit reflects, then it shatters.`;
       break;
     case 'sleep':
       v.state = 'mourn'; // frozen in place

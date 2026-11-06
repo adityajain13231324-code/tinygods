@@ -19,7 +19,7 @@ const label = (v) => (v.faction >= 0 ? FACTIONS[v.faction].name : 'neutral');
  */
 export function attributeKill(game, turn, e) {
   if (e.source && Number.isInteger(e.source.seat)) {
-    const action = { fireball: 'cast Fireball', whirlpool: 'cast Whirlpool', blackout: 'cast Blackout', rocket: 'fired the rocket', timebomb: 'planted the Time Bomb', bomb: 'planted the Time Bomb' }[e.source.id] ?? 'used a power';
+    const action = { fireball: 'cast Fireball', whirlpool: 'cast Whirlpool', blackout: 'cast Blackout', aegis: 'cast Aegis, reflecting the shot', rocket: 'fired the rocket', timebomb: 'planted the Time Bomb', bomb: 'planted the Time Bomb' }[e.source.id] ?? 'used a power';
     return { seat: e.source.seat, reason: `Recorded cause: ${seatName(e.source.seat)} ${action}`, weight: 10, kind: 'recorded' };
   }
   const killer = game.world.villagers[e.killerId];

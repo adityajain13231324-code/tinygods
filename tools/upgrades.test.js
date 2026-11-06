@@ -102,7 +102,7 @@ test('bots heal a survivor in immediate danger before offence, then shield if he
   assert.deepEqual(g.usedPowers[0], ['miracle']); assert.ok(own.hp > 10);
   own.hp = 10; g.power[0] = 5;
   botPowers(g);
-  assert.deepEqual(g.usedPowers[0], ['miracle', 'aegis']); assert.ok(own.blessUntil > g.world.time);
+  assert.deepEqual(g.usedPowers[0], ['miracle', 'aegis']); assert.ok(own.aegisUntil > g.world.time);
 });
 
 test('walking goals reach the safe interior and a closed armory does not trap villagers', () => {

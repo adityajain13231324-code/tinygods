@@ -22,6 +22,7 @@ export function villagerInfo(game, v) {
   const lines = [`HP ${Math.ceil(v.hp)}/100 · ${weapon}`, v.alive ? action[v.state] ?? ACTIVITY_TEXT[v.activity] ?? 'Relaxing' : 'Dead',
     v.trait && (v.revealed || v.trait === 'gunslinger') ? TRAITS[v.trait] ?? 'Temperament: ordinary' : v.revealed ? 'Temperament: ordinary' : 'Temperament: not seen yet'];
   if (v.alive && v.frozenUntil > game.world.time) lines.push(`Frozen (${Math.ceil(v.frozenUntil - game.world.time)}s)`);
+  if (v.alive && v.aegisUntil > game.world.time) lines.push(`Aegis mirror (${Math.ceil(v.aegisUntil - game.world.time)}s): reflects the next bullet hit`);
   if (v.alive && v.damageBonus > 0) lines.push(`Strength +${Math.round(v.damageBonus * 100)}% until dusk`);
   if (v.alive && game.world.blackoutUntil > game.world.time) lines.push('Confused by Blackout: attacks paused');
   if (v.mood < -0.5) lines.push('Having a bad day');

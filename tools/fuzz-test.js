@@ -33,7 +33,7 @@ function checkWorld(g, where) {
   for (const v of world.villagers) {
     const bad = (what) => report(`${what} (${where})`, `villager ${v.name} state=${v.state} x=${v.x} y=${v.y} hp=${v.hp} turn=${g.turn} t=${g.simElapsed?.toFixed(1)}`);
     if (!v.alive) continue;
-    if (![v.frozenUntil,v.frozenSince,v.damageBonus].every(Number.isFinite) || v.damageBonus < 0 || v.damageBonus > 0.5) bad('invalid power status');
+    if (![v.frozenUntil,v.frozenSince,v.damageBonus,v.aegisUntil].every(Number.isFinite) || v.damageBonus < 0 || v.damageBonus > 0.5 || !Number.isInteger(v.aegisSeat) || v.aegisSeat < -1 || v.aegisSeat > 3) bad('invalid power status');
     if (v.weapon === 'rocket' && (!Number.isInteger(v.ammo) || v.ammo < 1 || v.ammo > 5)) bad('invalid rocket ammo');
     if (!Number.isFinite(v.x) || !Number.isFinite(v.y) || !Number.isFinite(v.vx) || !Number.isFinite(v.vy)) bad('non-finite position or velocity');
     if (!Number.isFinite(v.hp) || v.hp <= 0 || v.hp > 100.0001) bad('hp out of range');

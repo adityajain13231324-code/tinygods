@@ -67,7 +67,7 @@ const ACTIONS = {
   rain: ['rain', 'downpour', 'shower', 'drizzle', 'flood', 'deluge'],
   charm: ['charm', 'seduce', 'enchant', 'hypnotize', 'mesmerize', 'bewitch', 'captivate'],
   enrage: ['enrage', 'provoke', 'incite', 'taunt', 'anger', 'madden', 'infuriate', 'goad', 'berserk'],
-  aegis: ['aegis', 'ward', 'bubble', 'barrier', 'forcefield', 'invulnerable', 'immunity', 'shield'],
+  aegis: ['aegis', 'mirror shield', 'mirror guard', 'ward', 'bubble', 'barrier', 'forcefield', 'invulnerable', 'immunity', 'shield'],
   disarm: ['disarm', 'unarm', 'confiscate', 'strip'],
   sleep: ['sleep', 'nap', 'stun', 'paralyze', 'petrify', 'knockout', 'snooze', 'doze'],
   miracle: ['heal', 'miracle', 'cure', 'mend', 'restore', 'revive', 'treat', 'rescue', 'help'],

@@ -147,7 +147,7 @@ export function botPowers(game) {
       .sort((a, b) => a.hp - b.hp)[0];
     if (emergency) {
       if (castPower(game, seat, 'miracle', { villagerId: emergency.id }).ok) return;
-      if (emergency.blessUntil <= world.time && castPower(game, seat, 'aegis', { villagerId: emergency.id }).ok) return;
+      if (Math.max(emergency.blessUntil, emergency.aegisUntil) <= world.time && castPower(game, seat, 'aegis', { villagerId: emergency.id }).ok) return;
     }
     if (hurt && rng() < 0.7 && castPower(game, seat, 'miracle', { villagerId: hurt.id }).ok) return;
     // Offence: a fireball or tornado on the biggest crowd of rivals that has none of mine in it.

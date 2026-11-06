@@ -466,7 +466,7 @@ export const POWERS = {
   rain: { cost: 1, radius: 210, calmSeconds: 9 },
   charm: { cost: 1, opinion: 45, truceSeconds: 25 },
   enrage: { cost: 1 },
-  aegis: { cost: 1, seconds: 16 },
+  aegis: { cost: 1, seconds: 6 },
   disarm: { cost: 2, radius: 115 },
   weapon: { cost: 1 }, // hands one of your own villagers a weapon
   sleep: { cost: 1, seconds: 8 },

@@ -1,6 +1,6 @@
 import { Circle, Container, Graphics } from 'pixi.js';
 import { FACTIONS, NEUTRAL, NEUTRAL_LOOK, NEUTRAL_GROUP } from '../config/content.js';
-import { ART, DRAMA, FIREARMS, VILLAGER } from '../config/tunables.js';
+import { ART, DRAMA, FIREARMS, POWERS, VILLAGER } from '../config/tunables.js';
 
 export const R = VILLAGER.radius;
 const LEG = 8; // how far the body is lifted to make room for legs
@@ -127,6 +127,13 @@ export class VillagerView {
     this.ice.moveTo(-23, -30).lineTo(17, -46).moveTo(-12, -49).lineTo(5, -10).lineTo(23, 1).stroke({ color: 0xdcfaff, width: 1, alpha: 0.7 });
     this.strengthAura = new Graphics().ellipse(0, 1, 27, 11).stroke({ color: 0xffbe65, width: 3 }).poly([-7, -63, 2, -63, -2, -56, 6, -56, -5, -44, -2, -53, -9, -53]).fill(0xffce79);
     this.root.addChild(this.strengthAura, this.ice);
+    this.aegisMirror = new Graphics().ellipse(0, -24, 29, 37)
+      .fill({ color: 0x9bdfff, alpha: 0.10 }).stroke({ color: 0xd8faff, width: 2.5, alpha: 0.95 })
+      .ellipse(0, -24, 25, 33).stroke({ color: 0x70c9ff, width: 1, alpha: 0.65 })
+      .moveTo(-20, -36).lineTo(-7, -51).moveTo(-16, -24).lineTo(8, -51)
+      .stroke({ color: 0xffffff, width: 2, alpha: 0.75 });
+    this.root.addChild(this.aegisMirror);
+    this.aegisMirror.visible = false;
     this.ice.visible = this.strengthAura.visible = false;
     if (!v.alive) { this.rig.visible = false; this.tomb.visible = true; this.shadow.visible = false; }
 
@@ -156,6 +163,8 @@ export class VillagerView {
     if (v.faction !== this.shownFaction) this.build(); // they changed sides
     const frozen = v.alive && v.frozenUntil > VillagerView.effectTime;
     this.ice.visible = frozen;
+    this.aegisMirror.visible = v.alive && v.aegisUntil > VillagerView.effectTime;
+    this.aegisMirror.alpha = Math.min(1, 0.35 + Math.max(0, v.aegisUntil - VillagerView.effectTime) / POWERS.aegis.seconds);
     this.strengthAura.visible = v.alive && v.damageBonus > 0;
     if (!v.alive) {
       this.updateDead(time);

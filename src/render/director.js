@@ -55,6 +55,7 @@ export class Director {
       const e = world.events[this.index++];
       if (e.type === 'kill') this.onKill(game, e);
       else if (e.type === 'gunshot') this.onGunshot(game, e);
+      else if (e.type === 'shieldReflect') { this.effects.reflect(e); this.audio?.play('clang', e.x); }
       else if (e.type === 'rocketLaunch') { this.audio?.play('warp', e.x); this.effects.puff(e.x, e.y, 7, 0xe5dbbb); const view = this.effects.views?.[e.shooterId]; if (view) view.recoil = 1; }
       else if (e.type === 'weaponPickup') { this.audio?.play('clang', e.x); this.effects.number(e.x, e.y - 45, '5 ROCKETS', 0xffdf7c); }
       else if (e.type === 'bond') this.audio?.play('bond', world.villagers[e.aId].x);

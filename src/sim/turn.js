@@ -317,6 +317,8 @@ function endSim(game) {
   // Stand everyone down so the town is calm while players plan the next turn.
   for (const v of world.villagers) {
     v.frozenUntil = v.frozenSince = v.damageBonus = 0;
+    v.aegisUntil = 0;
+    v.aegisSeat = -1;
     v.blackoutTargetId = -1;
     v.blackoutRetargetUntil = v.whirlpoolDamage = 0;
     if (!v.alive) continue;
