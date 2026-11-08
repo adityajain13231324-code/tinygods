@@ -39,6 +39,8 @@ const players = Math.min(4, Math.max(1, Number(params.get('players')) || 1));
 const typedNames = (params.get('names') ?? '').split(',').filter(Boolean);
 const humanNames = online ? online.names : Array.from({ length: players }, (_, i) => (players === 1 ? 'You' : (typedNames[i] ?? `Player ${i + 1}`)));
 const seats = makeSeats(seed, humanNames);
+const faction=Number(params.get('faction'));
+if(!online && players===1 && Number.isInteger(faction) && faction>0 && faction<4) [seats[0],seats[faction]]=[seats[faction],seats[0]];
 // On this screen: everyone in pass-and-play, only me online.
 const humanSeats = online ? [online.mySeat] : seats.map((st, i) => (st.kind === 'human' ? i : -1)).filter((i) => i >= 0);
 const hotseat = !online && humanSeats.length > 1;

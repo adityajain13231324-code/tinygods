@@ -113,28 +113,7 @@ export function showMenu() {
     return b;
   };
 
-  const startSolo = () => launch({ players: '1', seed: String(Math.floor(Math.random() * 1e6) + 1) });
-  const solo = card('🎮', 'Play vs bots', 'You lead the Embers. Three bots lead the rest. About 15 minutes.', { primary: true, onClick: startSolo });
-  const diff = el('div', 'menu2-diff');
-  diff.append(el('span', '', 'Bots:'));
-  const diffBlurb = el('span', 'menu2-diffblurb');
-  const diffBtns = Object.entries(DIFFICULTY).map(([id, d]) => {
-    const b = el('button', '', d.label);
-    b.onclick = (e) => { e.stopPropagation(); write('tinygods.difficulty', id); paintDiff(); };
-    diff.append(b);
-    return [id, b];
-  });
-  const paintDiff = () => {
-    const cur = getDifficulty();
-    for (const [id, b] of diffBtns) b.classList.toggle('on', id === cur);
-    diffBlurb.textContent = DIFFICULTY[cur].blurb;
-  };
-  paintDiff();
-  solo.append(diff, diffBlurb);
-  const play = el('button', 'menu2-play', 'Play ▶');
-  play.onclick = (e) => { e.stopPropagation(); startSolo(); };
-  solo.append(play);
-
+  card('🎮', 'Play vs bots', 'Choose your faction and set the pace.', { primary: true, onClick: () => showSoloSetup() });
   const openOnline = (code = '', rematch = null) => import('./onlineLobby.js').then((m) => m.showOnlineLobby(root, modal, code, rematch));
   card('🌐', 'Play online', 'Make a room with a 5-letter code. Friends join from their own devices; bots fill empty seats.', { onClick: () => openOnline() });
   card('🛋️', 'Pass and play', '2 to 4 friends on one device. Orders are hidden by a "pass the device" screen.', { onClick: () => showPassSetup() });
@@ -144,8 +123,8 @@ export function showMenu() {
   if (new URLSearchParams(location.search).get('rematch') === '1') {
     try { rematch = JSON.parse(sessionStorage.getItem('tinygods.rematch') ?? 'null'); sessionStorage.removeItem('tinygods.rematch'); } catch { rematch = null; }
   }
-  if (rematch?.code) setTimeout(() => openOnline(rematch.code, rematch), 0);
-  else if (invited) setTimeout(() => openOnline(invited), 0);
+  const enter = () => { if (rematch?.code) openOnline(rematch.code,rematch); else if(invited) openOnline(invited); };
+  setTimeout(()=>{if(read('tinygods.welcomed')!=='1') showHow(true,enter); else enter();},0);
 
   const watermark = el('footer', 'menu2-watermark', '@adityajain1323');
   wrap.append(hero, modes, watermark);
@@ -251,11 +230,28 @@ export function showMenu() {
     redraw();
   }
 
-  function showHow() {
+  function showSoloSetup() {
+    const dlg=modal(); dlg.card.classList.add('setup-card');
+    dlg.card.append(el('h2','','Your town, your rules'),el('p','sub','Choose your faction. Bots lead the other three.'));
+    let faction=Math.max(0,Math.min(3,Number(read('tinygods.faction'))||0));
+    const grid=el('div','setup-factions');
+    const paint=()=>[...grid.children].forEach((b,i)=>{b.classList.toggle('on',i===faction);b.setAttribute('aria-pressed',String(i===faction));});
+    FACTIONS.forEach((f,i)=>{const b=el('button','opt',f.name);b.style.setProperty('--faction',css(f.color));b.onclick=()=>{faction=i;paint();};grid.append(b);});paint();dlg.card.append(grid);
+    const settings=el('div','setup-settings');
+    const choice=(label,key,values,fallback)=>{const row=el('label','setup-field'),select=el('select');row.append(el('span','',label));values.forEach(([v,t])=>{const o=el('option','',t);o.value=v;select.append(o);});select.setAttribute('aria-label',label);select.value=read(key)||fallback;select.onchange=()=>write(key,select.value);row.append(select);settings.append(row);};
+    choice('Difficulty','tinygods.difficulty',Object.entries(DIFFICULTY).map(([k,d])=>[k,d.label]),'normal');
+    choice('Planning time','tinygods.orderSecs',[['30','30 seconds'],['45','45 seconds'],['60','60 seconds'],['90','90 seconds']],'45');
+    choice('Day length','tinygods.simSecs',[['32','32 seconds'],['45','45 seconds'],['60','60 seconds']],'45');
+    choice('News','tinygods.news',[['1','On'],['0','Off']],'1');
+    const start=el('button','go setup-start','Start match');start.onclick=()=>{write('tinygods.faction',String(faction));launch({players:'1',faction:String(faction),seed:String(Math.floor(Math.random()*1e6)+1)});};dlg.card.append(settings,start);
+  }
+  function showHow(welcome=false,onDone=()=>{}) {
     const dlg = modal();
     dlg.card.classList.add('wide');
     dlg.card.append(el('h2', '', 'How to play'));
+    if(welcome){const remove=dlg.overlay.remove.bind(dlg.overlay);let closed=false;dlg.overlay.remove=()=>{if(closed)return;closed=true;write('tinygods.welcomed','1');remove();onDone();};dlg.card.firstChild.textContent='Skip guide';}
     dlg.card.append(createHowGuide());
+    const done=el('button','go','Ready to play');done.onclick=()=>dlg.overlay.remove();dlg.card.append(done);
     const rules = el('details');rules.append(el('summary','','Full rules and tips'));dlg.card.append(rules);
     HOW_TO_PLAY.forEach(([title, body], i) => {
       const sec = el('div', 'how');

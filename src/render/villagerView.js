@@ -115,6 +115,8 @@ export class VillagerView {
     this.thoughtBox = new Graphics();
     this.thoughtBox.position.set(0, TOP_Y[v.shape] - 22);
     this.thoughtBox.visible = false;
+    this.ammoDots = new Graphics();
+    this.root.addChild(this.ammoDots);
     this.hpBar = new Graphics();
     this.hpBar.position.set(0, 7);
     this.hpBar.visible = false;
@@ -166,6 +168,7 @@ export class VillagerView {
     this.aegisMirror.visible = v.alive && v.aegisUntil > VillagerView.effectTime;
     this.aegisMirror.alpha = Math.min(1, 0.35 + Math.max(0, v.aegisUntil - VillagerView.effectTime) / POWERS.aegis.seconds);
     this.strengthAura.visible = v.alive && v.damageBonus > 0;
+    this.ammoDots.visible = v.alive && v.weapon === 'rocket';
     if (!v.alive) {
       this.updateDead(time);
       return;
@@ -204,6 +207,7 @@ export class VillagerView {
     // Thought bubble shows the strongest driver (hidden during a spotlight cut, to cut the clutter).
     const tKey = v.thought && !this.dim && !VillagerView.calm ? `${v.thought}:${v.thoughtGroup}` : '';
     this.thoughtBox.visible = tKey !== '';
+    this.thoughtBox.alpha = (action==='attack'||action==='flee'||v.faction===VillagerView.highlightSeat) ? 1 : 0.55;
     if (tKey !== this.thoughtKey) {
       this.thoughtKey = tKey;
       if (tKey) drawThought(this.thoughtBox, v.thought, v.thoughtGroup);
@@ -221,6 +225,8 @@ export class VillagerView {
     if (wKey !== this.weaponKey) {
       this.weaponKey = wKey;
       drawWeapon(this.weaponGlyph, v.weapon, v.ammo);
+      this.ammoDots.clear();
+      if(v.weapon==='rocket') { this.ammoDots.roundRect(-17,15,34,8,4).fill(0x172219);for(let i=0;i<5;i++)this.ammoDots.circle(-12+i*6,19,2).fill(i<v.ammo?0xffd36b:0x53604f); }
       this.weaponGlyph.scale.set(1.45); // big enough to read who is armed from across town
     }
     // Holding a tool for a pastime? Put the weapon away.

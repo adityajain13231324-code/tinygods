@@ -109,6 +109,7 @@ export function createVillager(rng, { id, name, shape, faction, x, y, count = 60
     facing: rng() < 0.5 ? -1 : 1,
     speed: range(rng, VILLAGER.walkSpeed),
     state: 'idle',
+    attackCommitUntil: 0,
     expression: 'calm',
     purpose: null, // why a 'wander' trip is happening: 'arm' | 'follow' | null
     targetId: null,

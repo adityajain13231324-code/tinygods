@@ -59,7 +59,7 @@ export function showOnlineLobby(menuRoot, modal, presetCode = '', rematch = null
   function home() {
     card.replaceChildren(card.firstChild); // keep the Back button
     card.append(el('h2', '', 'Play online'));
-    card.append(el('p', 'sub', 'Each friend plays on their own device. One of you creates a room and shares the code; the others join. You each pick a colour, and empty seats are filled by bots. Needs a normal home or school internet connection.'));
+    card.append(el('p', 'sub', 'Create a room to invite friends, or enter their code. Empty seats become bots.'));
     card.append(el('div', 'lobby-label', 'Your name'), nameInput);
     const create = el('button', 'go', 'Create a room');
     create.onclick = () => { write(nameInput.value); showHost(); };
@@ -79,7 +79,7 @@ export function showOnlineLobby(menuRoot, modal, presetCode = '', rematch = null
     };
     row.append(code, join);
     const err = el('p', 'lobby-err');
-    card.append(create, el('div', 'lobby-or', 'or join a friend'), row, err);
+    const hostBox=el('section','lobby-choice'),joinBox=el('section','lobby-choice');hostBox.append(el('h3','','Host a game'),create);joinBox.append(el('h3','','Join a friend'),row,err);card.append(hostBox,joinBox);
   }
 
   /** Four colour tiles: tap a free one to take it. Taken ones show who has them. */

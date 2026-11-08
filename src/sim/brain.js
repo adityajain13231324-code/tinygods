@@ -332,13 +332,15 @@ function scuffleCheck(world, v) {
 
 /** Tempers fray: once grievance passes the "argue" line, two free villagers start shouting. */
 function maybeArgue(world, v) {
+  const working = o => o.carrying || o.carry || o.fx.arm || o.fx.follow || o.fx.protect.length || o.purpose;
+  if (working(v)) return false;
   if (v.state !== 'idle' && v.state !== 'wander' && v.state !== 'seek') return false;
   if (v.trait === 'peacemaker' || v.trait === 'medic') return false;
   let target = null;
   let best = GRIEVANCE.argueAt;
   for (const o of world.villagers) {
     if (o === v || !o.alive || (o.state !== 'idle' && o.state !== 'wander' && o.state !== 'seek')) continue;
-    if (world.time < v.truceUntil[o.id]) continue;
+    if (working(o) || world.time < v.truceUntil[o.id]) continue;
     const r = ratio(v, o);
     if (r < best || r >= GRIEVANCE.fightAt) continue;
     if (dist(v, o.x, o.y) > GRIEVANCE.argueRange) continue;
@@ -374,6 +376,8 @@ function inFog(world, v) {
 /** Start a fight with someone I am fed up with (or hold a grudge against). */
 function pickFight(world, v) {
   if (cantStart(v) || world.time < v.calmUntil || inFog(world, v)) return stopGlare(world, v);
+  const current = v.state === 'attack' ? world.villagers[v.targetId] : null;
+  if (current?.alive && world.time < v.attackCommitUntil && dist(v,current.x,current.y)<COMBAT.giveUpRadius && current.id !== v.blackoutTargetId) return true;
   let target = null;
   let former = null;
   let formerD = world.seekRadius;
@@ -389,7 +393,7 @@ function pickFight(world, v) {
       if (d < formerD) { former = o; formerD = d; }
       continue;
     }
-    if (v.state === 'attack' && o.id === v.targetId) d *= 0.55; // stick with the current opponent unless another is much closer
+    if (v.state === 'attack' && o.id === v.targetId) d *= 0.4; // stick with the current opponent unless another is much closer
     if (d < bestD) {
       bestD = d;
       target = o;
@@ -825,7 +829,7 @@ function obeyOrders(world, v) {
       const d = dist(v, spot.x, spot.y);
       const strongest = Math.max(...fx.protect.map((p) => p.S));
       v.guardBonus = d < ORDERS.protectRadius ? Math.min(ORDERS.protectReductionCap, ORDERS.protectReduction * strongest) : 0;
-      if (d > ORDERS.protectStay * 1.25) { // set off beyond 75, arrive inside 54: no jitter at the boundary
+      if (d > ORDERS.protectStay * 1.65) { // set off beyond 75, arrive inside 54: no jitter at the boundary
         v.state = 'guard';
         v.expression = 'calm';
         v.followId = spot.id ?? -1; // a villager (keep following) or a place (-1)
@@ -888,7 +892,7 @@ function peaceful(world, v) {
 
     case 'talk': {
       const other = world.villagers[v.targetId];
-      const together = other.alive && other.state === 'talk';
+      const together = other.alive && other.state === 'talk' && other.targetId === v.id;
       if (together && v.expression === 'angry') {
         // An argument: shouting adds fuel, but each half-second there is a chance someone calms down.
         v.grievance[other.id] += GRIEVANCE.argueHeat * BRAIN.thinkInterval;
@@ -974,6 +978,7 @@ export function startAttack(world, v, target, cause = 'fed up') {
   if (world.peaceful || world.time < world.blackoutUntil) return;
   if (v.state !== 'attack') note(world, `idle->attack: ${cause}`);
   else if (v.targetId !== target.id) note(world, `retarget: ${cause}`);
+  if (v.state !== 'attack' || v.targetId !== target.id) v.attackCommitUntil = world.time + 1;
   v.state = 'attack';
   v.expression = 'angry';
   v.brewId = -1;

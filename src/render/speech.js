@@ -45,6 +45,7 @@ export class Speech {
     const v = view.v;
     if (!v.alive || !this.camera.isVisible(view.root.x, view.headY(), 20)) return;
 
+    if (priority === 1 && this.game.world.villagers.some(o => o.alive && o.state === 'attack' && Math.hypot(o.x-v.x,o.y-v.y)<220)) return;
     const existing = this.live.find((b) => b.view === view);
     if (existing && existing.priority > priority && existing.life > 0.6) return;
     if (!existing && priority === 1 && this.live.filter((b) => b.priority === 1).length >= MAX_CHAT) return;
@@ -121,7 +122,8 @@ export class Speech {
       }
       b.root.position.set(b.view.root.x, b.view.headY() - 6 * inv);
       b.root.scale.set(s * 0.82);
-      b.root.alpha = Math.min(1, b.life / 0.35);
+      const busy = b.priority === 1 && this.game.world.villagers.some(o=>o.alive && o.state==='attack' && Math.hypot(o.x-b.view.v.x,o.y-b.view.v.y)<220);
+      b.root.alpha = Math.min(1, b.life / 0.35) * (busy ? 0.18 : 1);
     }
   }
 
