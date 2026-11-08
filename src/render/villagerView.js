@@ -117,6 +117,10 @@ export class VillagerView {
     this.thoughtBox.visible = false;
     this.ammoDots = new Graphics();
     this.root.addChild(this.ammoDots);
+    // A compact focus mark signals a deliberate shot without another speech/status bubble.
+    this.aimCue = new Graphics().moveTo(-9, -54).lineTo(-4, -54).moveTo(4, -54).lineTo(9, -54)
+      .moveTo(0, -60).lineTo(0, -56).stroke({ color: 0xffe4a1, width: 2, cap: 'round' });
+    this.root.addChild(this.aimCue);
     this.hpBar = new Graphics();
     this.hpBar.position.set(0, 7);
     this.hpBar.visible = false;
@@ -169,6 +173,9 @@ export class VillagerView {
     this.aegisMirror.alpha = Math.min(1, 0.35 + Math.max(0, v.aegisUntil - VillagerView.effectTime) / POWERS.aegis.seconds);
     this.strengthAura.visible = v.alive && v.damageBonus > 0;
     this.ammoDots.visible = v.alive && v.weapon === 'rocket';
+    this.ammoDots.alpha = v.ammo === 1 ? 0.7 + 0.3 * Math.sin(time * 6) : 1;
+    this.aimCue.visible = v.alive && !frozen && v.state === 'attack' && FIREARMS.includes(v.weapon) && v.ammo > 0 && v.escalation >= 2;
+    this.aimCue.alpha = 0.55 + 0.3 * Math.sin(time * 5 + v.id);
     if (!v.alive) {
       this.updateDead(time);
       return;

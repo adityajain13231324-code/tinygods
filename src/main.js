@@ -88,6 +88,7 @@ try {
 const town = new TownView(app, game.world.places);
 stage.addChild(town.root);
 const effects = new Effects(app, audio);
+stage.addChild(effects.propLayer);
 stage.addChild(effects.decals);
 const crowd = stage.addChild(new Container());
 crowd.sortableChildren = true;

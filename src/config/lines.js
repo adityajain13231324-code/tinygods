@@ -55,6 +55,10 @@ export const LINES = {
   garden: ['Grow, little carrots.', 'Weeds again...', 'Nice soil today.', 'Water, water...'],
   eat: ['Mmm, pastry!', 'Warm and flaky.', 'One more bite.', 'Heaven.'],
   heal: ['Hold still, I\'ve got you.', 'Let me see that.', 'You\'ll be fine.', 'Breathe.'],
+  healed: ['I can stand again!', 'That feels better!', 'Whoever did that, thanks!'],
+  frozen: ['I can\'t move!', 'Why is it so cold?!', 'Someone thaw me out!'],
+  lastRocket: ['One rocket left. Make it count.', 'Last shot in the tube!', 'Better not miss this one.'],
+  rocketEmpty: ['That was the last one!', 'Launcher is empty!', 'I need another rocket!'],
   armUp: ['Better safe than sorry.', 'I\'ll take that.', 'Just in case.'],
   wounded: ['I need a medic...', 'I don\'t feel so good.', 'Everything hurts.'],
 };

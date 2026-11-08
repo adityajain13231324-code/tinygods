@@ -141,6 +141,11 @@
 .card h3, .dock h3 { margin: 14px 0 4px; font-size: 15px; color: var(--accent); }
 .story { margin: 6px 0; padding-left: 22px; line-height: 1.5; }
 .story li { margin-bottom: 4px; }
+.town-awards { display: grid; grid-template-columns: repeat(auto-fit, minmax(175px, 1fr)); gap: 8px; margin: 8px 0 15px; }
+.town-award { display: flex; flex-direction: column; gap: 3px; padding: 10px 12px; border: 1px solid #a08349; border-radius: 10px; background: #283426; }
+.town-award b { color: #ffda83; font-size: 13px; }
+.town-award span { font-weight: 700; }
+.town-award small { color: #c8cfbd; line-height: 1.35; }
 
 /* Docked side panel (recap, guess): the town stays visible so replays can be watched. */
 .dock { position: absolute; left: 12px; top: 128px; width: min(390px, calc(100vw - 24px)); max-height: calc(100vh - 150px); overflow: auto; padding: 14px 16px; box-sizing: border-box; }

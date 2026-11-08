@@ -130,7 +130,7 @@ export class Speech {
   /** Watch a villager for things worth saying. Called every frame; cheap edge detection. */
   watch(view) {
     const v = view.v;
-    const m = (view.sp ??= { state: v.state, speaking: false, hit: 0, believed: v.believed.length, faction: v.faction, partner: v.partnerId, activity: v.activity, hurt: false, weapon: v.weapon, expr: v.expression, brew: -1 });
+    const m = (view.sp ??= { state: v.state, speaking: false, hit: 0, hp: v.hp, frozen: v.frozenUntil > this.game.world.time, ammo: v.ammo, believed: v.believed.length, faction: v.faction, partner: v.partnerId, activity: v.activity, hurt: false, weapon: v.weapon, expr: v.expression, brew: -1 });
     if (!v.alive) return;
     const chance = (p) => Math.random() < p;
 
@@ -162,6 +162,14 @@ export class Speech {
     if (v.hp < 35 && !m.hurt && chance(0.5)) this.say(view, 'wounded', 2);
     if (v.trait === 'medic' && v.state === 'guard' && m.state !== 'guard' && chance(0.6)) this.say(view, 'heal', 2);
 
+    // These reactions follow observed changes, so they also work in recorded replays.
+    // A large HP jump distinguishes a miracle or medic from slow natural recovery.
+    if (v.hp - m.hp >= 15 && chance(0.7)) this.say(view, 'healed', 2);
+    const frozen = v.frozenUntil > this.game.world.time;
+    if (frozen && !m.frozen && chance(0.7)) this.say(view, 'frozen', 2);
+    if (m.weapon === 'rocket' && m.ammo > 1 && v.weapon === 'rocket' && v.ammo === 1) this.say(view, 'lastRocket', 2);
+    if (m.weapon === 'rocket' && m.ammo === 1 && v.weapon !== 'rocket') this.say(view, 'rocketEmpty', 2);
+
     if (v.brewId >= 0 && m.brew < 0 && chance(0.7)) this.say(view, 'argue', 2, this.game.world.villagers[v.brewId]);
     m.brew = v.brewId;
     m.state = v.state;
@@ -173,6 +181,9 @@ export class Speech {
     m.activity = v.activity;
     m.hurt = v.hp < 35;
     m.weapon = v.weapon;
+    m.hp = v.hp;
+    m.frozen = frozen;
+    m.ammo = v.ammo;
     m.expr = v.expression;
   }
 }

@@ -2,6 +2,7 @@ import { FACTIONS } from '../../config/content.js';
 import { describeOrder } from '../../sim/orders.js';
 import { describeCard } from '../../sim/cards.js';
 import { buildStats, buildStory, shareText } from '../../sim/story.js';
+import { buildAwards } from '../../sim/awards.js';
 import { ACHIEVEMENTS, recordMatch } from '../../stats.js';
 import { clock, css, el } from './dom.js';
 
@@ -121,6 +122,18 @@ export function createRecap(root, ctx) {
     const story = el('ol', 'story');
     for (const line of buildStory(game)) story.append(el('li', '', line));
     card.append(story);
+
+    const awards = buildAwards(game.world);
+    if (awards.length) {
+      card.append(el('h3', '', 'Town awards'));
+      const list = el('div', 'town-awards');
+      for (const award of awards) {
+        const row = el('div', 'town-award');
+        row.append(el('b', '', award.title), el('span', '', award.name), el('small', '', award.detail));
+        list.append(row);
+      }
+      card.append(list);
+    }
 
     // Stats
     const stats = buildStats(game);

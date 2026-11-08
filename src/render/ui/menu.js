@@ -151,6 +151,7 @@ export function showMenu() {
     };
     toggle('tinygods.muted', 'Sound', 'Menu clicks, hits, voices, ambience and music.', (v) => v !== '1', (on) => (on ? '0' : '1'));
     toggle('tinygods.blood', 'Cartoon blood', 'Splatters and stains in fights.', (v) => v !== '0', (on) => (on ? '1' : '0'));
+    toggle('tinygods.battlefieldFx', 'Battlefield aftermath', 'Ground cracks, scorch marks and flying debris. Turn off for better performance.', (v) => v !== '0', (on) => (on ? '1' : '0'));
     toggle('tinygods.cutscenes', 'Cutscenes', 'The news and day cards between turns.', (v) => v !== '0', (on) => (on ? '1' : '0'));
     toggle('tinygods.news', 'News broadcasts', 'Breaking-news popups and TV news interludes. Turn recaps and important connection warnings remain available.', (v) => v !== '0', (on) => (on ? '1' : '0'));
 

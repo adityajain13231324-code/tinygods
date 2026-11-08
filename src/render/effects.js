@@ -3,6 +3,8 @@ import { VillagerView, heart } from './villagerView.js';
 
 const MAX_PARTICLES = 320;
 const NUMBER_POOL = 24;
+const MAX_GROUND_MARKS = 72;
+const EARTHQUAKE_POINTS = [[960, 540], [790, 465], [1125, 475], [795, 620], [1120, 620], [580, 390], [1350, 390], [610, 715], [1365, 730], [945, 295], [945, 765], [460, 530]];
 
 // Hearts, anger marks, sweat, smoke, stars, damage numbers. Everything is pooled: sprites
 // are created once and recycled, so a big brawl never allocates in the render loop.
@@ -19,6 +21,39 @@ export class Effects {
     this.decals = new Container(); // cached sprites: never retriangulate every stain each frame
     this.decalList = [];
     this.decalFree = [];
+    try { this.battlefieldFx = localStorage.getItem('tinygods.battlefieldFx') !== '0'; }
+    catch { this.battlefieldFx = true; }
+    this.groundMarks = [];
+    this.groundFree = [];
+    this.propLayer = new Container();
+    this.propLayer.eventMode = 'none';
+    this.breakables = [];
+    const scorch = new Graphics().ellipse(0, 0, 35, 17).fill({ color: 0x24241f, alpha: 0.62 })
+      .ellipse(0, 0, 26, 12).fill({ color: 0x463a2b, alpha: 0.7 })
+      .ellipse(0, 0, 17, 7).fill({ color: 0x211f1a, alpha: 0.55 });
+    const crack = new Graphics().moveTo(-35, -6).lineTo(-17, -1).lineTo(-8, -8).lineTo(4, 2)
+      .lineTo(22, -2).lineTo(39, 9).moveTo(-8, -8).lineTo(-3, -19).lineTo(7, -24)
+      .moveTo(4, 2).lineTo(1, 16).lineTo(12, 23).moveTo(22, -2).lineTo(27, -14)
+      .stroke({ color: 0x473b2e, width: 3, cap: 'round', join: 'round' });
+    const scraps = new Graphics().roundRect(-27, -7, 22, 6, 2).fill(0x8a633b)
+      .roundRect(2, 4, 27, 6, 2).fill(0x765333).roundRect(-7, -15, 13, 5, 2).fill(0xb28a57)
+      .circle(-30, 11, 3).fill(0x55483a).circle(27, -11, 4).fill(0x55483a);
+    this.groundTextures = [scorch, crack, scraps].map(target => app.renderer.generateTexture({ target, frame: new Rectangle(-44, -30, 88, 60), resolution: 1 }));
+    [scorch, crack, scraps].forEach(g => g.destroy());
+    if (this.battlefieldFx) {
+      const crate = new Graphics().ellipse(0, 5, 18, 6).fill({ color: 0x20251b, alpha: 0.24 })
+        .roundRect(-14, -12, 28, 19, 3).fill(0x94683b).stroke({ color: 0x493523, width: 2 })
+        .moveTo(-11, -9).lineTo(10, 4).moveTo(11, -9).lineTo(-10, 4).stroke({ color: 0xc69b65, width: 2 });
+      const crateTexture = app.renderer.generateTexture({ target: crate, frame: new Rectangle(-19, -17, 38, 30), resolution: 1.5 });
+      crate.destroy();
+      // A few decorative supply crates can visibly splinter. These have no collision or cover rules.
+      for (const [x, y] of [[425, 315], [1540, 375], [1650, 378], [1205, 650], [1510, 900], [700, 645], [1095, 465], [400, 725]]) {
+        const sprite = this.propLayer.addChild(new Sprite(crateTexture));
+        sprite.anchor.set(0.5, 1);
+        sprite.position.set(x, y);
+        this.breakables.push({ x, y, sprite, brokenAt: Infinity });
+      }
+    }
     const round = new Graphics().ellipse(0, 0, 16, 8.8).fill(0x9e1b24)
       .ellipse(-4, -0.5, 6.4, 3.2).fill({ color: 0xc72b36, alpha: 0.7 });
     const streak = new Graphics().roundRect(-16, -4, 32, 8, 4).fill(0x9e1b24)
@@ -175,6 +210,20 @@ export class Effects {
     this.decalList.push({ age: 0, life: 70, sprite });
   }
 
+  groundMark(kind, x, y, scale = 1) {
+    if (!this.battlefieldFx || !Number.isFinite(x) || !Number.isFinite(y)) return;
+    const old = this.groundMarks.length >= MAX_GROUND_MARKS ? this.groundMarks.shift() : null;
+    const sprite = old?.sprite ?? this.groundFree.pop() ?? this.decals.addChild(new Sprite());
+    sprite.texture = this.groundTextures[kind];
+    sprite.anchor.set(0.5);
+    sprite.position.set(x, y);
+    sprite.scale.set(scale);
+    sprite.rotation = Math.random() * Math.PI * 2;
+    sprite.alpha = 0.8;
+    sprite.visible = true;
+    this.groundMarks.push({ sprite, age: 0, life: 50 });
+  }
+
   /** A god power was used: show the effect (but never who used it). */
   power(e) {
     const { x, y } = e;
@@ -227,6 +276,7 @@ export class Effects {
         break;
       case 'earthquake':
         for (let i = 0; i < 40; i++) this.emit('crumb', Math.random() * 1920, Math.random() * 1080, { vx: (Math.random() - 0.5) * 60, vy: -20 - Math.random() * 40, gravity: 120, life: 0.9, s0: 1.2, s1: 0.6, tint: 0x9a8a6a });
+        if (this.battlefieldFx) for (const [gx, gy] of EARTHQUAKE_POINTS) this.groundMark(1, gx + (Math.random() - 0.5) * 38, gy + (Math.random() - 0.5) * 28, 0.7 + Math.random() * 0.6);
         this.audio?.play('warp', 960);
         break;
       case 'rain':
@@ -263,6 +313,30 @@ export class Effects {
   /** A bomb or fireball going off: flash, smoke, fire, a shock ring. */
   explosion(e) {
     this.rings.push({ x: e.x, y: e.y, r: e.r, age: 0 });
+    if (this.battlefieldFx) {
+      for (const prop of this.breakables) {
+        if (prop.brokenAt !== Infinity || Math.hypot(prop.x - e.x, prop.y - e.y) > e.r + 12) continue;
+        prop.brokenAt = e.time;
+        prop.sprite.visible = false;
+        this.groundMark(2, prop.x, prop.y, 0.75);
+        for (let i = 0; i < 7; i++) this.emit('crumb', prop.x, prop.y - 8, {
+          vx: (Math.random() - 0.5) * 230, vy: -75 - Math.random() * 105,
+          gravity: 300, life: 0.65, spin: 9, tint: i % 2 ? 0xc69b65 : 0x755337,
+        });
+      }
+      this.groundMark(0, e.x, e.y, Math.min(2.4, Math.max(0.7, e.r / 85)));
+      for (let i = 0; i < 3; i++) {
+        const a = i * Math.PI * 2 / 3 + Math.random() * 0.5;
+        this.groundMark(1, e.x + Math.cos(a) * e.r * 0.55, e.y + Math.sin(a) * e.r * 0.4, 0.55 + Math.random() * 0.4);
+      }
+      if (e.source?.id === 'rocket') {
+        this.groundMark(2, e.x + 22, e.y + 18, 1.2);
+        for (let i = 0; i < 12; i++) {
+          const a = Math.random() * Math.PI * 2;
+          this.emit('crumb', e.x, e.y - 6, { vx: Math.cos(a) * (90 + Math.random() * 170), vy: Math.sin(a) * 80 - 110, gravity: 380, life: 0.55 + Math.random() * 0.3, spin: 9, tint: i % 2 ? 0x9b7245 : 0x6a5340 });
+        }
+      }
+    }
     this.puff(e.x, e.y, 16, 0x6a6a6a);
     for (let i = 0; i < 14; i++) {
       const a = Math.random() * Math.PI * 2;
@@ -311,6 +385,7 @@ export class Effects {
   }
 
   update(dt) {
+    if (this.battlefieldFx) for (const prop of this.breakables) prop.sprite.visible = (this.world?.time ?? Infinity) < prop.brokenAt;
     this.drawFogs();
     this.drawBeams(dt);
     this.drawDecals(dt);
@@ -406,6 +481,15 @@ export class Effects {
   }
 
   drawDecals(dt) {
+    for (let i = this.groundMarks.length - 1; i >= 0; i--) {
+      const d = this.groundMarks[i];
+      d.age += dt;
+      if (d.age >= d.life) {
+        d.sprite.visible = false;
+        this.groundFree.push(d.sprite);
+        this.groundMarks.splice(i, 1);
+      } else d.sprite.alpha = 0.78 * Math.min(1, (d.life - d.age) / 8);
+    }
     for (let i = this.decalList.length - 1; i >= 0; i--) {
       const d = this.decalList[i];
       d.age += dt;
