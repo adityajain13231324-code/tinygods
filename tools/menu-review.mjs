@@ -8,6 +8,9 @@ const errors=[];
 for(const width of [1440,375]){
  const context=await browser.newContext({viewport:{width,height:900}});const p=await context.newPage();p.on('pageerror',e=>errors.push(e.message));
  await p.goto('http://127.0.0.1:4181/');await p.getByRole('button',{name:'Skip guide',exact:true}).waitFor();
+ for (const name of ['1. The goal','2. Make a plan','3. Watch & adapt','4. Use powers','5. Win & learn']) { await p.getByRole('button',{name,exact:true}).click();await p.waitForFunction(()=>{const i=document.querySelector('.guide-scene img');return i?.complete&&i.naturalWidth>0;});assert(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)); }
+ await p.getByRole('button',{name:'1. The goal',exact:true}).click();await p.screenshot({path:`test-results/guide-${width}.png`});
+ await p.getByRole('button',{name:'2. Make a plan',exact:true}).click();
  const slider=p.getByRole('slider');await slider.fill('1');assert.equal(await p.locator('.demo-arm').count(),3);await p.getByRole('button',{name:'Watch the plan'}).click();
  await p.getByRole('button',{name:'Skip guide',exact:true}).click();await p.screenshot({path:`test-results/home-${width}.png`});
  await p.getByRole('button',{name:/Play vs bots/}).click();await p.getByRole('button',{name:'Sprouts',exact:true}).click();await p.getByLabel('Difficulty',{exact:true}).selectOption('hard');
