@@ -12,7 +12,10 @@ for(const width of [1440,375]){
  await p.getByRole('button',{name:'1. The goal',exact:true}).click();await p.screenshot({path:`test-results/guide-${width}.png`});
  await p.getByRole('button',{name:'2. Make a plan',exact:true}).click();
  const slider=p.getByRole('slider');await slider.fill('1');assert.equal(await p.locator('.demo-arm').count(),3);await p.getByRole('button',{name:'Watch the plan'}).click();
- await p.getByRole('button',{name:'Skip guide',exact:true}).click();await p.screenshot({path:`test-results/home-${width}.png`});
+ await p.getByRole('button',{name:'Skip guide',exact:true}).click();await p.waitForTimeout(450);await p.screenshot({path:`test-results/home-${width}.png`});
+ await p.getByRole('button',{name:/Settings/}).click();await p.waitForTimeout(450);
+ assert(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await p.screenshot({path:`test-results/settings-${width}.png`});
+ await p.getByRole('button',{name:'Back',exact:true}).click();
  await p.getByRole('button',{name:/Play vs bots/}).click();await p.getByRole('button',{name:'Sprouts',exact:true}).click();await p.getByLabel('Difficulty',{exact:true}).selectOption('hard');
  assert(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await p.screenshot({path:`test-results/setup-${width}.png`});
  await p.getByRole('button',{name:'Start match',exact:true}).click();await p.waitForFunction(()=>window.tinyGods);assert.equal(await p.evaluate(()=>tinyGods.ctx.seat),2);assert.equal(await p.evaluate(()=>tinyGods.game.seats[2].kind),'human');

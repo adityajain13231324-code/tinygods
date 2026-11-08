@@ -135,6 +135,7 @@ export function showMenu() {
   // ---- settings ----
   function showSettings() {
     const dlg = modal();
+    dlg.card.classList.add('settings-card');
     dlg.card.append(el('h2', '', 'Settings'));
     const list = el('div', 'set-list');
     const toggle = (key, label, hint, isOn, store) => {
@@ -247,7 +248,7 @@ export function showMenu() {
   }
   function showHow(welcome=false,onDone=()=>{}) {
     const dlg = modal();
-    dlg.card.classList.add('wide');
+    dlg.card.classList.add('wide', 'guide-card');
     dlg.card.append(el('h2', '', 'How to play'));
     if(welcome){const remove=dlg.overlay.remove.bind(dlg.overlay);let closed=false;dlg.overlay.remove=()=>{if(closed)return;closed=true;write('tinygods.welcomed','1');remove();onDone();};dlg.card.firstChild.textContent='Skip guide';}
     dlg.card.append(createHowGuide());
