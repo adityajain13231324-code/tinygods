@@ -210,6 +210,8 @@ export function showMenu() {
     list.append(el('p', 'sub', 'Pass and play gives each player the selected order time. Online, the host chooses the shared clocks in the lobby.'));
     list.append(el('p', 'sub', Object.values(DIFFICULTY).map(d => `${d.label}: ${d.blurb}`).join(' ')));
     dlg.card.append(list);
+    dlg.card.append(el('div', 'lobby-label', 'Town and challenge for the next match'));
+    addTownChoices(dlg.card);
   }
 
   // ---- pass and play setup ----

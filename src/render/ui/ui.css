@@ -856,3 +856,6 @@ button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-v
 
 .menu2-overlay .card { background: linear-gradient(180deg, #1e2a20, #131c16); backdrop-filter: none; }
 .menu2-overlay .card h2 { color: var(--ink); }
+.setup-field { min-width: 0; }
+.setup-field select, .setup-settings select { width: 100%; max-width: 100%; min-width: 0; text-overflow: ellipsis; }
+@media (max-width: 480px) { .setup-settings { grid-template-columns: 1fr 1fr; } }

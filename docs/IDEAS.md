@@ -2,6 +2,8 @@
 
 First selections: 5 November 2026. Updated: 6 November 2026.
 
+**Status, 9 November 2026: all seventeen selected ideas are implemented on the `new-ideas-implemented` branch.** See `docs/IDEAS-IMPLEMENTATION-2026-11-09.md` for how each one works, the rules chosen where this file left them open, and what was verified. The entries below are the original wording.
+
 This file collects ideas for future discussion. Saving an idea does not authorize implementation. All seventeen entries below are selected ideas, not completed features. Keep future suggestions separate until the player chooses which ones to retain.
 
 ## Selected ideas

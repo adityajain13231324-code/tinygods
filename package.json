@@ -9,6 +9,9 @@
     "preview": "vite preview",
     "test": "node --test tools/*.test.js",
     "test:browser-inputs": "node tools/browser-inputs.mjs",
+    "test:browser-ideas": "node tools/browser-ideas.mjs",
+    "balance": "node tools/ideas-balance.js",
+    "bench": "node tools/bench-sim.js && node tools/bench-ticks.js",
     "check": "node tools/verify.js",
     "smoke": "node tools/sim-smoke.js",
     "net-test": "node tools/net-test.js"

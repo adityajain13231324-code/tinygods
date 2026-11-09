@@ -66,3 +66,7 @@ Earlier audit and design notes contain historical rules and benchmark claims. Se
 plus DOM panels. `src/bots` are the AI players. `src/audio` is synthesised sound.
 
 Menu controls have a quiet click sound governed by the Sound setting, with `@adityajain1323` below the play options. Victory immediately fades battle layers into calm music, including during the final recap. See [the latest gameplay and polish notes](docs/MENU-AND-ORDERS-2026-11-05.md).
+
+## Selected ideas update
+
+Five town layouts, optional challenge modes, cover and fire, a troublemaker, rivalries, formations, conditional orders, new cards and powers, awards with replays and shareable clips. Details, decisions and the verification record: `docs/IDEAS-IMPLEMENTATION-2026-11-09.md`. Extra checks: `npm run test:browser-ideas` (needs a preview build and Playwright), `npm run balance`, `npm run bench`.
