@@ -7,7 +7,9 @@ import { parseCommand } from '../src/sim/parser.js';
 import { castPower, POWER_DEFS } from '../src/sim/powers.js';
 import { CARD_IDS } from '../src/sim/cards.js';
 import { mulberry32 } from '../src/sim/rng.js';
-import { WORLD } from '../src/config/tunables.js';
+import { WORLD, IDEAS } from '../src/config/tunables.js';
+import { LAYOUT_IDS, isWater } from '../src/sim/layouts.js';
+import { MODE_IDS } from '../src/sim/modes.js';
 
 const N = Number(process.argv[2] ?? 12);
 const FIRST = Number(process.argv[3] ?? 1);
@@ -17,6 +19,7 @@ const PHRASES = [
   'run away from everyone', 'ambush at the plaza', 'ambush at the market', 'scare the tides, arm up', 'hide in the houses', 'my brawlers attack the sprouts',
   'kill everyone at the houses', 'follow mia', 'send two villagers to the well and guard the bakery', 'lie in wait at the farm', 'bully the sparks', 'run for the hills',
   'forge a letter against the tides', 'plant a time bomb at the plaza', 'spy on the sparks', 'raid the sprouts armory', 'poison the tides', 'recruit a neutral',
+  'spread out', 'stick together', 'protect the centre', 'guard the armory, retreat to the park if outnumbered', 'attack the tides but stand down if hurt', 'go to the pond and run to the houses if attacked',
   'make a treaty with the sparks', 'kidnap the tides', 'rally my people', 'ring a false alarm on the sparks', 'matchmake with the tides', 'prophesy doom for the sprouts',
   'bribe the neutrals', 'census', 'war chest', 'alibi', 'field hospital', 'truce bell', 'asdf', '', 'a'.repeat(200),
 ];
@@ -44,6 +47,12 @@ function checkWorld(g, where) {
     if (v.opinion.some((o) => !Number.isFinite(o) || o < -100.01 || o > 100.01)) bad('opinion out of range');
     if (v.grievance.some((o) => !Number.isFinite(o))) bad('non-finite grievance');
   }
+  if (isWater(world.canals, 0, 0) !== false) report('water at map corner', `${where}`);
+  for (const v of world.villagers) if (v.alive && isWater(world.canals, v.x, v.y)) report(`villager in water (${where})`, `${v.name} at ${v.x.toFixed(0)},${v.y.toFixed(0)} turn=${g.turn}`);
+  if (world.goods.length > IDEAS.hazard.maxGoods) report(`too many goods (${where})`, String(world.goods.length));
+  if (world.weaponDrops.filter((d) => d.weapon).length > IDEAS.drop.maxActive) report(`too many dropped weapons (${where})`, String(world.weaponDrops.length));
+  if (world.grass.filter((p) => p.state === 'smolder' || p.state === 'burning').length > IDEAS.hazard.maxFires) report(`too many fires (${where})`, '');
+  if (world.props.some((p) => !Number.isFinite(p.hp) || p.hp < 0)) report(`bad prop hp (${where})`, '');
   if (g.influence.some((n) => !Number.isFinite(n) || n < 0)) report(`influence invalid (${where})`, JSON.stringify(g.influence));
   if (g.power.some((n) => !Number.isFinite(n) || n < 0)) report(`power invalid (${where})`, JSON.stringify(g.power));
 }
@@ -52,7 +61,7 @@ function playMatch(seed) {
   const rnd = mulberry32(seed * 7919 + 13);
   const pick = (list) => list[Math.floor(rnd() * list.length)];
   const seats = [0, 1, 2, 3].map((i) => (i < 3 ? { name: `P${i}`, kind: 'human' } : { name: 'bot', kind: 'bot', personality: pick(['warmonger', 'pacifist', 'gossip', 'chaos', 'opportunist']) }));
-  const g = createGame({ seed, seats, cosmetics: true, difficulty: pick(['easy', 'normal', 'hard']) });
+  const g = createGame({ seed, seats, cosmetics: true, difficulty: pick(['easy', 'normal', 'hard']), layout: pick(LAYOUT_IDS), mode: pick(MODE_IDS) });
   let guard = 0;
   let lastTurn = 0;
   while (g.phase !== 'ended' && guard++ < 400000) {

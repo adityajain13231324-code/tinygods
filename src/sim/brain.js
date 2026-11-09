@@ -68,6 +68,8 @@ export function stepWorld(world, dt = 1 / SIM.tickHz) {
   resolveCombat(world, dt);
   updateBombs(world);
   updateTornadoes(world);
+  // Nothing may end a tick in the water, however it got there (knockback, carrying, tornado, a blast).
+  if (world.canals.length) for (const v of villagers) if (v.alive && isWater(world.canals, v.x, v.y)) [v.x, v.y] = landNear(world.canals, v.x, v.y);
   updateTension(world, dt);
 }
 

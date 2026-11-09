@@ -4,9 +4,11 @@ import { groupOf } from './villager.js';
 import { validateOrder } from './orders.js';
 import { armoryReachable } from './world.js';
 import { planWorkOrders } from './workPlan.js';
+import { FORMATION_STYLES } from './formations.js';
+import { CONDITIONS } from './conditions.js';
 
 /** Read-only estimate. Random selections are shown as an eligible pool, never rolled. */
-export function previewOrder(world, seat, order, orders = [order]) {
+function previewOrderBase(world, seat, order, orders = [order]) {
   if (!validateOrder(order, world, seat).ok) return null;
   const mine = world.villagers.filter(v => v.alive && v.faction === seat);
   const target = order.target;
@@ -46,4 +48,19 @@ export function previewOrder(world, seat, order, orders = [order]) {
   const destination = place || (order.verb === 'arm' ? world.places.find(p => p.id === 'armory') : null);
   return { actors, targets: targets.map(v => v.id), place: destination ? { x: destination.x, y: destination.y, radius: destination.radius } : null, uncertain,
     label: `${VERBS[order.verb].label}: ${uncertain ? `up to ${limit} from ${actors.length} outlined villagers` : `${actors.length} own villager${actors.length === 1 ? '' : 's'}`}${uncertain ? ' · chosen at dawn' : assigned && work.size > 1 ? ' · shared by strength' : ''}${order.verb === 'arm' && !armoryReachable(world) ? ' · armory cut off by storm' : ''}` };
+}
+
+/** The base preview plus what a formation trades off and where a conditional order falls back to. */
+export function previewOrder(world, seat, order, orders = [order]) {
+  const p = previewOrderBase(world, seat, order, orders);
+  if (!p) return p;
+  const extras = [];
+  let fallback = null;
+  if (order.verb === 'formation') extras.push(FORMATION_STYLES[order.target.id].blurb);
+  if (order.when) {
+    const place = order.when.retreat ? world.places.find((q) => q.id === order.when.retreat) : null;
+    extras.push(`falls back ${place ? 'to the ' + place.name : '(stands down)'} if ${CONDITIONS[order.when.cond].name}`);
+    if (place) fallback = { x: place.x, y: place.y, radius: place.radius };
+  }
+  return extras.length ? { ...p, label: `${p.label} · ${extras.join(' · ')}`, ...(fallback ? { fallback } : {}) } : p;
 }
