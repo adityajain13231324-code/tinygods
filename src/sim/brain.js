@@ -2,7 +2,7 @@ import { WALL, WORLD, BRAIN, VILLAGER, SIM, COMBAT, ORDERS, WEAPONS, ARMORY, GRI
 import { isWater, landNear, onHill, routeVia } from './layouts.js';
 import { findCoverSpot } from './props.js';
 import { updateHazards } from './hazards.js';
-import { memoryBias, memoryReact, remember } from './memory.js';
+import { forgive, memoryBias, memoryReact, remember } from './memory.js';
 import { formationSteer, updateFormations } from './formations.js';
 import { conditionFallback } from './conditions.js';
 import { troubleDuties } from './troublemaker.js';
@@ -604,6 +604,7 @@ function traitDuties(world, v) {
         if (d <= cfg.healRadius) {
           o.hp = Math.min(o.maxHp, o.hp + cfg.healPerThink);
           remember(world, o, v.id, 'rescued');
+          forgive(world, o, (x) => x.id === v.id, 'care', 1); // a medic's care forgives whatever the medic did to them
           v.revealed = true;
         }
         if (o.hp < cfg.seekBelowHp && o.hp < worst && d <= cfg.seekRadius && o.state !== 'attack') {

@@ -55,20 +55,23 @@ test('memory: getting hurt, a rescue, a betrayal and a heal are remembered; a tr
   const traitor = of(g, 3)[0]; const lover = of(g, 3)[1]; lover.partnerId = traitor.id; lover.faction = 3;
   switchSides(w, traitor, 0);
   assert.ok(lover.memory.some((m) => m.id === traitor.id && m.kind === 'betrayed'), 'a partner remembers the betrayal');
-  // forgiveness through healing
-  remember(w, a, b.id, 'injured');
-  g.usedPowers.forEach((u) => u.splice(0));
-  a.hp = 30;
-  assert.ok(castPower(g, 1, 'miracle', { villagerId: b.id }).ok === false || true);
-  b.faction = 1; a.faction = 1; remember(w, a, of(g, 0)[3].id, 'injured');
-  assert.ok(castPower(g, 0, 'miracle', { villagerId: a.id }).ok === false, 'cannot heal a rival villager');
-  const mine = of(g, 0)[4]; remember(w, mine, of(g, 1)[3].id, 'injured'); mine.hp = 40;
-  assert.ok(castPower(g, 1, 'miracle', { villagerId: of(g, 1)[3].id }).ok === false || true);
+  const mine = of(g, 0)[4];
   g.phase = 'command'; g.hand[0] = ['treaty'];
   const foe = of(g, 2)[0]; remember(w, mine, foe.id, 'scared');
   applyCard(g, 0, { id: 'treaty', group: 2 });
   assert.ok(!mine.memory.some((m) => m.id === foe.id), 'a peace treaty forgives');
   assert.ok(w.events.some((e) => e.type === 'forgave' && e.why === 'treaty'));
+});
+
+test('memory: a Miracle melts one grudge, a medic is forgiven, and a rival cannot be healed', () => {
+  const g = fresh(); const w = g.world;
+  const v = of(g, 0)[0]; v.hp = 40;
+  remember(w, v, of(g, 1)[0].id, 'injured'); remember(w, v, of(g, 2)[0].id, 'scared');
+  assert.equal(v.memory.length, 2);
+  assert.ok(castPower(g, 0, 'miracle', { villagerId: v.id }).ok);
+  assert.equal(v.memory.length, 1, 'exactly one grudge was forgiven');
+  assert.ok(w.events.some((e) => e.type === 'forgave' && e.why === 'healed'));
+  assert.equal(castPower(g, 0, 'miracle', { villagerId: of(g, 1)[1].id }).ok, false, 'cannot heal a rival villager');
 });
 
 test('memory: reactions are occasional, rate-limited and only for someone remembered and close', () => {

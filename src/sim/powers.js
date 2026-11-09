@@ -192,7 +192,7 @@ export function castPower(game, seat, id, args = {}) {
       v.hp = Math.min(v.maxHp, v.hp + POWERS.miracle.heal);
       const g = groupOf(v);
       for (const o of world.villagers) if (o.alive && groupOf(o) === g) o.opinion[seat] = Math.min(100, o.opinion[seat] + POWERS.miracle.opinion);
-      forgive(world, v, (o) => o.faction === seat, 'healed'); // being healed can melt an old grudge
+      forgive(world, v, () => true, 'healed', 1); // being healed melts one old grudge
       message = `${v.name} was healed.`;
       break;
     }
