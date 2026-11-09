@@ -149,3 +149,11 @@ test('every card and power in every challenge mode leaves the world finite and c
     assert.ok(w.goods.length <= IDEAS.hazard.maxGoods && w.weaponDrops.filter((d) => d.weapon).length <= IDEAS.drop.maxActive);
   }
 });
+
+test('an award moment in the last half second before dusk is still replayable', () => {
+  const rec = { frames: [1, 2, 3], start: 100, lastTime: 120.4 };
+  assert.equal(replayable(rec, { turn: 7, time: 120.45 }, 7), true);
+  assert.equal(replayable(rec, { turn: 7, time: 121.5 }, 7), false);
+  assert.equal(replayable(rec, { turn: 6, time: 110 }, 7), false);
+  assert.equal(replayable(null, { turn: 7, time: 110 }, 7), false);
+});

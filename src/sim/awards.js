@@ -1,4 +1,5 @@
 import { HIGHLIGHT } from '../config/tunables.js';
+import { FRAME_SECONDS } from './recorder.js';
 
 // End titles use only recorded match events. They never change the simulation.
 // Each award points at one real moment (turn, sim time, place) so the end screen can offer a short
@@ -75,7 +76,8 @@ export function buildAwards(world, recorder = null, currentTurn = world?.turn) {
 export function replayable(recorder, m, currentTurn) {
   if (!recorder || !m || m.turn !== currentTurn) return false;
   if (!recorder.frames || recorder.frames.length < 2) return false;
-  return m.time >= recorder.start - 0.01 && m.time <= recorder.lastTime + 0.01;
+  // frames are captured every FRAME_SECONDS, so a moment in the last half-second still has footage around it
+  return m.time >= recorder.start - 0.01 && m.time <= recorder.lastTime + FRAME_SECONDS;
 }
 
 /** The clip a replay control plays: a few seconds around the moment, using the same shape as a highlight. */

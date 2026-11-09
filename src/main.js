@@ -449,4 +449,4 @@ app.ticker.add(() => {
 });
 
 // Handy for poking around in the browser console.
-window.tinyGods = { sim: { blast, castPower, applyCard }, net, game, app, views, ctx, frame, camera, effects, director, audio, replay, cutscenes, town, speech, spotlight, powerBar, powerWorld };
+window.tinyGods = { ideas, sim: { blast, castPower, applyCard }, net, game, app, views, ctx, frame, camera, effects, director, audio, replay, cutscenes, town, speech, spotlight, powerBar, powerWorld };

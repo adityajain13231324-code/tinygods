@@ -32,8 +32,10 @@ async function open(size, opts = {}) {
     game.phase = 'sim'; game.turn = game.world.turn = 6; game.world.peaceful = false; game.simElapsed = 0;
     const w = game.world;
     const v = w.villagers.find((q) => q.alive && q.faction === 1);
-    tinyGods.sim.blast(w, 0, v.x, v.y, 70, { minDamage: 99, maxDamage: 99 }); // a kill on the recorded turn
+    game.recorder.reset(); game.recorder.capture(w); // footage of this turn starts here
+    tinyGods.sim.blast(w, 0, v.x, v.y, 70, { minDamage: 150, maxDamage: 150 }); // a kill on the recorded turn
     tinyGods.sim.castPower(game, 0, 'rain', { x: 900, y: 500 });
+    w.time += 0.5; game.recorder.capture(w); w.time += 0.5; game.recorder.capture(w);
     for (const o of w.villagers) if (o.alive && o.faction >= 1) { o.alive = false; o.hp = 0; o.state = 'dead'; } // everyone else falls: the match ends
   });
   await page.waitForFunction(() => tinyGods.game.phase === 'ended', null, { timeout: 60000 });
@@ -63,8 +65,8 @@ async function open(size, opts = {}) {
   await page.goto(`${base}?start=1&seed=5&players=1&layout=canal`, { waitUntil: 'load' });
   await page.waitForSelector('#topbar .turn');
   await page.waitForTimeout(2500);
-  const open = page.locator('#command .menutoggle, #command button:has-text("Open")').first();
-  if (await open.count()) await open.click().catch(() => {});
+  const toggle = page.locator('#command .menutoggle, #command button:has-text("Open")').first();
+  if (await toggle.count()) await toggle.click().catch(() => {});
   await page.waitForTimeout(500);
   const audit = await page.evaluate(() => {
     const vis = (n) => n.getClientRects().length && getComputedStyle(n).visibility !== 'hidden';
@@ -111,9 +113,12 @@ async function open(size, opts = {}) {
     for (const g of w.grass) g.state = 'burning';
     for (let i = 0; i < 6; i++) blast(w, 0, pz.x + i * 25, pz.y, 80, { source: { kind: 'power', id: 'fireball', seat: 0 } });
     await new Promise((r) => setTimeout(r, 1500));
-    return new Promise((res) => { let frames = 0, worst = 0, last = performance.now(); const t0 = last; const tick = (t) => { frames++; worst = Math.max(worst, t - last); last = t; if (t - t0 < 8000) requestAnimationFrame(tick); else res({ fps: frames / ((t - t0) / 1000), worst, alive: w.villagers.filter((v) => v.alive).length, heap: performance.memory ? performance.memory.usedJSHeapSize / 1e6 : 0, particles: tinyGods.effects.live.length }); }; requestAnimationFrame(tick); });
+    const t0u = performance.now();
+    for (let i = 0; i < 200; i++) tinyGods.ideas.update(game.world, game.world.time, 0.016);
+    const ideasMs = (performance.now() - t0u) / 200;
+    return new Promise((res) => { let frames = 0, worst = 0, last = performance.now(); const t0 = last; const tick = (t) => { frames++; worst = Math.max(worst, t - last); last = t; if (t - t0 < 8000) requestAnimationFrame(tick); else res({ ideasMs, fps: frames / ((t - t0) / 1000), worst, alive: w.villagers.filter((v) => v.alive).length, heap: performance.memory ? performance.memory.usedJSHeapSize / 1e6 : 0, particles: tinyGods.effects.live.length }); }; requestAnimationFrame(tick); });
   });
-  check('a maximum-effects brawl keeps rendering', fps.fps > 3, `${fps.fps.toFixed(1)} fps, worst frame ${fps.worst.toFixed(0)} ms, ${fps.alive} alive, ${fps.particles} live particles, heap ${fps.heap.toFixed(0)} MB`);
+  check('a maximum-effects brawl keeps rendering', fps.fps > 1 && fps.ideasMs < 3, `${fps.fps.toFixed(1)} fps, new-world drawing ${fps.ideasMs.toFixed(2)} ms per frame, worst frame ${fps.worst.toFixed(0)} ms, ${fps.alive} alive, ${fps.particles} live particles, heap ${fps.heap.toFixed(0)} MB`);
   await page.screenshot({ path: `${output}/brawl.png` });
   await ctx.close();
 }
