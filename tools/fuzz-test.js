@@ -8,6 +8,7 @@ import { castPower, POWER_DEFS } from '../src/sim/powers.js';
 import { CARD_IDS } from '../src/sim/cards.js';
 import { mulberry32 } from '../src/sim/rng.js';
 import { WORLD } from '../src/config/tunables.js';
+import { buildAwards } from '../src/sim/awards.js';
 
 const N = Number(process.argv[2] ?? 12);
 const FIRST = Number(process.argv[3] ?? 1);
@@ -104,6 +105,11 @@ function playMatch(seed) {
   }
   if (g.phase !== 'ended') report('match did not finish', `seed ${seed} turn ${g.turn} phase ${g.phase}`);
   checkWorld(g, 'end');
+  const awards = buildAwards(g.world);
+  const villagerNames = new Set(g.world.villagers.map(v => v.name));
+  if (awards.some(a => !villagerNames.has(a.name)) || new Set(awards.map(a => a.title)).size !== awards.length) {
+    report('invalid end awards', `seed ${seed}: ${JSON.stringify(awards)}`);
+  }
   return { turns: g.turn, winner: g.winner };
 }
 

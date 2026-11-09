@@ -232,6 +232,7 @@ const views = game.world.villagers.map((v) => {
 effects.views = views;
 const spotlight = new Spotlight(spotLayer, views, camera);
 const speech = new Speech(stage, camera, audio, game);
+let speechReplaying = false;
 let animTime = 0;
 const director = new Director({ camera, board, effects, audio, spotlight, clock: () => animTime });
 
@@ -353,13 +354,18 @@ function frame(frameSeconds) {
 
   const alpha = replay.active ? replay.alpha : game.phase === 'sim' ? Math.min(1, game.acc / TICK) : 1;
   VillagerView.effectTime = replay.active ? replay.time : game.world.time;
+  if (replay.active !== speechReplaying) {
+    speech.reset(views);
+    effects.resetWatch(views);
+    speechReplaying = replay.active;
+  }
   powerWorld.update(replay.active ? replay.visuals : game.world, VillagerView.effectTime, dt);
   effects.world = replay.active ? { ...replay.visuals, time: replay.time } : game.world;
   for (const view of views) {
     view.dim = spotOn && !spotlight.has(view.v.id);
     view.update(alpha, animTime);
     effects.watch(view, animTime);
-    speech.watch(view);
+    speech.watch(view, VillagerView.effectTime);
   }
   effects.decals.visible = !VillagerView.calm;
   speech.layer.visible = !VillagerView.calm;

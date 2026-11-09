@@ -1,3 +1,5 @@
+import { FACTIONS } from '../config/content.js';
+
 // End titles use only recorded match events. They never change the simulation.
 export function buildAwards(world) {
   const villagers = world.villagers ?? [];
@@ -20,7 +22,7 @@ export function buildAwards(world) {
       s.total++;
       if (!e.hit) s.misses++;
       shots.set(e.shooterId, s);
-      if (!e.hit && villagers[e.targetId]?.alive) escaped.set(e.targetId, (escaped.get(e.targetId) ?? 0) + 1);
+      if (!e.hit && e.targetState === 'flee' && villagers[e.targetId]?.alive) escaped.set(e.targetId, (escaped.get(e.targetId) ?? 0) + 1);
     }
   }
   const best = (map, eligible = () => true) => [...map.entries()].filter(([id, value]) => eligible(id, value))
@@ -29,10 +31,11 @@ export function buildAwards(world) {
   const chaos = best(scores, (_, score) => score >= 3);
   if (chaos) awards.push({ title: 'Most Chaotic Villager', name: names(chaos[0]), detail: 'At the centre of the most recorded trouble.' });
   const escape = best(escaped, (_, count) => count >= 2);
-  if (escape) awards.push({ title: 'Best Escape', name: names(escape[0]), detail: `${escape[1]} shots missed them, and they survived.` });
+  if (escape) awards.push({ title: 'Best Escape', name: names(escape[0]), detail: `${escape[1]} shots missed them while fleeing. They survived.` });
   const betrayal = events.filter((e) => e.type === 'defect' && villagers[e.villagerId])
     .sort((a, b) => (scores.get(b.villagerId) ?? 0) - (scores.get(a.villagerId) ?? 0))[0];
-  if (betrayal) awards.push({ title: 'Biggest Betrayal', name: names(betrayal.villagerId), detail: 'Changed factions during the match.' });
+  if (betrayal) awards.push({ title: 'Biggest Betrayal', name: names(betrayal.villagerId),
+    detail: `Left the ${FACTIONS[betrayal.from]?.name ?? 'old faction'} for the ${FACTIONS[betrayal.to]?.name ?? 'new faction'}.` });
   const worst = best(new Map([...shots].map(([id, s]) => [id, s.misses])), (id, misses) => shots.get(id).total >= 3 && misses >= 3);
   if (worst) awards.push({ title: 'Worst Aim', name: names(worst[0]), detail: `${worst[1]} recorded shots missed.` });
   return awards;

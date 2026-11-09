@@ -513,13 +513,19 @@ export class Effects {
     this.number(e.x, e.y - 65, 'REFLECT!', 0xa4edff);
   }
 
+  /** Replays temporarily replace villager fields; observe the new timeline afresh. */
+  resetWatch(views) {
+    for (const view of views) view.fx = null;
+  }
+
   /**
    * Look at one villager's view and spawn whatever its current state calls for.
    * Edge detection (hit / death / starting a fight) plus slow repeating marks (hearts, veins...).
    */
   watch(view, time) {
     const v = view.v;
-    const f = (view.fx ??= { alive: true, hit: 0, swing: 0, state: v.state, next: 0 });
+    const f = (view.fx ??= { alive: v.alive, hit: v.hitFlash, swing: v.swing, state: v.state,
+      waterSeen: v.whirlpoolDamage ?? 0, brew: v.brewId, next: 0 });
     const hx = view.headX();
     const hy = view.headY();
 

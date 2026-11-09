@@ -9,6 +9,8 @@
     "preview": "vite preview",
     "test": "node --test tools/*.test.js",
     "test:browser-inputs": "node tools/browser-inputs.mjs",
+    "test:browser-menu": "node tools/menu-review.mjs",
+    "test:browser-battlefield": "node tools/battlefield-browser.mjs",
     "check": "node tools/verify.js",
     "smoke": "node tools/sim-smoke.js",
     "net-test": "node tools/net-test.js"
@@ -18,6 +20,7 @@
     "pixi.js": "^8.22.0"
   },
   "devDependencies": {
+    "playwright": "^1.65.0",
     "vite": "^8.3.5"
   }
 }
