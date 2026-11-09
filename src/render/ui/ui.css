@@ -549,6 +549,7 @@ html, body { touch-action: manipulation; }
     display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border-radius: 14px; min-height: 0;
     background: linear-gradient(180deg, rgba(34, 44, 34, 0.86), rgba(20, 28, 22, 0.92)); border: 1px solid rgba(255, 255, 255, 0.12);
   }
+  #townboard.float { top: auto; bottom: 12px; right: calc(clamp(300px, 21vw, 380px) + 24px); width: 320px; max-height: min(55vh, 420px); overflow: hidden; }
   #townboard.tight { display: none; }
 }
 @media (max-width: 919px) { #townboard { display: none; } }
@@ -759,7 +760,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-v
 
 /* Enchanted forest menu. All rules are scoped to the front menu and its dialogs. */
 .menu.menu2 {
-  background: linear-gradient(90deg,rgba(5,23,22,.35),rgba(4,24,23,.28)),url('/menu/enchanted-forest.png') center/cover fixed;
+  background: linear-gradient(90deg,rgba(5,23,22,.35),rgba(4,24,23,.28)),url('/menu/enchanted-forest.webp') center/cover fixed;
   color:#f7efd7;
 }
 .menu2::after { background:linear-gradient(90deg,#04191922 0%,transparent 40%,#04191918 100%); }
