@@ -121,6 +121,16 @@ export class VillagerView {
     this.aimCue = new Graphics().moveTo(-9, -54).lineTo(-4, -54).moveTo(4, -54).lineTo(9, -54)
       .moveTo(0, -60).lineTo(0, -56).stroke({ color: 0xffe4a1, width: 2, cap: 'round' });
     this.root.addChild(this.aimCue);
+    // Idea markers: the Leader's crown and the troublemaker's jester cap
+    this.crown = new Graphics().poly([-8, 0, -9, -10, -4, -4, 0, -12, 4, -4, 9, -10, 8, 0]).fill(0xffd34a).stroke({ width: 1.8, color: 0x2b2622, join: 'round' });
+    this.crown.circle(0, -7, 1.6).fill(0xe5334d);
+    this.crown.position.set(0, TOP_Y[v.shape] - 16);
+    this.crown.visible = false;
+    this.troubleMark = new Graphics().poly([-9, 0, -14, -13, -3, -5]).fill(0x9b6bff).stroke({ width: 1.6, color: 0x2b2622, join: 'round' }).poly([9, 0, 14, -13, 3, -5]).fill(0xffd34a).stroke({ width: 1.6, color: 0x2b2622, join: 'round' }).roundRect(-9, -3, 18, 4, 2).fill(0x6a3ac7).stroke({ width: 1.4, color: 0x2b2622 });
+    this.troubleMark.circle(-14, -13, 2.4).fill(0xffd34a).circle(14, -13, 2.4).fill(0x9b6bff);
+    this.troubleMark.position.set(0, TOP_Y[v.shape] - 4);
+    this.troubleMark.visible = false;
+    this.root.addChild(this.crown, this.troubleMark);
     this.hpBar = new Graphics();
     this.hpBar.position.set(0, 7);
     this.hpBar.visible = false;
@@ -253,10 +263,13 @@ export class VillagerView {
     }
 
     const hp = Math.ceil(v.hp);
-    this.hpBar.visible = hp < 100 && !this.dim;
-    if (hp !== this.hpKey) {
-      this.hpKey = hp;
-      drawHp(this.hpBar, hp);
+    this.crown.visible = !!v.leader;
+    this.troubleMark.visible = v.trait === 'troublemaker';
+    this.hpBar.visible = hp < v.maxHp && !this.dim;
+    const hpKey = hp * 1000 + v.maxHp;
+    if (hpKey !== this.hpKey) {
+      this.hpKey = hpKey;
+      drawHp(this.hpBar, hp, v.maxHp);
     }
 
     // Cartoon wounds: a plaster when hurt, a red smear when badly hurt.
@@ -363,6 +376,18 @@ export class VillagerView {
       const b = (Math.sin(t * ART.idleBobSpeed) + 1) / 2;
       rig.scale.set(1, 1 + b * ART.idleBobAmount);
     }
+
+    // Readable combat personality: each pose follows the villager's real state and action, never a roll.
+    const now = VillagerView.effectTime;
+    if (v.weapon === 'rocket' && v.ammo > 0 && action === 'flee') {
+      armR = 1.9 + Math.sin(time * 18) * 0.15 - (v.swing > 0 ? 0.5 : 0); // frightened: firing back over the shoulder
+      rig.rotation -= v.facing * 0.18;
+    } else if (action === 'attack' && firearm && v.escalation >= 2 && v.courage >= 55 && v.cd < 0.7) {
+      rig.x = 0; rig.rotation = v.facing * 0.05; armR = -1.55; armL = -1.38; // confident: a steady, deliberate aim
+    } else if (v.weapon === 'rocket' && v.ammo === 1 && (action === 'idle' || action === 'walk') && (time * 0.7 + v.id * 0.37) % 3.6 < 0.9) {
+      armR = -1.25; armL = -1.0; rig.rotation = v.facing * 0.1; // one rocket left: a visible check of the launcher
+    }
+    if (v.blankUntil > now) { armR = -1.3; armL = -0.5; rig.rotation = v.facing * (0.12 + Math.sin(time * 14) * 0.05); rig.x += Math.sin(time * 40) * 0.8; } // a Blank Round: staring at the weapon in disbelief
 
     // Badly hurt villagers limp and lean.
     if (v.hp < 35 && VillagerView.bloodEnabled && (action === 'walk' || action === 'chase')) {
@@ -696,12 +721,13 @@ function drawTombstone(look) {
   return g;
 }
 
-function drawHp(g, hp) {
+function drawHp(g, hp, maxHp = 100) {
   g.clear();
-  const w = 26;
+  const w = maxHp > 100 ? 36 : 26; // a Leader's bar is longer
   g.roundRect(-w / 2, 0, w, 4, 2).fill({ color: 0x000000, alpha: 0.45 });
-  const color = hp > 60 ? 0x5fd36b : hp > 30 ? 0xf2c53d : 0xe5533d;
-  g.roundRect(-w / 2, 0, (w * hp) / 100, 4, 2).fill(color);
+  const pct = (hp / maxHp) * 100;
+  const color = pct > 60 ? 0x5fd36b : pct > 30 ? 0xf2c53d : 0xe5533d;
+  g.roundRect(-w / 2, 0, (w * hp) / maxHp, 4, 2).fill(color);
 }
 
 /** Cartoon wounds, never gore: a plaster, then a red smear. */

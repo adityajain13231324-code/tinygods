@@ -678,6 +678,11 @@ function obeyOrders(world, v) {
 
   if (fx.arm && !v.armDone) {
     if (v.weapon !== 'none' || world.armoryPool[groupOf(v)] <= 0) {
+      if (v.weapon === 'none' && !(world.armoryEmptyTurn ??= {})[groupOf(v)]?.includes(world.turn)) {
+        (world.armoryEmptyTurn[groupOf(v)] ??= []).push(world.turn);
+        const armory = world.places.find((p) => p.id === 'armory');
+        world.events.push({ type: 'armoryEmpty', turn: world.turn, time: world.time, group: groupOf(v), villagerId: v.id, x: armory.x, y: armory.y });
+      }
       v.armDone = true;
     } else {
       const armory = world.places.find((p) => p.id === 'armory');

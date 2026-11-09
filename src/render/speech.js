@@ -21,6 +21,8 @@ export class Speech {
     layer.addChild(this.layer);
     this.free = [];
     this.live = [];
+    this.recent = []; // the last lines said, so the town does not repeat itself
+    this.eventSay = 0; // sim seconds of the last event-driven line, to keep reactions occasional
     for (let i = 0; i < POOL; i++) {
       const root = new Container();
       const bg = new Graphics();
@@ -59,7 +61,10 @@ export class Speech {
       slot = this.free.pop();
     }
 
-    const line = pickLine(category, override ?? this.context(view, other));
+    let line = pickLine(category, override ?? this.context(view, other));
+    for (let tries = 0; tries < 5 && this.recent.includes(line); tries++) line = pickLine(category, override ?? this.context(view, other));
+    this.recent.push(line);
+    if (this.recent.length > 18) this.recent.shift();
     slot.text.text = line;
     const w = Math.max(28, slot.text.width + 11);
     const h = slot.text.height + 7;
@@ -124,6 +129,58 @@ export class Speech {
       b.root.scale.set(s * 0.82);
       const busy = b.priority === 1 && this.game.world.villagers.some(o=>o.alive && o.state==='attack' && Math.hypot(o.x-b.view.v.x,o.y-b.view.v.y)<220);
       b.root.alpha = Math.min(1, b.life / 0.35) * (busy ? 0.18 : 1);
+    }
+  }
+
+  /**
+   * Reactions to what the simulation says happened (see world.events). Only a few villagers react to
+   * each thing, the most relevant ones (the people involved, then whoever is nearest), and never all at once.
+   */
+  event(e, world) {
+    const views = this.views ?? [];
+    const view = (id) => views[id];
+    const near = (x, y, r, n, skip = () => false) => views.filter((w) => w.v.alive && !skip(w) && Math.hypot(w.v.x - x, w.v.y - y) < r).sort((a, b) => Math.hypot(a.v.x - x, a.v.y - y) - Math.hypot(b.v.x - x, b.v.y - y)).slice(0, n);
+    const vv = (id) => world.villagers[id];
+    const sayNear = (cat, x, y, n = 2, pr = 2, r = 260) => { for (const w of near(x, y, r, n)) this.say(w, cat, pr); };
+    switch (e.type) {
+      case 'armoryEmpty': sayNear('armoryEmpty', e.x, e.y, 2, 2, 400); break;
+      case 'power':
+        if (e.power === 'freeze') for (const w of near(e.x, e.y, 200, 2, (q) => q.v.frozenUntil > world.time)) this.say(w, 'frozenFriend', 2);
+        if (e.power === 'miracle' && view(e.villagerId)?.v.memory?.length) this.say(view(e.villagerId), 'healedThanks', 3);
+        break;
+      case 'defect': {
+        const v = vv(e.villagerId);
+        const mourner = v && world.villagers.find((o) => o.alive && (o.partnerId === v.id || o.friendId === v.id) && o.faction === e.from);
+        if (mourner && view(mourner.id)) this.say(view(mourner.id), 'betrayed', 3);
+        break;
+      }
+      case 'propDestroyed': sayNear('coverBroke', e.x, e.y, 2, 2, 220); break;
+      case 'grassSmolder': sayNear('fireWarn', e.x, e.y, 1, 2, 300); break;
+      case 'grassIgnite': sayNear('fireOn', e.x, e.y, 2, 3, 260); break;
+      case 'grassOut': sayNear('fireOut', e.x, e.y, 1, 2, 300); break;
+      case 'gunshot':
+        if (e.blank && view(e.shooterId)) this.say(view(e.shooterId), 'blankShot', 3);
+        break;
+      case 'rivalMeet': {
+        const w = view(e.villagerId);
+        if (w) this.say(w, e.kind === 'rescued' ? 'rivalThanks' : 'rivalAgain', 2);
+        break;
+      }
+      case 'forgave': if (view(e.villagerId)) this.say(view(e.villagerId), 'forgave', 2); break;
+      case 'cakeInvite': sayNear('cakeCall', e.x, e.y, 2, 2, 520); break;
+      case 'cakeArrival': if (view(e.villagerId)) this.say(view(e.villagerId), 'cakeEat', 1); break;
+      case 'weaponStolen':
+        if (view(e.victimId)) this.say(view(e.victimId), 'stolen', 3);
+        if (view(e.thiefId)) this.say(view(e.thiefId), 'mischief', 2);
+        break;
+      case 'troubleDash': sayNear('troubleDash', e.x, e.y, 2, 2, 240); break;
+      case 'troubleRumor': if (view(e.villagerId)) this.say(view(e.villagerId), 'mischief', 2); break;
+      case 'conditionTriggered': if (view(e.villagerId)) this.say(view(e.villagerId), 'fallBack', 2); break;
+      case 'comboZap': for (const s of e.path.slice(0, 2)) if (view(s.id)) this.say(view(s.id), 'zapped', 3); break;
+      case 'goodsScatter': sayNear('goodsLost', e.x, e.y, 1, 2, 240); break;
+      case 'leaderCrowned': sayNear('leaderHail', e.x, e.y, 2, 2, 320); break;
+      case 'weaponDropRoll': if (e.dropped) sayNear('dropped', e.x, e.y, 1, 1, 260); break;
+      default: break;
     }
   }
 

@@ -498,6 +498,9 @@ const pitchJitter = () => rand(0.92, 1.08); // so repeated hits never sound iden
 // noise "slap" (skin, cloth, wood or steel meeting), and a quiet high crack for the attack.
 const SOUNDS = {
   squeak: { gap: 120, play: (m) => { const f = rand(800, 1300); m.tone(f, f * 1.6, 0.09, 'sine', 0.05); } },
+  confetti: { gap: 140, play: (m) => { m.tone(520, 900, 0.12, 'square', 0.06); m.burst(0.2, 'highpass', 4200, 6500, 0.09); m.bell(1046, 0.4, 0.05, 0.03); } },
+  zap: { gap: 120, play: (m) => { m.burst(0.28, 'bandpass', 2600, 700, 0.18); m.tone(980, 110, 0.22, 'sawtooth', 0.07); } },
+  crackle: { gap: 260, play: (m) => { m.burst(0.35, 'bandpass', 1700, 800, 0.1); m.burst(0.2, 'highpass', 3500, 2500, 0.05, 0.08); } },
   pop: { gap: 150, play: (m) => { m.tone(420, 140, 0.1, 'sine', 0.12); m.bell(1200, 0.2, 0.02); } },
   // fist or open hand on a body: dull thump, soft flesh noise, a little grunt of breath
   slap: {

@@ -15,6 +15,7 @@ import { createHover } from './render/ui/hover.js';
 import { createCommandPanel } from './render/ui/commandPanel.js';
 import { createPowerBar } from './render/ui/powerBar.js';
 import { PowerWorldView } from './render/powerWorldView.js';
+import { IdeasView } from './render/ideasView.js';
 import { createRecap } from './render/ui/recap.js';
 import './render/ui/ui.css';
 import { Replay } from './render/replay.js';
@@ -88,14 +89,19 @@ try {
 const town = new TownView(app, game.world.places);
 stage.addChild(town.root);
 const effects = new Effects(app, audio);
+const crowd = new Container();
+crowd.sortableChildren = true;
+const ideas = new IdeasView(app, game.world, crowd, effects); // layouts, cover, fire, cake, drops, combos
+stage.addChild(ideas.terrain);
 stage.addChild(effects.propLayer);
 stage.addChild(effects.decals);
-const crowd = stage.addChild(new Container());
-crowd.sortableChildren = true;
+stage.addChild(ideas.ground);
+stage.addChild(crowd);
 const linesLayer = stage.addChild(new Container());
 const spotLayer = stage.addChild(new Container());
 const powerWorld = new PowerWorldView(app);
 stage.addChild(powerWorld.root);
+stage.addChild(ideas.over);
 stage.addChild(effects.layer); // Damage numbers and hit feedback stay above water effects.
 
 // ---- UI ----
@@ -232,8 +238,12 @@ const views = game.world.villagers.map((v) => {
 effects.views = views;
 const spotlight = new Spotlight(spotLayer, views, camera);
 const speech = new Speech(stage, camera, audio, game);
+
 let animTime = 0;
 const director = new Director({ camera, board, effects, audio, spotlight, clock: () => animTime });
+speech.views = views;
+director.speech = speech;
+director.ideas = ideas;
 
 // ---- Main loop ----
 // The sim steps at a fixed 20 Hz inside updateGame; the renderer slides villagers between ticks.
@@ -358,6 +368,7 @@ function frame(frameSeconds) {
   const alpha = replay.active ? replay.alpha : game.phase === 'sim' ? Math.min(1, game.acc / TICK) : 1;
   VillagerView.effectTime = replay.active ? replay.time : game.world.time;
   powerWorld.update(replay.active ? replay.visuals : game.world, VillagerView.effectTime, dt);
+  ideas.update(replay.active ? replay.visuals : game.world, VillagerView.effectTime, dt);
   effects.world = replay.active ? { ...replay.visuals, time: replay.time } : game.world;
   for (const view of views) {
     view.dim = spotOn && !spotlight.has(view.v.id);

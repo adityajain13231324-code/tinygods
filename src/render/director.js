@@ -53,6 +53,15 @@ export class Director {
 
     while (this.index < world.events.length) {
       const e = world.events[this.index++];
+      this.speech?.event(e, world);
+      this.ideas?.event(e, world);
+      if (e.type === 'comboZap') { this.audio?.play('zap', e.x); this.camera.kick(4); }
+      else if (e.type === 'grassIgnite') this.audio?.play('crackle', e.x);
+      else if (e.type === 'cakeInvite') this.audio?.play('bond', e.x);
+      else if (e.type === 'leaderCrowned') { this.audio?.play('jingle', e.x); this.camera.kick(6); }
+      else if (e.type === 'weaponStolen') this.audio?.play('shutter', e.x);
+      else if (e.type === 'propDestroyed') this.audio?.play('thud', e.x);
+      else if (e.type === 'deliveryArrived') this.audio?.play('warp', e.x);
       if (e.type === 'kill') this.onKill(game, e);
       else if (e.type === 'gunshot') this.onGunshot(game, e);
       else if (e.type === 'shieldReflect') { this.effects.reflect(e); this.audio?.play('clang', e.x); }
@@ -156,7 +165,9 @@ export class Director {
   }
 
   onGunshot(game, e) {
+    if (e.blank) { this.ideas?.blank({ ...e, facing: e.facing ?? 1 }); this.audio?.play('confetti', e.x); return; }
     this.effects.shot(e);
+    if (e.coverId) this.ideas?.coverHit(e);
     this.camera.kick(e.weapon === 'shotgun' ? DRAMA.shakeGun * 1.6 : DRAMA.shakeGun);
     document.getElementById('flash')?.animate([{ opacity: e.weapon === 'shotgun' ? 0.28 : 0.16 }, { opacity: 0 }], { duration: 160 });
     this.audio?.play(e.weapon === 'shotgun' ? 'shotgun' : 'gunshot', e.x);

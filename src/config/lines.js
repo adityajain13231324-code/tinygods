@@ -60,6 +60,29 @@ export const LINES = {
   lastRocket: ['One rocket left. Make it count.', 'Last shot in the tube!', 'Better not miss this one.'],
   rocketEmpty: ['That was the last one!', 'Launcher is empty!', 'I need another rocket!'],
   armUp: ['Better safe than sorry.', 'I\'ll take that.', 'Just in case.'],
+  // Idea: dialogue that refers to what is actually happening (picked by speech.event)
+  armoryEmpty: ['The armory is empty!', 'No weapons left on the shelf!', 'They emptied the armory!'],
+  frozenFriend: ['They froze my friend!', 'My friend is an ice block!', 'Somebody thaw them out!'],
+  healedThanks: ['You healed me? After everything?', 'Thank you... I did not expect that.', 'I owe you one.'],
+  betrayed: ['Traitor!', 'I trusted you!', 'How could you switch sides?'],
+  coverBroke: ['Our cover is gone!', 'They blew up the stall!', 'Nowhere to hide now!'],
+  fireWarn: ['Do you smell smoke?', 'Something is smouldering!', 'The grass is smoking!'],
+  fireOn: ['Fire! Run!', 'The field is burning!', 'Get away from the flames!'],
+  fireOut: ['The rain saved the field.', 'Phew, the fire is out.', 'Steam everywhere!'],
+  blankShot: ['Is it broken? It is CONFETTI!', 'Why did it go "pop"?', 'That was not a bullet...'],
+  rivalAgain: ['YOU again!', 'I remember you!', 'Not you again.'],
+  rivalThanks: ['You helped me once. Thank you.', 'There is the one who saved me.', 'A friend!'],
+  forgave: ['Water under the bridge.', 'Let us start over.', 'I forgive you. Mostly.'],
+  cakeCall: ['Free cake?!', 'Did somebody say cake?', 'I smell frosting!'],
+  cakeEat: ['Mmm, cake!', 'Best day ever.', 'Is there a second slice?'],
+  stolen: ['Hey! That was my weapon!', 'Thief! Give it back!', 'Who took my weapon?'],
+  mischief: ['Hee hee hee.', 'Finders keepers.', 'You did not see me.'],
+  troubleDash: ['Whoa, who was that?!', 'Out of the way!', 'Something ran right through us!'],
+  fallBack: ['We are outnumbered, fall back!', 'Retreat!', 'Pull back to safety!'],
+  zapped: ['Zzzap! I am buzzing!', 'My hair is standing up!', 'Static!'],
+  goodsLost: ['My apples!', 'The goods are everywhere!', 'There goes the profit.'],
+  leaderHail: ['All hail the leader!', 'Our leader stands tall!', 'Follow the crown!'],
+  dropped: ['A weapon lies over there.', 'Someone dropped something.', 'Grab it before they do!'],
   wounded: ['I need a medic...', 'I don\'t feel so good.', 'Everything hurts.'],
 };
 
@@ -151,6 +174,8 @@ export const TRAIT_LINES = {
   bodyguard: { defend: ['Not on my watch!', 'Through me first!'], chat: ['Stay behind me.'] },
   wildcard: { chat: ['Chaos is a ladder!', 'Heh heh heh.', 'What if everything were pink?'], attack: ['Wheee!', 'Surprise!'], argue: ['Or maybe not! Hah!'] },
 };
+
+export const EVENT_LINE_COUNT = Object.keys(LINES).length;
 
 /**
  * @param {string} category  what they are doing (a key of LINES)
