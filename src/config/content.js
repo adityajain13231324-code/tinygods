@@ -36,6 +36,7 @@ export const VERBS = {
   scare: { label: 'Scare', targets: ['group'], blurb: 'Your villagers walk up to the target faction and glare, mutter and loom until they lose their nerve and run. Bullying makes enemies resent you.' },
   scatter: { label: 'Run away', targets: [], blurb: 'Everyone scatters away from everybody else and keeps their distance.' },
   ambush: { label: 'Ambush', targets: ['place'], blurb: 'Lie in wait at a place and jump anyone from another faction who wanders close.' },
+  formation: { label: 'Formation', targets: ['style'], blurb: 'Arrange your villagers: spread out (blasts catch fewer), stick together (allies nearby take less damage) or protect the centre (the weakest stay in the middle, the rest ring them).' },
   festival: { label: 'Festival', targets: ['place'], blurb: 'A party at a place: everyone nearby calms down and friendships form.' },
 };
 

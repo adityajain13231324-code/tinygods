@@ -145,6 +145,7 @@ export const TRAITS = {
     medic: { tolerance: 2.0, aggression: -20 },
     bodyguard: { courage: 12 },
     wildcard: {},
+    troublemaker: { tolerance: 1.2, aggression: -5, courage: 12 },
   },
   coward: { fleeBonus: 25, panicMul: 1.5 }, // flees much sooner, stays scared longer
   brawler: { fleePenalty: 20 }, // hard to scare off
@@ -514,4 +515,6 @@ export const IDEAS = {
   condition: { outnumberRatio: 1.4, hurtHp: 45, checkEvery: 1 },
   // Squad formations
   formation: { spread: 70, together: 55, centre: 60 },
+  // Challenge modes
+  modes: { randomCount: 4, deliveries: 2, fuse: [10, 22], radius: 110 },
 };

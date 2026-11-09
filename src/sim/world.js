@@ -5,6 +5,7 @@ import { createVillager, groupOf } from './villager.js';
 import { layoutOf, landNear } from './layouts.js';
 import { makeProps } from './props.js';
 import { makeGrass } from './hazards.js';
+import { armEveryone } from './modes.js';
 
 /** Keep a point inside the current safe area. */
 export const clampIn = (world, x, y) => [Math.min(world.bounds.x1, Math.max(world.bounds.x0, x)), Math.min(world.bounds.y1, Math.max(world.bounds.y0, y))];
@@ -27,7 +28,7 @@ export const clampY = (y) => Math.min(WORLD.height - WORLD.margin, Math.max(WORL
  * Build the town. No rendering code here: this runs in Node as well as the browser.
  * @param {number} seed
  */
-export function createWorld(seed = 1, { cosmetics = true, layout = 'classic' } = {}) {
+export function createWorld(seed = 1, { cosmetics = true, layout = 'classic', mode = 'standard' } = {}) {
   const rng = mulberry32(seed);
   const layoutDef = layoutOf(layout);
   const places = layoutDef.places();
@@ -36,7 +37,7 @@ export function createWorld(seed = 1, { cosmetics = true, layout = 'classic' } =
   // 12 x faction 0, 12 x faction 1, ..., then 12 neutrals.
   const owners = [];
   for (let f = 0; f < POPULATION.factions; f++) {
-    for (let i = 0; i < POPULATION.perFaction; i++) owners.push(f);
+    for (let i = 0; i < (mode === 'one' ? 1 : POPULATION.perFaction); i++) owners.push(f);
   }
   for (let i = 0; i < POPULATION.neutrals; i++) owners.push(NEUTRAL);
 
@@ -63,10 +64,15 @@ export function createWorld(seed = 1, { cosmetics = true, layout = 'classic' } =
 
   assignTraits(rng, villagers); // before weapons: gunslingers bring their own shotgun
   assignWeapons(rng, villagers);
+  const troublemaker = pick(rng, villagers.filter((x) => x.faction === -1 && !x.trait)) ?? null; // one neutral stirs up trouble from day 3
+  if (troublemaker) { troublemaker.trait = 'troublemaker'; troublemaker.revealed = true; const m = TRAITS.mods.troublemaker; troublemaker.baseAggression = troublemaker.aggression = Math.max(0, troublemaker.aggression + m.aggression); troublemaker.baseCourage = troublemaker.courage = Math.min(100, troublemaker.courage + m.courage); troublemaker.tolerance *= m.tolerance; }
 
-  return {
+  const world = {
     seed, rng, places, villagers,
     layout: layoutDef.id,
+    mode,
+    troublemakerId: troublemaker?.id ?? -1,
+    formations: {},
     canals: layoutDef.canals, // impassable water with bridges (canal town)
     hill: layoutDef.hill, // a slow climb (hill village)
     props: makeProps(layoutDef.props(places)), // cover: benches, stalls, walls, hay, boulders
@@ -97,6 +103,8 @@ export function createWorld(seed = 1, { cosmetics = true, layout = 'classic' } =
     drama: 0,
     events: [], // everything that happens, in order: kills, gunshots, arming...
   };
+  if (mode === 'armed') armEveryone(world);
+  return world;
 }
 
 /**

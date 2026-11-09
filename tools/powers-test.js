@@ -252,8 +252,9 @@ function playCard(seed, card, setup) {
   check(alive(g, 1).every((v) => v.hp <= 80.5), `spoiled bread: every Tide at most 80 hp (worst ${Math.round(Math.max(...alive(g, 1).map((v) => v.hp)))})`);
 }
 {
-  const { g } = playCard(53, { id: 'recruit' });
-  check(alive(g, 0).length === 15 || alive(g, 0).length === 14 || alive(g, 0).length > 12, `recruit: my faction grew to ${alive(g, 0).length}`);
+  let before = 0;
+  const { g } = playCard(53, { id: 'recruit' }, (x) => { before = alive(x, 0).length; });
+  check(alive(g, 0).length === before + 3, `recruit: my faction grew from ${before} to ${alive(g, 0).length}`);
 }
 {
   const { g } = playCard(54, { id: 'warchest' });
@@ -325,5 +326,5 @@ function playCard(seed, card, setup) {
   const { g } = playCard(68, { id: 'matchmaker', group: 1 });
   check(g.feedback[0].some((t) => t.startsWith('Matchmaker')), 'matchmaker: played');
 }
-check(CARD_IDS.length === 18, `there are ${CARD_IDS.length} cards in the game`);
+check(CARD_IDS.length === 20, `there are ${CARD_IDS.length} cards in the game`);
 process.exit(failed ? 1 : 0);

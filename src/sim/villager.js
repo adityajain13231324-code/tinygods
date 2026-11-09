@@ -42,7 +42,7 @@ export function usableWeapon(v) {
   return v.escalation >= (isFirearm(w) ? 2 : 1) ? w : 'none';
 }
 
-export const emptyFx = () => ({ protect: [], avoid: [], follow: null, arm: 0, love: [], festival: null, escort: null, hunt: null, assault: null, standdown: false, scare: [], ambush: null, shove: [], seize: null });
+export const emptyFx = () => ({ protect: [], avoid: [], follow: null, arm: 0, love: [], festival: null, escort: null, hunt: null, assault: null, standdown: false, scare: [], ambush: null, shove: [], seize: null, formation: null, when: null });
 
 /** @returns {Villager} */
 export function createVillager(rng, { id, name, shape, faction, x, y, count = 60 }) {
@@ -59,6 +59,12 @@ export function createVillager(rng, { id, name, shape, faction, x, y, count = 60
     hp: STATS.hp,
     maxHp: STATS.hp, // the Leader power doubles it
     leader: false,
+    memory: [], // up to a handful of {id, kind, turn, time}: who scared, injured, robbed, betrayed or rescued me
+    memoryCooldown: 0,
+    whenActive: false, // a conditional order's fallback is acting on me
+    whenUntil: 0,
+    whenFalseSince: -1,
+    trouble: null, // the troublemaker's plans
     coverSpot: null, // {x, y, propId}: the spot behind a prop they are running to when shot at
     blankUntil: 0, // a Blank Rounds shot just fizzled: they stare at their weapon until this sim time
     courage, baseCourage: courage,

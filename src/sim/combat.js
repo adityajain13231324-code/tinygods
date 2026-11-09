@@ -2,6 +2,8 @@ import { BOND, BRAIN, COMBAT, GRIEVANCE, IDEAS, ORDERS, POWERS, TENSION, TRAITS,
 import { maybeDropWeapon } from './drops.js';
 import { coverBlocks, damageProps } from './props.js';
 import { igniteNear, scatterGoods } from './hazards.js';
+import { remember } from './memory.js';
+import { supportMultiplier } from './formations.js';
 import { breakBond } from './bonds.js';
 import { chainFor, logPair } from './history.js';
 import { groupOf, isFirearm, usableWeapon } from './villager.js';
@@ -193,11 +195,13 @@ function dealDamage(world, attacker, victim, weapon, share, critical = false) {
     return;
   }
   if (protectedByShield(world, victim)) damage *= 0.4;
+  damage *= supportMultiplier(world, victim); // a supportive formation takes less
   victim.hp -= damage;
   victim.hitFlash = 1;
   victim.lastDamage = damage;
   victim.lastCritical = critical;
   victim.lastHitWeapon = weapon;
+  remember(world, victim, attacker.id, 'injured');
   victim.hitFromX = attacker.x; // which way the blood sprays (render only)
   victim.hitFromY = attacker.y;
 
@@ -242,7 +246,7 @@ function gunshot(world, shooter, weapon, target, hit, critical = false, blanksLe
  * Its recorded source owns the damage. A nearby allied villager is only a credit proxy.
  */
 export function blast(world, seat, x, y, r, { minDamage = 14, maxDamage = 60, minKnock = 380, maxKnock = 800, source = { kind: 'card', id: 'bomb', seat, actionId: `${world.turn}:${seat}:card:bomb` } } = {}) {
-  const owners = world.villagers.filter((v) => v.alive && v.faction === seat);
+  const owners = seat >= 0 ? world.villagers.filter((v) => v.alive && v.faction === seat) : [];
   const planter = world.villagers[source.shooterId] ?? owners.sort((p, q) => Math.hypot(p.x - x, p.y - y) - Math.hypot(q.x - x, q.y - y))[0];
   world.events.push({ type: 'explosion', turn: world.turn, time: world.time, x, y, r, source: { ...source } });
   damageProps(world, x, y, r, source); // cover can be blown apart
@@ -260,7 +264,7 @@ export function blast(world, seat, x, y, r, { minDamage = 14, maxDamage = 60, mi
     v.panic = COMBAT.panicSeconds;
     v.panicX = x;
     v.panicY = y;
-    let damage = v.faction === seat ? 0 : minDamage + (maxDamage - minDamage) * k; // your own people are flung about but not hurt
+    let damage = seat >= 0 && v.faction === seat ? 0 : minDamage + (maxDamage - minDamage) * k; // your own people are flung about but not hurt
     if (protectedByShield(world, v)) damage *= 0.4;
     v.hp -= damage;
     v.hitFlash = 1;

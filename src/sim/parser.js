@@ -1,6 +1,7 @@
 import { FACTIONS, GROUP_NAMES, PLACES } from '../config/content.js';
 import { CARD_DEFS, cardTargetError } from './cards.js';
 import { POWER_DEFS, hotspot } from './powers.js';
+import { CONDITION_VERBS } from './conditions.js';
 import { describeOrder } from './orders.js';
 import { cardUnlockError, powerUnlockError } from './availability.js';
 
@@ -53,6 +54,7 @@ const ACTIONS = {
   rally: ['rally', 'inspire', 'motivate', 'cheer', 'encourage', 'boost', 'empower', 'strengthen', 'bless', 'energize', 'pump'],
   medic: ['medic', 'hospital', 'nurse', 'ambulance', 'infirmary', 'bandage', 'bandages', 'clinic'],
   truce: ['truce', 'ceasefire', 'bell', 'soothe', 'pacify', 'lull', 'calm'],
+  formation: ['formationspread', 'formationtogether', 'formationcentre'],
   blank: ['blank', 'blanks', 'confetti', 'dud', 'duds'],
   cake: ['cake', 'invitation', 'invite', 'dessert'],
   leader: ['leader', 'crown', 'chief'],
@@ -80,11 +82,11 @@ const ACTIONS = {
 };
 
 // When a sentence holds words for several actions, the earlier in this list wins.
-const PRIORITY = ['blackout', 'whirlpool', 'launcher', 'freeze', 'strength', 'timebomb', 'standdown', 'scatter', 'ambush', 'seize', 'shove', 'bomb', 'kidnap', 'warchest', 'forged', 'bribe', 'prophecy', 'raid', 'spoiled', 'matchmaker', 'treaty', 'alarm', 'recruit', 'medic', 'census',
+const PRIORITY = ['formation', 'blackout', 'whirlpool', 'launcher', 'freeze', 'strength', 'timebomb', 'standdown', 'scatter', 'ambush', 'seize', 'shove', 'bomb', 'kidnap', 'warchest', 'forged', 'bribe', 'prophecy', 'raid', 'spoiled', 'matchmaker', 'treaty', 'alarm', 'recruit', 'medic', 'census',
   'truce', 'spy', 'alibi', 'earthquake', 'tornado', 'fireball', 'disarm', 'rain', 'charm', 'enrage', 'aegis', 'sleep', 'lightning', 'miracle', 'whisper', 'fog', 'gust', 'rally', 'hunt', 'escort', 'avoid', 'festival', 'arm', 'protect', 'blank', 'cake', 'leader',
   'go', 'scare', 'assault', 'hate', 'love', 'fear', 'accuse', 'praise'];
 
-const ORDER_VERBS = new Set(['assault', 'hate', 'love', 'fear', 'scare', 'shove', 'seize', 'scatter', 'ambush', 'protect', 'avoid', 'go', 'escort', 'hunt', 'standdown', 'accuse', 'praise', 'festival', 'arm']);
+const ORDER_VERBS = new Set(['formation', 'assault', 'hate', 'love', 'fear', 'scare', 'shove', 'seize', 'scatter', 'ambush', 'protect', 'avoid', 'go', 'escort', 'hunt', 'standdown', 'accuse', 'praise', 'festival', 'arm']);
 const VERB_ID = { go: 'follow' }; // typed "go" is the game's Go-to-a-place order
 
 const GROUP_WORDS = {
@@ -129,6 +131,9 @@ const STOP = new Set(['the', 'a', 'an', 'to', 'of', 'on', 'at', 'in', 'with', 'f
 
 // Multi-word phrases become one keyword before the sentence is read.
 const PHRASES = [
+  [/\b(?:spread(?:ing)? out|spread apart|spread yourselves|spread thin|fan out|space out|disperse)\b/g, ' formationspread '],
+  [/\b(?:stick(?:ing)? together|stay(?:ing)? together|stay close together|huddle(?: up)?|group up|bunch up|clump(?: up)?|cluster|tight formation|keep close)\b/g, ' formationtogether '],
+  [/\b(?:protect|guard|defend|shield|cover) (?:the )?(?:centre|center|core|weak(?:est)?(?: ones)?|wounded|injured)\b|\b(?:surround|ring|circle) (?:the )?(?:weak(?:est)?(?: ones)?|wounded|core|centre|center)\b/g, ' formationcentre '],
   // "grab X and drag them to the pond" is one order, not two
   [/\b(grab|seize|snatch|collar|catch|lasso)\b([^,;.]*?)\band\b(?= (?:drag|haul|carry|take|bring|lead|march|walk))/g, ' $1$2 '],
   // push people away / take someone away
@@ -259,7 +264,36 @@ const strengthOf = (tokens, fallback) => (tokens.some((t) => matches(t, STRONG) 
 /**
  * @returns {{ok: true, actions: object[]} | {ok: false, message: string, suggestions: string[]}}
  */
+/** "...retreat to the park if outnumbered", "...stand down if hurt": a bounded fallback attached to the order before it. */
+const COND_RE = /(?:[,;]|\band\b|\bbut\b)?\s*(?:but\s+|then\s+|otherwise\s+)?(retreat|fall back|withdraw|pull back|back off|run away|run|flee|go|head|stand down|surrender)(?:\s+(?:back|away))?(?:\s+(?:to|into|toward|towards|for))?\s*((?:the\s+)?[a-z]+)?\s+(?:if|when|once)\s+(?:(?:we|they|you|my people|the group)\s+(?:are|get|become|were|got)\s+|we're\s+|they're\s+|(?:we|they)\s+)?(outnumbered|overrun|losing|badly hurt|hurt|wounded|attacked|under attack|in trouble)/;
+const COND_KIND = { outnumbered: 'outnumbered', overrun: 'outnumbered', losing: 'outnumbered', hurt: 'hurt', 'badly hurt': 'hurt', wounded: 'hurt', 'in trouble': 'hurt', attacked: 'attacked', 'under attack': 'attacked' };
+
 export function parseCommand(text, game, seat) {
+  const lower = String(text ?? '').toLowerCase();
+  const m = lower.match(COND_RE);
+  if (!m) return parsePlain(text, game, seat);
+  const pre = lower.slice(0, m.index);
+  const post = lower.slice(m.index + m[0].length).replace(/^[\s,;]+/, '');
+  if (!pre.trim()) return fail('Say what the villagers should do first, then add the fallback: "guard the armory, retreat to the park if outnumbered".', game, seat);
+  const verbWord = m[1];
+  const stand = ['stand down', 'surrender', 'back off'].includes(verbWord);
+  const tokens = (m[2] ?? '').split(/\s+/).filter(Boolean);
+  const retreatPlace = stand ? null : findPlace(tokens) ?? 'houses';
+  const base = parsePlain(pre, game, seat);
+  if (!base.ok) return base;
+  const last = base.actions.at(-1);
+  if (last.kind !== 'order' || !CONDITION_VERBS.includes(last.order.verb)) {
+    return fail('A condition can only follow a movement order such as guard, go to, attack, hunt or ambush. Try: "guard the armory, retreat to the park if outnumbered".', game, seat);
+  }
+  last.order.when = { cond: COND_KIND[m[3]], retreat: retreatPlace };
+  last.label = describeOrder(last.order);
+  const rest = post ? parsePlain(post, game, seat) : null;
+  const actions = [...base.actions, ...(rest?.ok ? rest.actions : [])];
+  const problem = base.problem ?? (rest && !rest.ok ? rest : rest?.problem);
+  return problem ? { ok: true, actions, problem } : { ok: true, actions };
+}
+
+function parsePlain(text, game, seat) {
   let s = ` ${String(text ?? '').toLowerCase()} `;
   for (const [re, to] of PHRASES) s = s.replace(re, to);
   // "Olive and Mia" are two names in one clause, not two clauses.
@@ -376,7 +410,10 @@ function parseOrder(id, clause, raw, f, game, seat) {
   let verb = id;
   let target = null;
   let dest = null; // where a seized villager is dragged
-  if (id === 'hunt' || ((id === 'hate' || id === 'assault') && (group === null || group === seat) && otherNamed.length)) {
+  if (id === 'formation') {
+    verb = 'formation';
+    target = { kind: 'style', id: raw.includes('formationspread') ? 'spread' : raw.includes('formationtogether') ? 'together' : 'centre' };
+  } else if (id === 'hunt' || ((id === 'hate' || id === 'assault') && (group === null || group === seat) && otherNamed.length)) {
     verb = 'hunt';
     const prey = otherNamed[0];
     if (!prey) {
@@ -431,7 +468,7 @@ function parseOrder(id, clause, raw, f, game, seat) {
   if (ownNamed.length && !subject && verb !== 'hunt' && verb !== 'escort') subject = { kind: 'villagers', ids: ownNamed.map((v) => v.id), names: ownNamed.map((v) => v.name) };
 
   // Cheap by default when it is a nudge to a few people or plain behaviour; strong words raise it.
-  const base = 3; // typed orders start at full strength; the dial or words like "slightly" lower it
+  const base = verb === 'formation' ? 1 : 3; // typed orders start at full strength; the dial or words like "slightly" lower it
   const strength = explicit ?? strengthOf(raw, base);
 
   const order = { verb: VERB_ID[verb] ?? verb, target, strength };

@@ -1,4 +1,5 @@
 import { ARMORY, DIFFICULTY, POWERS, GHOST, COMBAT, FEVER, GRIEVANCE, STORM, WORLD, INFLUENCE, NOTORIETY, POPULATION, REPLAY, SIM, TENSION, TURN } from '../config/tunables.js';
+import { rollRandomPowers, spawnDeliveries } from './modes.js';
 import { resetHazards } from './hazards.js';
 import { buildHighlights } from './highlights.js';
 import { applyLoyalty } from './loyalty.js';
@@ -31,8 +32,8 @@ const TICK = 1 / SIM.tickHz;
  * @param {{seed?: number, seats: {name: string, kind: 'human'|'bot', personality?: string}[]}} opts
  *   seats[i] leads faction i.
  */
-export function createGame({ seed = 1, seats, cosmetics = true, difficulty = 'normal', commandSeconds = TURN.commandSeconds, simSeconds = TURN.simSeconds, recapSeconds = TURN.recapSeconds, layout = 'classic' }) {
-  const world = createWorld(seed, { cosmetics, layout });
+export function createGame({ seed = 1, seats, cosmetics = true, difficulty = 'normal', commandSeconds = TURN.commandSeconds, simSeconds = TURN.simSeconds, recapSeconds = TURN.recapSeconds, layout = 'classic', mode = 'standard' }) {
+  const world = createWorld(seed, { cosmetics, layout, mode });
   const game = {
     seed,
     world,
@@ -44,6 +45,8 @@ export function createGame({ seed = 1, seats, cosmetics = true, difficulty = 'no
     lastEventId: null,
     difficulty,
     layout,
+    mode,
+    randomPowers: [], // Random Powers mode: each seat's pool for this turn
     commandSeconds,
     simSeconds, // how long the town acts each day
     recapSeconds, // how long the news stays up before the next day starts by itself
@@ -210,6 +213,7 @@ function beginTurn(game) {
   for (let seat = 0; seat < POPULATION.factions; seat++) {
     game.hand[seat] = game.eliminated[seat] ? [] : dealHand(game);
     game.power[seat] = game.eliminated[seat] || world.peaceful ? 0 : game.power[seat] + POWERS.perTurn;
+    if (game.mode === 'random' && seat === 0) game.randomPowers = rollRandomPowers(game); // rolled once per dawn for every seat
     game.usedPowers[seat] = [];
     game.feedback[seat] = [];
     game.cardRumors[seat] = [];
@@ -281,6 +285,7 @@ function endCommand(game) {
     const card = game.cardPending[seat];
     if (card && !(game.eliminated[seat] && !isGhost(game, seat))) applyCard(game, seat, card);
   }
+  if (game.mode === 'explosive' && !game.world.peaceful) spawnDeliveries(game); // lit crates land as the day begins
   game.phase = 'sim';
   game.simTicks = 0;
   game.recorder?.reset();

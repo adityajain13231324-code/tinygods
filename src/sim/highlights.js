@@ -63,7 +63,7 @@ export function attributeKill(game, turn, e) {
 
   // A believed rumor about the victim's group can be what set the killer off.
   for (const r of e.beliefs ?? killer?.believed ?? []) {
-    if (r.kind === 'accuse' && r.group === victimGroup && r.turn <= turn) {
+    if (r.kind === 'accuse' && r.group === victimGroup && r.turn <= turn && r.seat >= 0) {
       scores[r.seat] += 2.5;
       if (!why[r.seat]) why[r.seat] = `${seatName(r.seat)}'s rumor about the ${GROUP_NAMES[victimGroup]} had spread`;
     }

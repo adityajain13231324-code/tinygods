@@ -6,6 +6,7 @@ import { groupOf, isFirearm, effectiveWeapon } from './villager.js';
 import { shoveFrom, shoveToward } from './shove.js';
 import { powerUnlockError } from './availability.js';
 import { igniteNear } from './hazards.js';
+import { forgive } from './memory.js';
 import { groupHasMembers } from './targets.js';
 
 // God powers: live miracles used while the town acts. Each costs Power points (three are added
@@ -78,6 +79,7 @@ export function validatePower(game, seat, id, args = {}) {
   const locked = powerUnlockError(game, id);
   if (locked) return { ok: false, error: locked };
   if (game.eliminated[seat]) return { ok: false, error: 'Your faction has fallen' };
+  if (game.mode === 'random' && !game.randomPowers?.[seat]?.includes(id)) return { ok: false, error: `Random Powers: today you only hold ${(game.randomPowers?.[seat] ?? []).map((q) => POWER_DEFS[q].name).join(', ')}.` };
   if (id === 'leader' && game.leaders?.[seat]) return { ok: false, error: 'Your faction has already crowned a leader this match. The crown works once per match.' };
   if (game.usedPowers?.[seat]?.includes(id)) return { ok: false, error: `${def.name} has already been used this turn. Each miracle works once per turn.` };
   if ((game.power[seat] ?? 0) < def.cost) return { ok: false, error: `Not enough power (${def.name} costs ${def.cost})` };
@@ -190,6 +192,7 @@ export function castPower(game, seat, id, args = {}) {
       v.hp = Math.min(v.maxHp, v.hp + POWERS.miracle.heal);
       const g = groupOf(v);
       for (const o of world.villagers) if (o.alive && groupOf(o) === g) o.opinion[seat] = Math.min(100, o.opinion[seat] + POWERS.miracle.opinion);
+      forgive(world, v, (o) => o.faction === seat, 'healed'); // being healed can melt an old grudge
       message = `${v.name} was healed.`;
       break;
     }

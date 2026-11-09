@@ -4,6 +4,7 @@ import { formLoveBonds } from './bonds.js';
 import { switchSides } from './loyalty.js';
 import { groupOf } from './villager.js';
 import { shuffle } from './rng.js';
+import { forgive } from './memory.js';
 import { cardUnlockError } from './availability.js';
 import { groupHasMembers } from './targets.js';
 
@@ -201,6 +202,8 @@ export function applyCard(game, seat, card) {
         a.truceUntil[b.id] = world.time + 30;
         b.truceUntil[a.id] = world.time + 30;
       }
+      for (const a of mine) forgive(world, a, (o) => groupOf(o) === g, 'treaty', 1); // real peace melts old grudges
+      for (const b of theirs) forgive(world, b, (o) => o.faction === seat, 'treaty', 1);
       note(`you and the ${GROUP_NAMES[g]} cannot fight this turn.`);
       break;
     }

@@ -76,7 +76,7 @@ function lateGame() {
 test('every faction card exposes and validates only living eligible groups, including neutrals when supported',()=>{
   const g=lateGame(),before=authoritativeState(g);
   for(const [id,def] of Object.entries(CARD_DEFS))if(def.needs==='group') {
-    assert.deepEqual(cardTargetGroups(g,0,id),id==='spy'?[0,1]:id==='raid'?[1]:[1,4],id);
+    assert.deepEqual(cardTargetGroups(g,0,id),id==='spy'?[0,1]:['raid','blank'].includes(id)?[1]:[1,4],id);
     for(const group of [2,3])assert.equal(validateCard(g,0,{id,group}).ok,false,id);
     for(const group of cardTargetGroups(g,0,id))assert.equal(validateCard(g,0,{id,group}).ok,true,id);
   }

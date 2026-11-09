@@ -7,6 +7,8 @@ import { shuffle } from './rng.js';
 import { armoryReachable } from './world.js';
 import { planWorkOrders, WORK_VERBS } from './workPlan.js';
 import { groupHasMembers } from './targets.js';
+import { STYLE_IDS, FORMATION_STYLES } from './formations.js';
+import { CONDITIONS, CONDITION_IDS, CONDITION_VERBS } from './conditions.js';
 
 // An order is plain data, so humans, bots and (later) the network all use the same shape:
 //   { verb: 'hate', target: { kind: 'group', id: 1 } | { kind: 'place', id: 'well' } | null, strength: 1..3 }
@@ -22,6 +24,7 @@ export function normalizeOrder(order, world) {
   if (target?.kind === 'villager') target.name = world.villagers[target.id].name;
   const out = { verb: order.verb, target, strength: order.strength };
   if (order.dest !== undefined) out.dest = order.dest;
+  if (order.when) out.when = { cond: order.when.cond, retreat: order.when.retreat ?? null };
   if (order.subject) {
     const s = order.subject;
     out.subject = s.kind === 'count' ? { kind: s.kind, n: s.n }
@@ -47,11 +50,17 @@ export function validateOrder(order, world, seat = null) {
     if (t.kind === 'group' && !(Number.isInteger(t.id) && t.id >= 0 && t.id < NUM_GROUPS)) return { ok: false, error: 'Bad group' };
     if (t.kind === 'group' && !groupHasMembers(world, t.id)) return { ok: false, error: `No living ${GROUP_NAMES[t.id]} remain. Choose another target.` };
     if (t.kind === 'place' && !world.places.some((p) => p.id === t.id)) return { ok: false, error: 'Bad place' };
+    if (t.kind === 'style' && !STYLE_IDS.includes(t.id)) return { ok: false, error: 'Bad formation' };
     if (t.kind === 'villager' && (!Number.isInteger(t.id) || !world.villagers[t.id]?.alive)) return { ok: false, error: 'That villager is not around' };
     if (Number.isInteger(seat) && (['hunt', 'seize'].includes(order.verb) && world.villagers[t.id]?.faction === seat
       || ['assault', 'scare', 'shove'].includes(order.verb) && t.kind === 'group' && t.id === seat)) return { ok: false, error: `${verb.label} cannot target your own faction` };
   }
   if (order.dest !== undefined && (order.verb !== 'seize' || !world.places.some((p) => p.id === order.dest))) return { ok: false, error: 'Bad place to drag them to' };
+  if (order.when !== undefined) {
+    const w = order.when;
+    if (!record(w) || !CONDITION_IDS.includes(w.cond) || (w.retreat !== null && w.retreat !== undefined && !world.places.some((p) => p.id === w.retreat))) return { ok: false, error: 'Bad condition' };
+    if (!CONDITION_VERBS.includes(order.verb)) return { ok: false, error: `${verb.label} cannot have a condition. Conditions work with movement orders such as Guard, Go to, Assault, Hunt and Ambush.` };
+  }
   const s = order.subject;
   if (s !== undefined && s !== null) {
     const ok = record(s) && (s.kind === 'all'
@@ -102,7 +111,8 @@ export function describeOrder(order) {
   const v = VERBS[order.verb];
   const where = order.target ? ` ${targetName(order.target)}` : '';
   const to = order.dest ? ` -> ${PLACES.find((p) => p.id === order.dest)?.name ?? order.dest}` : '';
-  return `${describeSubject(order.subject)}${v.label}${where}${to} (${'!'.repeat(order.strength)})`;
+  const cond = order.when ? ` [if ${CONDITIONS[order.when.cond].name}: ${order.when.retreat ? 'retreat to the ' + (PLACES.find((p) => p.id === order.when.retreat)?.name ?? order.when.retreat) : 'stand down'}]` : '';
+  return `${describeSubject(order.subject)}${v.label}${where}${to}${cond} (${'!'.repeat(order.strength)})`;
 }
 
 /** An order as a plain sentence: "3 villagers will go to the Armory." */
@@ -119,10 +129,12 @@ export function plainOrder(order) {
     avoid: `will keep away from the ${t}`, follow: `will go to the ${t}`, escort: `will follow ${t}`, hunt: `will hunt ${t}`,
     assault: order.target?.kind === 'place' ? `will attack whoever is at the ${t}` : `will charge the ${t}`, standdown: 'will stand down', arm: 'will fetch weapons from the armory',
     accuse: `will spread a rumor about the ${t}`, praise: `will praise the ${t}`, festival: `will throw a party at the ${t}`,
+    formation: order.target?.kind === 'style' ? `will ${{ spread: 'spread out: blasts catch fewer, but nobody has backup', together: 'stick together: allies nearby take 10% less damage, but one blast hits many', centre: 'protect the centre: the weakest stay in the middle, the rest ring them (the core takes 20% less)' }[order.target.id]}` : 'will line up',
     scare: `will walk up to the ${t} and frighten them`, shove: `will walk up to the ${t} and push them away`, seize: `will grab ${t} and drag them ${order.dest ? 'to the ' + (PLACES.find((p) => p.id === order.dest)?.name ?? order.dest) : 'away'}`, scatter: 'will run away from everybody', ambush: `will lie in wait at the ${t}`,
   }[order.verb] ?? `will ${order.verb}`;
   void the;
-  return `${who} ${text}.`;
+  const fallback = order.when ? `, but ${order.when.retreat ? 'retreat to the ' + (PLACES.find((p) => p.id === order.when.retreat)?.name ?? order.when.retreat) : 'stand down'} if ${CONDITIONS[order.when.cond].name} (${CONDITIONS[order.when.cond].text})` : '';
+  return `${who} ${text}${fallback}.`;
 }
 
 export function describeSubject(s) {
@@ -133,6 +145,7 @@ export function describeSubject(s) {
 }
 
 export function targetName(t) {
+  if (t.kind === 'style') return FORMATION_STYLES[t.id]?.name ?? t.id;
   if (t.kind === 'group') return GROUP_NAMES[t.id];
   if (t.kind === 'villager') return t.name ?? `villager ${t.id}`;
   return PLACES.find((p) => p.id === t.id)?.name ?? t.id;
@@ -236,6 +249,11 @@ export function applyOrders(world, seat, orders, lastVerbs = null) {
       if (subjects && !subjects.has(v.id)) continue; // this order is only for the people named
       const wf = w * tired; // numeric effects (not the behaviour orders below) fade with fatigue
 
+      if (order.when && v.faction === seat && (!hunters || hunters.has(v.id)) && (!grabbers || grabbers.has(v.id))) {
+        v.fx.when = { cond: order.when.cond, retreat: order.when.retreat ?? null, verb: order.verb };
+        v.whenActive = false;
+        v.whenFalseSince = -1;
+      }
       switch (order.verb) {
         case 'hate': {
           const g = order.target.id;
@@ -299,6 +317,9 @@ export function applyOrders(world, seat, orders, lastVerbs = null) {
           break;
         case 'standdown':
           if (w === 1 || world.rng() < w) v.fx.standdown = true;
+          break;
+        case 'formation':
+          if (v.faction === seat) v.fx.formation = { style: order.target.id, S };
           break;
         case 'arm':
           if (v.faction === seat ? armPicks.has(v.id) : (w > 0 && world.rng() < w * 0.15)) {

@@ -13,13 +13,13 @@ const clamp = (x, lo, hi) => Math.min(hi, Math.max(lo, x));
 const TRAIT_BELIEF = { coward: 0.15, wildcard: 0.15, brawler: -0.1, gunslinger: -0.1, peacemaker: -0.05 };
 
 /** An Accuse or Praise order: plant a rumor with a few listeners. */
-export function startRumor(world, seat, kind, group, strength, tired = 1) {
-  const rumor = { id: world.rumors.length, seat, kind, group, S: strength, turn: world.turn, tired };
+export function startRumor(world, seat, kind, group, strength, tired = 1, by = -1) {
+  const rumor = { id: world.rumors.length, seat, kind, group, S: strength, turn: world.turn, tired, by };
   world.rumors.push(rumor);
-  world.events.push({ type: 'rumorStart', turn: world.turn, time: world.time, kind, group });
+  world.events.push({ type: 'rumorStart', turn: world.turn, time: world.time, kind, group, ...(by >= 0 ? { by } : {}) });
 
   // The first listeners: anyone who is not in the rumour's own faction and not the one who started it.
-  const listeners = shuffle(world.rng, world.villagers.filter((v) => v.alive && v.faction !== seat && groupOf(v) !== group));
+  const listeners = shuffle(world.rng, world.villagers.filter((v) => v.alive && (seat >= 0 ? v.faction !== seat : v.id !== by) && groupOf(v) !== group));
   for (const v of listeners.slice(0, RUMOR.seeds + strength)) hear(world, v, rumor);
   return rumor;
 }
@@ -29,7 +29,7 @@ export function hear(world, v, rumor) {
   if (v.heard.has(rumor.id)) return false;
   v.heard.add(rumor.id);
   if (groupOf(v) === rumor.group) return false; // people know whether the rumor about them is true
-  const chance = clamp(RUMOR.baseBelief + v.trust[rumor.seat] + (TRAIT_BELIEF[v.trait] ?? 0), 0.05, 0.95) * rumor.tired;
+  const chance = clamp(RUMOR.baseBelief + (rumor.seat >= 0 ? v.trust[rumor.seat] : 0.05) + (TRAIT_BELIEF[v.trait] ?? 0), 0.05, 0.95) * rumor.tired;
   if (world.rng() >= chance) return false;
   v.believed.push(rumor);
   const delta = (rumor.kind === 'accuse' ? -1 : 1) * (RUMOR.opinionBase + RUMOR.opinionPerStrength * rumor.S);

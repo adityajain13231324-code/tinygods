@@ -147,7 +147,7 @@ test('Time Bomb has the existing 12-second fuse and ally damage immunity', () =>
 });
 
 test('new powers validate gates, resources and normalized drag direction without side effects', () => {
-  const g = fresh(); assert.equal(Object.keys(POWER_DEFS).length, 21); assert.equal(POWER_DEFS.lightning.cost, 1);
+  const g = fresh(); assert.equal(Object.keys(POWER_DEFS).length, 22); assert.equal(POWER_DEFS.lightning.cost, 1);
   for (const id of ['timebomb', 'whirlpool', 'launcher', 'blackout']) { g.turn = 4; assert.equal(validatePower(g, 0, id, { x: 950, y: 570 }).ok, false); }
   g.turn = 5; const v = own(g);
   const args = { villagerId: v.id, tx: 950, ty: 570, malicious: 12 };

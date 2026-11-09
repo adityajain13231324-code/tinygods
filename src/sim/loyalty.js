@@ -1,4 +1,5 @@
 import { LOYALTY, POPULATION } from '../config/tunables.js';
+import { remember } from './memory.js';
 import { groupOf, emptyFx } from './villager.js';
 import { shuffle } from './rng.js';
 
@@ -88,6 +89,12 @@ export function applyLoyalty(game) {
 /** Change a villager's faction (dest -1 = neutral) and record the event. */
 export function switchSides(world, v, dest) {
   const from = v.faction;
+  let heard = 0;
+  for (const o of world.villagers) {
+    if (heard >= 5 || !o.alive || o === v || !(o.partnerId === v.id || o.friendId === v.id) || o.faction !== from) continue;
+    remember(world, o, v.id, 'betrayed');
+    heard++;
+  }
   const oldGroup = groupOf(v);
   v.faction = dest;
   const newGroup = groupOf(v);

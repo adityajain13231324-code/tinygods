@@ -2,6 +2,10 @@ import { WALL, WORLD, BRAIN, VILLAGER, SIM, COMBAT, ORDERS, WEAPONS, ARMORY, GRI
 import { isWater, landNear, onHill, routeVia } from './layouts.js';
 import { findCoverSpot } from './props.js';
 import { updateHazards } from './hazards.js';
+import { grudgeFactor, memoryReact, remember } from './memory.js';
+import { formationSteer, updateFormations } from './formations.js';
+import { conditionFallback } from './conditions.js';
+import { troubleDuties } from './troublemaker.js';
 import { breakBond, createBond, isFree } from './bonds.js';
 import { logPair } from './history.js';
 import { exchangeRumors } from './rumors.js';
@@ -60,6 +64,7 @@ export function stepWorld(world, dt = 1 / SIM.tickHz) {
   updateCarried(world);
   updatePowerEffects(world, dt);
   updateHazards(world);
+  updateFormations(world);
   resolveCombat(world, dt);
   updateBombs(world);
   updateTornadoes(world);
@@ -75,6 +80,8 @@ function think(world, v) {
   if (world.cosmetics) updateThought(world, v); // visual only; skipped in headless balance runs
 }
 
+const HELP = { goToPlace: (...a) => goToPlace(...a), startIdle: (...a) => startIdle(...a), startFlee: (...a) => startFlee(...a), walkingGoal: (...a) => walkingGoal(...a) };
+
 function decide(world, v) {
   if (world.time < world.blackoutUntil) {
     if (v.state === 'attack') startIdle(world, v, 'blackout');
@@ -89,6 +96,7 @@ function decide(world, v) {
     if (v.state === 'attack' && !v.panic) startIdle(world, v, 'stand down');
   }
   updateGrievance(world, v);
+  memoryReact(world, v);
   if (reactToDanger(world, v)) return 'danger';
 
   // Grief first: someone they liked just died, so they stand frozen for a moment.
@@ -108,6 +116,8 @@ function decide(world, v) {
   // Immediate danger and existing panic/grief above can still interrupt them.
   if (v.fx.arm && !v.armDone && obeyOrders(world, v)) return 'armory errand';
 
+  if (v.fx.when && conditionFallback(world, v, HELP)) return 'condition';
+  if (v.trait === 'troublemaker' && troubleDuties(world, v, HELP)) return 'mischief';
   doActivity(world, v);
   festivalBonds(world, v);
   if (traitDuties(world, v)) return 'temperament duty';
@@ -289,6 +299,7 @@ function reactToDanger(world, v) {
   const exhausted = v.state === 'flee' && 1 - Math.max(0, v.timer) / (v.fleeTotal || 1) > COMBAT.exhaustedAt;
   const cornered = exhausted && best < COMBAT.corneredDistance;
   if (fleeScore > COMBAT.fleeThreshold && !cornered) {
+    remember(world, v, attacker.id, 'scared');
     startFlee(world, v, attacker.x, attacker.y);
     return true;
   }
@@ -330,7 +341,7 @@ function updateGrievance(world, v) {
     const d = dist(v, o.x, o.y);
     if (d > sight) continue;
     const strength = Math.min(1, dislike / (100 - GRIEVANCE.dislikeFrom));
-    gr[o.id] += GRIEVANCE.rate * strength * mood * wild * (1 - (0.5 * d) / sight) * dt;
+    gr[o.id] += GRIEVANCE.rate * strength * mood * wild * (1 - (0.5 * d) / sight) * dt * (v.memory.length ? grudgeFactor(v, o.id) : 1);
   }
 }
 
@@ -589,6 +600,7 @@ function traitDuties(world, v) {
         const d = dist(v, o.x, o.y);
         if (d <= cfg.healRadius) {
           o.hp = Math.min(o.maxHp, o.hp + cfg.healPerThink);
+          remember(world, o, v.id, 'rescued');
           v.revealed = true;
         }
         if (o.hp < cfg.seekBelowHp && o.hp < worst && d <= cfg.seekRadius && o.state !== 'attack') {
@@ -1040,7 +1052,7 @@ export function startAttack(world, v, target, cause = 'fed up') {
   if (v.escalation === 0) logPair(world, v, target, 'scuffle');
 }
 
-function startFlee(world, v, fromX, fromY) {
+export function startFlee(world, v, fromX, fromY) {
   v.state = 'flee';
   v.expression = 'scared';
   v.targetId = null;
@@ -1197,6 +1209,8 @@ function act(world, v, dt) {
   dvx += pushX * WALL.push;
   dvy += pushY * WALL.push;
 
+  const fs = v.fx.formation ? formationSteer(world, v) : null;
+  if (fs) { dvx += fs[0]; dvy += fs[1]; }
   if (v.fx.avoid.length > 0 && v.state !== 'attack' && v.state !== 'flee') {
     const [ax, ay] = avoidVector(world, v);
     dvx += ax * v.speed * ORDERS.avoidPush;
