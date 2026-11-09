@@ -33,6 +33,7 @@ export function clipCaption(world, clip) {
   if ((e = find('gunshot', (g) => g.blank))) return { kind: 'blank', name: nm(e.shooterId), caption: `${nm(e.shooterId)} pulled the trigger. The gun said "pop". Confetti everywhere.` };
   if ((e = find('weaponStolen'))) return { kind: 'theft', name: nm(e.thiefId), caption: `${nm(e.thiefId)} borrowed ${nm(e.victimId)}'s ${e.weapon}. Permanently.` };
   if ((e = find('kill', (k) => k.weapon === 'rocket'))) return { kind: 'rocket', name: nm(e.killerId), caption: `${nm(e.killerId)} launched a rocket. ${nm(e.victimId)} did not have that on their bingo card.` };
+  if ((e = find('kill', (k) => k.source && k.source.kind !== 'weapon'))) return { kind: 'blast', name: nm(e.victimId), caption: `${nm(e.victimId)} was standing exactly where the ${e.source.id === 'bomb' ? 'bomb' : 'blast'} landed at the ${e.place}. Nobody saw who did it.` };
   if ((e = find('kill'))) return { kind: 'kill', name: nm(e.killerId), caption: e.killerId >= 0 ? `${nm(e.victimId)} met ${nm(e.killerId)} at the ${e.place}. It did not go well.` : `${nm(e.victimId)} had a very bad day at the ${e.place}.` };
   if ((e = find('gunshot', (g) => !g.hit))) return { kind: 'miss', name: nm(e.shooterId), caption: e.coverId ? `${nm(e.targetId)} hid behind the furniture and won.` : `${nm(e.shooterId)} aimed carefully. The bullet went on holiday.` };
   if ((e = find('defect'))) return { kind: 'betrayal', name: nm(e.villagerId), caption: `${nm(e.villagerId)} switched sides. Awkward at the next family dinner.` };

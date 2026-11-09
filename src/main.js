@@ -16,6 +16,9 @@ import { createCommandPanel } from './render/ui/commandPanel.js';
 import { createPowerBar } from './render/ui/powerBar.js';
 import { PowerWorldView } from './render/powerWorldView.js';
 import { IdeasView } from './render/ideasView.js';
+import { blast } from './sim/combat.js';
+import { castPower } from './sim/powers.js';
+import { applyCard } from './sim/cards.js';
 import { createClipTool } from './render/clip.js';
 import { LAYOUT_IDS } from './sim/layouts.js';
 import { MODE_IDS } from './sim/modes.js';
@@ -26,7 +29,6 @@ import { Replay } from './render/replay.js';
 import { Mixer } from './audio/mixer.js';
 import { createGame, isGhost, runToEnd, skipRecap, submitOrders, updateGame } from './sim/turn.js';
 import { createPassScreen } from './render/ui/passScreen.js';
-import { castPower } from './sim/powers.js';
 import { Lockstep } from './net/lockstep.js';
 import { getOnline, makeSeats } from './net/online.js';
 import { createNetPanel } from './render/ui/netPanel.js';
@@ -447,4 +449,4 @@ app.ticker.add(() => {
 });
 
 // Handy for poking around in the browser console.
-window.tinyGods = { net, game, app, views, ctx, frame, camera, effects, director, audio, replay, cutscenes, town, speech, spotlight, powerBar, powerWorld };
+window.tinyGods = { sim: { blast, castPower, applyCard }, net, game, app, views, ctx, frame, camera, effects, director, audio, replay, cutscenes, town, speech, spotlight, powerBar, powerWorld };

@@ -10,14 +10,17 @@ import { isDeepStrictEqual } from 'node:util';
 import { mulberry32 } from '../src/sim/rng.js';
 
 const MATCHES = Number(process.argv[2] ?? 6);
-const PHRASES = ['hate the tides', 'arm up', 'send three villagers to the armory', 'scare the sparks', 'hunt the tides', 'guard the plaza', 'throw a party at the pond', 'assault the sprouts', 'stand down', 'accuse the sparks'];
+const PHRASES = ['spread out', 'stick together', 'guard the armory, retreat to the park if outnumbered', 'hate the tides', 'arm up', 'send three villagers to the armory', 'scare the sparks', 'hunt the tides', 'guard the plaza', 'throw a party at the pond', 'assault the sprouts', 'stand down', 'accuse the sparks'];
 const POWERS = [['lightning', { x: 900, y: 600 }], ['earthquake', {}], ['fog', { x: 700, y: 500 }], ['fireball', { x: 1100, y: 400 }], ['tornado', { x: 800, y: 700 }], ['timebomb', { x: 950, y: 570 }], ['blackout', {}], ['whirlpool', { x: 950, y: 570 }], ['launcher', { x: 950, y: 570 }], ['freeze', { x: 950, y: 570 }], ['strength', {}], ['aegis', {}], ['gust', { tx: 950, ty: 570 }], ['gust', { dx: 140, dy: -70 }]];
 let failed = 0;
 
 function playMatch(seed, humans, dropSeat = -1) {
   const rnd = mulberry32(seed * 977);
   const seats = [0, 1, 2, 3].map((i) => (i < humans ? { name: `P${i}`, kind: 'human' } : { name: `bot${i}`, kind: 'bot', personality: 'opportunist' }));
-  const games = seats.map(() => createGame({ seed, seats: seats.map((s) => ({ ...s })) }));
+  // every browser plays the same town layout and challenge, chosen from the seed
+  const layout = ['classic', 'canal', 'market', 'farms', 'hill'][seed % 5];
+  const mode = ['standard', 'armed', 'explosive', 'random', 'standard', 'one'][(seed >> 1) % 6];
+  const games = seats.map(() => createGame({ seed, seats: seats.map((s) => ({ ...s })), layout, mode }));
 
   // A network with a random delay per message, delivered in order per link.
   const wires = []; // {at, to, msg}

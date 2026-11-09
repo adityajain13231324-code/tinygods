@@ -853,3 +853,6 @@ button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-v
 .gl-cond .warn { color: #ffb36b; font-weight: 700; }
 .gl-out { min-height: 3.2em; }
 @media (prefers-reduced-motion: reduce) { .gl-dot { transition: none; } }
+
+.menu2-overlay .card { background: linear-gradient(180deg, #1e2a20, #131c16); backdrop-filter: none; }
+.menu2-overlay .card h2 { color: var(--ink); }

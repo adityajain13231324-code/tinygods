@@ -11,9 +11,10 @@ export function openClipDialog(root, ctx, clip, title = 'Save a clip') {
   const tool = ctx.clip;
   const overlay = el('div', 'overlay clip-overlay');
   overlay.style.pointerEvents = 'auto';
+  overlay.style.position = 'fixed';
   const card = el('div', 'panel card clip-card');
   overlay.append(card);
-  root.append(overlay);
+  document.body.append(overlay); // a body-level dialog, like the others (the dialog helper makes everything else inert)
   activateDialog(overlay, card);
   const close = () => { if (url) URL.revokeObjectURL(url); overlay.remove(); };
   let url = null;
