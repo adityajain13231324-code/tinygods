@@ -1,5 +1,5 @@
 import { IDEAS, POWERS, WEAPONS } from '../config/tunables.js';
-import { effectiveWeapon } from './villager.js';
+import { effectiveWeapon, isFirearm } from './villager.js';
 import { blast, powerDamage } from './combat.js';
 import { shoveToward } from './shove.js';
 import { shuffle } from './rng.js';
@@ -23,6 +23,8 @@ export function updatePowerEffects(world, dt) {
     first.weapon = crate ? 'rocket' : drop.weapon;
     first.ammo = crate ? WEAPONS.rocket.maxAmmo : drop.ammo;
     if (crate) first.escalation = 2;
+    else if (first.state === 'attack') first.escalation = Math.max(first.escalation, isFirearm(first.weapon) ? 2 : 1); // already fighting: use it now
+    first.lootUntil = 0;
     first.armDone = true;
     world.weaponDrops.splice(i, 1);
     world.events.push({ type: 'weaponPickup', turn: world.turn, time: world.time, villagerId: first.id, weapon: first.weapon, ammo: first.ammo, fromDeadId: drop.ownerId ?? -1, x: first.x, y: first.y });

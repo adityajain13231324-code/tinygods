@@ -143,26 +143,38 @@ export function landNear(canals, x, y) {
  * way, in which case via the nearest bridge. Pure, allocation-free apart from the return pair.
  */
 export function routeVia(canals, x, y, tx, ty) {
-  for (const c of canals) {
-    const side = Math.sign(x - c.c) || 1;
-    const goal = Math.sign(tx - c.c) || 1;
-    const inStrip = Math.abs(x - c.c) < c.half;
+  // Which canal comes first on the way? (Walking east to west across two canals, the nearer one first.)
+  let c = null;
+  let nearest = Infinity;
+  for (const k of canals) {
+    const side = Math.sign(x - k.c) || 1;
+    const goal = Math.sign(tx - k.c) || 1;
+    const inStrip = Math.abs(x - k.c) < k.half;
     if (side === goal && !inStrip) continue; // same bank: no crossing
-    // choose the bridge that makes the whole trip shortest
-    let best = c.bridges[0];
-    let bestCost = Infinity;
-    for (const b of c.bridges) {
-      const cost = Math.abs(y - b.c) + Math.abs(ty - b.c);
-      if (cost < bestCost) { bestCost = cost; best = b; }
-    }
-    const reach = c.half + 16;
-    if (inStrip) return [c.c + goal * reach, best.c]; // already on the bridge: walk off the far side
-    const entryX = c.c + side * reach;
-    const atEntry = Math.abs(x - entryX) < 24 && Math.abs(y - best.c) < best.half - 10;
-    if (atEntry) return [c.c + goal * reach, best.c];
-    return [entryX, best.c];
+    const d = inStrip ? 0 : Math.abs(x - k.c);
+    if (d < nearest) { nearest = d; c = k; }
   }
-  return [tx, ty];
+  if (!c) return [tx, ty];
+  const side = Math.sign(x - c.c) || 1;
+  const goal = Math.sign(tx - c.c) || 1;
+  const inStrip = Math.abs(x - c.c) < c.half;
+  // choose the bridge that makes the whole trip shortest
+  let best = c.bridges[0];
+  let bestCost = Infinity;
+  for (const b of c.bridges) {
+    const cost = Math.abs(y - b.c) + Math.abs(ty - b.c);
+    if (cost < bestCost) { bestCost = cost; best = b; }
+  }
+  const reach = c.half + 16;
+  if (inStrip) { // already on a bridge: finish crossing THAT bridge, whichever is nearest to where I stand
+    let here = c.bridges[0];
+    for (const b of c.bridges) if (Math.abs(y - b.c) < Math.abs(y - here.c)) here = b;
+    return [c.c + goal * reach, here.c];
+  }
+  const entryX = c.c + side * reach;
+  const atEntry = Math.abs(x - entryX) < 24 && Math.abs(y - best.c) < best.half - 10;
+  if (atEntry) return [c.c + goal * reach, best.c];
+  return [entryX, best.c];
 }
 
 export const onHill = (hill, x, y) => hill && ((x - hill.x) / hill.rx) ** 2 + ((y - hill.y) / hill.ry) ** 2 < 1;

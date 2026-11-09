@@ -64,7 +64,13 @@ export function createVillager(rng, { id, name, shape, faction, x, y, count = 60
     whenActive: false, // a conditional order's fallback is acting on me
     whenUntil: 0,
     whenFalseSince: -1,
+    whenCool: 0, // no new fallback trigger before this sim time
     trouble: null, // the troublemaker's plans
+    stall: 0, // seconds spent trying to walk and not getting anywhere
+    branch: null, // which order is steering my walking right now (festival, protect, follow...)
+    branchUntil: 0, // another order may not take over before this sim time
+    lootUntil: 0, // while walking to a dropped weapon: give up at this time
+    lootCool: 0, // after giving up, no looting before this time
     coverSpot: null, // {x, y, propId}: the spot behind a prop they are running to when shot at
     blankUntil: 0, // a Blank Rounds shot just fizzled: they stare at their weapon until this sim time
     courage, baseCourage: courage,

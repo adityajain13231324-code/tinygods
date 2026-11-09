@@ -494,7 +494,7 @@ export const EVENTS = {
 // ---- Selected-ideas update (all balance numbers live here) ---------------------------
 export const IDEAS = {
   // Idea: weapons dropped on death. One roll per eligible armed death.
-  drop: { chance: 0.3, seconds: 20, maxActive: 10, pickupRadius: 26 },
+  drop: { chance: 0.3, seconds: 20, maxActive: 10, pickupRadius: 26, seekRadius: 260 },
   // Blank Rounds card: the first few gunshots (guns and shotguns, not rockets) of a faction this turn are confetti.
   blank: { shots: 3, confusedSeconds: 1.4 },
   // Free Cake! card

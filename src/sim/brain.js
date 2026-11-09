@@ -84,6 +84,16 @@ function think(world, v) {
 
 const HELP = { goToPlace: (...a) => goToPlace(...a), startIdle: (...a) => startIdle(...a), startFlee: (...a) => startFlee(...a), walkingGoal: (...a) => walkingGoal(...a) };
 
+/** Competing movement orders take turns, not every half second: the one in charge keeps it for 3 seconds. */
+function claimMove(world, v, branch) {
+  if (v.branch !== branch) {
+    if (v.branchUntil > world.time) return false;
+    v.branch = branch;
+    v.branchUntil = world.time + 3;
+  }
+  return true;
+}
+
 function decide(world, v) {
   if (world.time < world.blackoutUntil) {
     if (v.state === 'attack') startIdle(world, v, 'blackout');
@@ -135,6 +145,7 @@ function decide(world, v) {
   }
 
   if (cakeLure(world, v)) return 'cake';
+  if (seekDrop(world, v)) return 'loot';
   if (interceptForProtected(world, v)) return 'protect intercept';
   if (obeyOrders(world, v)) return 'order';
   if (stayWithPartner(world, v)) return 'partner company';
@@ -145,6 +156,38 @@ function decide(world, v) {
 // ---- Things to do, and bonds ---------------------------------------------------
 
 /** Effects of the pastime a villager is in the middle of (see ACTIVITY). */
+/**
+ * A dropped weapon or launcher crate is worth a short walk for someone with empty hands. The nearest
+ * claimant gets it (a claim lapses if they die, arm up, or fail to arrive within 12 seconds), so a crowd
+ * does not all stampede at one item. Fights, fear, grief, orders and fallbacks all outrank looting.
+ */
+function seekDrop(world, v) {
+  if (world.weaponDrops.length === 0) return false;
+  const busy = v.panic > 0 || v.carry || v.carrying || v.brewId >= 0 || ['attack', 'flee', 'mourn', 'talk'].includes(v.state) || hasDuty(v) || v.fx.when || world.time < v.lootCool;
+  if (busy || effectiveWeapon(v) !== 'none') { if (v.purpose === 'loot') { v.purpose = null; } return false; }
+  let best = null;
+  let bestD = IDEAS.drop.seekRadius;
+  for (const d of world.weaponDrops) {
+    const dd = dist(v, d.x, d.y);
+    if (dd >= bestD) continue;
+    const c = d.claimId != null ? world.villagers[d.claimId] : null;
+    const held = c && c !== v && c.alive && effectiveWeapon(c) === 'none' && world.time < (c.lootUntil ?? 0) && dist(c, d.x, d.y) <= dd;
+    if (held) continue;
+    best = d;
+    bestD = dd;
+  }
+  if (!best) { if (v.purpose === 'loot') v.purpose = null; return false; }
+  if (best.claimId !== v.id) { best.claimId = v.id; v.lootUntil = world.time + 12; }
+  if (world.time > v.lootUntil) { v.lootCool = world.time + 15; best.claimId = null; if (v.purpose === 'loot') startIdle(world, v, 'gave up looting'); return false; }
+  v.state = 'wander';
+  v.expression = 'suspicious';
+  v.purpose = 'loot';
+  v.activity = null;
+  v.targetX = best.x;
+  v.targetY = best.y;
+  return true;
+}
+
 /** Orders and errands that outrank a free cake. */
 const hasDuty = (v) => (v.fx.arm && !v.armDone) || v.fx.follow || v.fx.escort || v.fx.hunt || v.fx.assault || v.fx.ambush || v.fx.seize || v.fx.protect.length > 0 || v.fx.shove.length > 0 || v.fx.festival;
 
@@ -866,6 +909,7 @@ function obeyOrders(world, v) {
   if (fx.escort !== null) {
     const buddy = world.villagers[fx.escort];
     if (buddy?.alive && dist(v, buddy.x, buddy.y) > ORDERS.protectStay * 1.25) {
+      if (!claimMove(world, v, 'escort')) return true;
       v.state = 'guard';
       v.expression = 'calm';
       v.followId = buddy.id;
@@ -878,7 +922,8 @@ function obeyOrders(world, v) {
   if (fx.follow) {
     const place = world.places.find((p) => p.id === fx.follow);
     if (dist(v, place.x, place.y) > place.radius * 0.9) {
-      goToPlace(world, v, place, 'follow');
+      if (!claimMove(world, v, 'follow')) return true;
+      if (v.state !== 'wander' || v.purpose !== 'follow') goToPlace(world, v, place, 'follow'); // keep one destination while walking
       return true;
     }
   }
@@ -887,7 +932,8 @@ function obeyOrders(world, v) {
   if (fx.festival) {
     const place = world.places.find((p) => p.id === fx.festival);
     if (dist(v, place.x, place.y) > place.radius * 0.8) {
-      goToPlace(world, v, place, 'follow');
+      if (!claimMove(world, v, 'festival')) return true;
+      if (v.state !== 'wander' || v.purpose !== 'follow') goToPlace(world, v, place, 'follow');
       return true;
     }
     if (v.state === 'idle' && (v.activity !== 'dance' || v.timer <= 0)) startActivity(world, v, 'dance');
@@ -901,6 +947,7 @@ function obeyOrders(world, v) {
       const strongest = Math.max(...fx.protect.map((p) => p.S));
       v.guardBonus = d < ORDERS.protectRadius ? Math.min(ORDERS.protectReductionCap, ORDERS.protectReduction * strongest) : 0;
       if (d > ORDERS.protectStay * 1.65) { // set off beyond 75, arrive inside 54: no jitter at the boundary
+        if (!claimMove(world, v, 'protect')) return true;
         v.state = 'guard';
         v.expression = 'calm';
         v.followId = spot.id ?? -1; // a villager (keep following) or a place (-1)
@@ -1231,6 +1278,8 @@ function act(world, v, dt) {
   v.vx += (dvx - v.vx) * ease;
   v.vy += (dvy - v.vy) * ease;
 
+  const wantsToMove = Math.hypot(dvx, dvy) > speed * 0.5;
+  const ox = v.x, oy = v.y;
   {
     let [nx, ny] = clampIn(world, v.x + v.vx * dt, v.y + v.vy * dt);
     if (world.canals.length && isWater(world.canals, nx, ny)) {
@@ -1241,6 +1290,15 @@ function act(world, v, dt) {
     }
     v.x = nx;
     v.y = ny;
+  }
+  // A jam (a crowd at a bridge, a pile-up against a wall) must not freeze someone forever: after 5 seconds
+  // of trying and not moving they give the errand up, and cool off before picking it again.
+  if (wantsToMove && Math.hypot(v.x - ox, v.y - oy) < 0.15 * speed * dt) v.stall += dt;
+  else v.stall = Math.max(0, v.stall - dt * 2);
+  if (v.stall > 5) {
+    v.stall = 0;
+    if (v.state === 'attack') { v.calmUntil = Math.max(v.calmUntil, world.time + 3); startIdle(world, v, 'stuck in a jam'); } else if (v.state === 'wander' || v.state === 'guard' || v.state === 'seek') startIdle(world, v, 'stuck in a jam');
+    world.events.push({ type: 'unstuck', turn: world.turn, time: world.time, villagerId: v.id, x: v.x, y: v.y });
   }
 
   if (v.state === 'talk' || v.state === 'attack' || v.state === 'mourn' || v.brewId >= 0) {
