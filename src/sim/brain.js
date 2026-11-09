@@ -1,4 +1,4 @@
-import { WALL, WORLD, BRAIN, VILLAGER, SIM, COMBAT, ORDERS, WEAPONS, ARMORY, GRIEVANCE, TENSION, TRAITS, ACTIVITY, BOND, FESTIVAL } from '../config/tunables.js';
+import { WALL, WORLD, BRAIN, VILLAGER, SIM, COMBAT, ORDERS, WEAPONS, ARMORY, GRIEVANCE, TENSION, TRAITS, ACTIVITY, BOND, FESTIVAL, IDEAS } from '../config/tunables.js';
 import { breakBond, createBond, isFree } from './bonds.js';
 import { logPair } from './history.js';
 import { exchangeRumors } from './rumors.js';
@@ -115,6 +115,7 @@ function decide(world, v) {
     return 'pursuit';
   }
 
+  if (cakeLure(world, v)) return 'cake';
   if (interceptForProtected(world, v)) return 'protect intercept';
   if (obeyOrders(world, v)) return 'order';
   if (stayWithPartner(world, v)) return 'partner company';
@@ -125,10 +126,52 @@ function decide(world, v) {
 // ---- Things to do, and bonds ---------------------------------------------------
 
 /** Effects of the pastime a villager is in the middle of (see ACTIVITY). */
+/** Orders and errands that outrank a free cake. */
+const hasDuty = (v) => (v.fx.arm && !v.armDone) || v.fx.follow || v.fx.escort || v.fx.hunt || v.fx.assault || v.fx.ambush || v.fx.seize || v.fx.protect.length > 0 || v.fx.shove.length > 0 || v.fx.festival;
+
+/**
+ * Free Cake!: idle, curious villagers near the invitation may wander over and eat. Interest is a
+ * fixed per-villager, per-cake coin (no random numbers used), capped in count, and anyone in danger,
+ * grieving, panicking, fighting, carrying someone or following an order is never pulled in.
+ */
+function cakeLure(world, v) {
+  const cake = world.cakes.find((c) => world.time < c.until);
+  if (!cake) return false;
+  if (v.panic > 0 || v.carry || v.carrying || v.brewId >= 0 || ['attack', 'flee', 'mourn', 'talk'].includes(v.state) || hasDuty(v)) return false;
+  if (cake.interested[v.id] === undefined) {
+    const coin = ((Math.imul(v.id + 1, 2654435761) ^ Math.imul(cake.turn * 131 + cake.seat * 17 + 7, 40503)) >>> 0) / 4294967296;
+    const curious = coin < IDEAS.cake.interest + (v.trait === 'wildcard' ? 0.25 : v.trait === 'brawler' ? -0.2 : 0) && dist(v, cake.x, cake.y) <= IDEAS.cake.radius && cake.interestedCount < IDEAS.cake.maxVisitors;
+    cake.interested[v.id] = curious;
+    if (curious) cake.interestedCount++;
+  }
+  if (!cake.interested[v.id]) return false;
+  if (cake.eatUntil[v.id] !== undefined && world.time >= cake.eatUntil[v.id]) { cake.interested[v.id] = false; return false; } // full: back to normal life
+  if (dist(v, cake.x, cake.y) <= IDEAS.cake.arriveRadius) {
+    if (cake.eatUntil[v.id] === undefined) {
+      cake.eatUntil[v.id] = world.time + range(world.rng, IDEAS.cake.eatSeconds);
+      cake.arrived.push(v.id);
+      world.events.push({ type: 'cakeArrival', turn: world.turn, time: world.time, villagerId: v.id, place: cake.place, x: v.x, y: v.y });
+      startIdle(world, v, 'cake');
+      v.activity = 'eat';
+      v.expression = 'happy';
+    }
+    v.timer = Math.max(v.timer, 0.5);
+    return true;
+  }
+  if (v.state !== 'wander' || v.purpose !== 'cake') {
+    v.state = 'wander';
+    v.expression = 'happy';
+    v.purpose = 'cake';
+    v.activity = null;
+    [v.targetX, v.targetY] = walkingGoal(world, cake.x + (((v.id * 37) % 41) - 20), cake.y + (((v.id * 53) % 41) - 20));
+  }
+  return true;
+}
+
 function doActivity(world, v) {
   const a = v.activity;
   if (!a || v.state !== 'idle') return;
-  if (ACTIVITY.heal[a]) v.hp = Math.min(100, v.hp + ACTIVITY.heal[a]);
+  if (ACTIVITY.heal[a]) v.hp = Math.min(v.maxHp, v.hp + ACTIVITY.heal[a]);
   if (ACTIVITY.fearRelief[a]) for (let g = 0; g < v.fear.length; g++) v.fear[g] = Math.max(0, v.fear[g] - ACTIVITY.fearRelief[a]);
   if (ACTIVITY.courageGain[a]) v.courage = Math.min(v.baseCourage + ACTIVITY.courageCap, v.courage + ACTIVITY.courageGain[a]);
 }
@@ -535,10 +578,10 @@ function traitDuties(world, v) {
       let patient = null;
       let worst = 100;
       for (const o of world.villagers) {
-        if (o === v || !o.alive || o.hp >= 100) continue;
+        if (o === v || !o.alive || o.hp >= o.maxHp) continue;
         const d = dist(v, o.x, o.y);
         if (d <= cfg.healRadius) {
-          o.hp = Math.min(100, o.hp + cfg.healPerThink);
+          o.hp = Math.min(o.maxHp, o.hp + cfg.healPerThink);
           v.revealed = true;
         }
         if (o.hp < cfg.seekBelowHp && o.hp < worst && d <= cfg.seekRadius && o.state !== 'attack') {

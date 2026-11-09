@@ -53,6 +53,9 @@ const ACTIONS = {
   rally: ['rally', 'inspire', 'motivate', 'cheer', 'encourage', 'boost', 'empower', 'strengthen', 'bless', 'energize', 'pump'],
   medic: ['medic', 'hospital', 'nurse', 'ambulance', 'infirmary', 'bandage', 'bandages', 'clinic'],
   truce: ['truce', 'ceasefire', 'bell', 'soothe', 'pacify', 'lull', 'calm'],
+  blank: ['blank', 'blanks', 'confetti', 'dud', 'duds'],
+  cake: ['cake', 'invitation', 'invite', 'dessert'],
+  leader: ['leader', 'crown', 'chief'],
   // god powers
   timebomb: ['timebomb'],
   blackout: ['blackout', 'nightfall'],
@@ -78,7 +81,7 @@ const ACTIONS = {
 
 // When a sentence holds words for several actions, the earlier in this list wins.
 const PRIORITY = ['blackout', 'whirlpool', 'launcher', 'freeze', 'strength', 'timebomb', 'standdown', 'scatter', 'ambush', 'seize', 'shove', 'bomb', 'kidnap', 'warchest', 'forged', 'bribe', 'prophecy', 'raid', 'spoiled', 'matchmaker', 'treaty', 'alarm', 'recruit', 'medic', 'census',
-  'truce', 'spy', 'alibi', 'earthquake', 'tornado', 'fireball', 'disarm', 'rain', 'charm', 'enrage', 'aegis', 'sleep', 'lightning', 'miracle', 'whisper', 'fog', 'gust', 'rally', 'hunt', 'escort', 'avoid', 'festival', 'arm', 'protect',
+  'truce', 'spy', 'alibi', 'earthquake', 'tornado', 'fireball', 'disarm', 'rain', 'charm', 'enrage', 'aegis', 'sleep', 'lightning', 'miracle', 'whisper', 'fog', 'gust', 'rally', 'hunt', 'escort', 'avoid', 'festival', 'arm', 'protect', 'blank', 'cake', 'leader',
   'go', 'scare', 'assault', 'hate', 'love', 'fear', 'accuse', 'praise'];
 
 const ORDER_VERBS = new Set(['assault', 'hate', 'love', 'fear', 'scare', 'shove', 'seize', 'scatter', 'ambush', 'protect', 'avoid', 'go', 'escort', 'hunt', 'standdown', 'accuse', 'praise', 'festival', 'arm']);

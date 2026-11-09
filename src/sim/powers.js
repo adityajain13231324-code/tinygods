@@ -1,4 +1,4 @@
-import { ARMORY, POWERS, TURN, WEAPONS, WORLD } from '../config/tunables.js';
+import { ARMORY, IDEAS, POWERS, TURN, WEAPONS, WORLD } from '../config/tunables.js';
 import { GROUP_NAMES } from '../config/content.js';
 import { goToPlace, startAttack, startIdle } from './brain.js';
 import { blast, powerDamage } from './combat.js';
@@ -33,6 +33,7 @@ export const POWER_DEFS = {
   // violence
   lightning: { name: 'Lightning', icon: '⚡', cost: POWERS.lightning.cost, needs: 'point', hint: 'Click a spot to strike it.', blurb: 'A bolt that throws everyone nearby back and scatters a brawl. Hurts little.' },
   fireball: { name: 'Fireball', icon: '🔥', cost: POWERS.fireball.cost, needs: 'point', hint: 'Click a spot: a small, deadly blast.', blurb: 'Damages rivals and neutrals. Flings everyone nearby, including your own villagers, who take no damage.' },
+  leader: { name: 'Leader', icon: '👑', cost: IDEAS.leader.cost, needs: 'villager', hint: 'Crown one of YOUR villagers. Once per match.', blurb: 'Once per match: one of your villagers gets double maximum health, full health and Strength until dusk. Costs 3 power. The crown cannot be used again, even if the leader dies or changes sides.' },
   weapon: { name: 'Arm', icon: '🗡️', cost: POWERS.weapon.cost, needs: 'villager', hint: 'Aim near an unarmed ally. Arms exactly one.', blurb: 'Give one nearby own villager a weapon. The circle helps you aim; it does not arm the whole group.' },
   disarm: { name: 'Disarm', icon: '🪓', cost: POWERS.disarm.cost, needs: 'point', hint: 'Click a spot: weapons fly out of hands.', blurb: 'Everyone near the spot drops their weapon and is shoved away.' },
   timebomb: { name: 'Time Bomb', icon: '💣', cost: POWERS.timebomb.cost, needs: 'point', hint: 'Place a bomb. It explodes after 12 seconds.', blurb: 'A visible blast with a 12-second fuse. Plant before the last 12 seconds. Your faction takes no HP damage.' },
@@ -47,9 +48,11 @@ const dist = (a, x, y) => Math.hypot(a.x - x, a.y - y);
 
 export function targetPowerError(seat, id, v, args = {}) {
   if (!v?.alive) return 'Pick a living villager';
+  if (id === 'leader' && v.faction !== seat) return 'Choose one of your own villagers.';
+  if (id === 'leader' && v.leader) return `${v.name} already wears the crown.`;
   if (['weapon', 'miracle', 'strength'].includes(id) && v.faction !== seat) return 'Choose one of your own villagers.';
   if (id === 'weapon' && effectiveWeapon(v) !== 'none') return `${v.name} is already armed.`;
-  if (id === 'miracle' && v.hp >= 100) return `${v.name} is already at full health.`;
+  if (id === 'miracle' && v.hp >= v.maxHp) return `${v.name} is already at full health.`;
   if (id === 'strength' && v.damageBonus > 0) return `${v.name} is already strengthened this turn.`;
   if (id === 'whisper' && args.group === groupOf(v)) return `${v.name} knows their own group too well to be fooled`;
   return null;
@@ -74,6 +77,7 @@ export function validatePower(game, seat, id, args = {}) {
   const locked = powerUnlockError(game, id);
   if (locked) return { ok: false, error: locked };
   if (game.eliminated[seat]) return { ok: false, error: 'Your faction has fallen' };
+  if (id === 'leader' && game.leaders?.[seat]) return { ok: false, error: 'Your faction has already crowned a leader this match. The crown works once per match.' };
   if (game.usedPowers?.[seat]?.includes(id)) return { ok: false, error: `${def.name} has already been used this turn. Each miracle works once per turn.` };
   if ((game.power[seat] ?? 0) < def.cost) return { ok: false, error: `Not enough power (${def.name} costs ${def.cost})` };
 
@@ -116,6 +120,37 @@ export function normalizePowerArgs(id, args = {}) {
   return clean;
 }
 
+/** Rain then Lightning: the bolt jumps from villager to villager standing in the rain (non-lethal like the bolt itself). */
+function chainZap(world, seat, from, rain, struck) {
+  const path = [];
+  // the arc may leave from the strike itself or from anyone it just hit, then hops to the nearest wet villager
+  const points = [from, ...[...struck].map((id) => world.villagers[id])];
+  const used = new Set(struck);
+  for (let i = 0; i < IDEAS.combo.chainMax; i++) {
+    let next = null;
+    let best = IDEAS.combo.chainRadius;
+    let origin = null;
+    for (const o of world.villagers) {
+      if (!o.alive || used.has(o.id) || dist(o, rain.x, rain.y) > rain.r) continue;
+      for (const q of points) {
+        const d = dist(o, q.x, q.y);
+        if (d < best || (d === best && next && o.id < next.id)) { best = d; next = o; origin = q; }
+      }
+    }
+    if (!next) break;
+    used.add(next.id);
+    next.hp = Math.max(1, next.hp - IDEAS.combo.chainDamage);
+    next.lastDamage = IDEAS.combo.chainDamage;
+    next.hitFlash = 1;
+    next.calmUntil = Math.max(next.calmUntil, world.time + POWERS.lightning.calmSeconds);
+    if (next.state === 'attack') startIdle(world, next, 'zap');
+    path.push({ id: next.id, x: next.x, y: next.y, fromX: origin.x, fromY: origin.y, delay: (i + 1) * IDEAS.combo.chainGap });
+    points.push(next);
+  }
+  world.events.push({ type: 'comboZap', turn: world.turn, time: world.time, seat, x: from.x, y: from.y, path, damageEach: IDEAS.combo.chainDamage });
+  return path.length;
+}
+
 export function castPower(game, seat, id, args = {}) {
   const check = validatePower(game, seat, id, args);
   if (!check.ok) return check;
@@ -127,9 +162,12 @@ export function castPower(game, seat, id, args = {}) {
   switch (id) {
     case 'lightning': {
       let n = 0;
+      const wet = world.fogs.find((f) => f.rain && world.time < f.until && dist({ x: args.x, y: args.y }, f.x, f.y) <= f.r);
+      const struck = new Set();
       for (const o of world.villagers) {
         if (!o.alive || dist(o, args.x, args.y) > POWERS.lightning.radius) continue;
         n++;
+        struck.add(o.id);
         o.hp = Math.max(1, o.hp - POWERS.lightning.damage);
         o.lastDamage = POWERS.lightning.damage;
         o.lastCritical = false;
@@ -142,11 +180,12 @@ export function castPower(game, seat, id, args = {}) {
         o.panicY = args.y;
         startIdle(world, o, 'lightning');
       }
+      if (wet) chainZap(world, seat, { x: args.x, y: args.y }, wet, struck);
       message = n ? `Lightning scattered ${n} villager${n > 1 ? 's' : ''}.` : 'Lightning struck an empty spot.';
       break;
     }
     case 'miracle': {
-      v.hp = Math.min(100, v.hp + POWERS.miracle.heal);
+      v.hp = Math.min(v.maxHp, v.hp + POWERS.miracle.heal);
       const g = groupOf(v);
       for (const o of world.villagers) if (o.alive && groupOf(o) === g) o.opinion[seat] = Math.min(100, o.opinion[seat] + POWERS.miracle.opinion);
       message = `${v.name} was healed.`;
@@ -204,7 +243,7 @@ export function castPower(game, seat, id, args = {}) {
         if (['attack', 'seek', 'talk'].includes(o.state)) startIdle(world, o, 'blackout');
         o.brewId = -1;
         o.thinkTimer = 0;
-        if (o.faction === seat) o.hp = Math.min(100, o.hp + POWERS.blackout.heal);
+        if (o.faction === seat) o.hp = Math.min(o.maxHp, o.hp + POWERS.blackout.heal);
         else powerDamage(world, o, POWERS.blackout.minDamage + Math.floor(world.rng() * (POWERS.blackout.maxDamage - POWERS.blackout.minDamage + 1)), { kind: 'power', id, seat, actionId: `${world.turn}:${seat}:power:${id}` });
       }
       message = 'Night falls for 12 seconds. Enemies lose 5-10 HP, allies heal up to 20 HP, and attack targets are broken.';
@@ -231,6 +270,17 @@ export function castPower(game, seat, id, args = {}) {
         n++;
       }
       message = `Froze ${n} rival or neutral villager${n === 1 ? '' : 's'} for 7 seconds. Your faction is unaffected.`;
+      break;
+    }
+    case 'leader': {
+      const percent = Math.round(POWERS.strength.minBonus * 100) + Math.floor(world.rng() * (Math.round((POWERS.strength.maxBonus - POWERS.strength.minBonus) * 100) + 1));
+      v.maxHp = Math.round(100 * IDEAS.leader.hpMultiplier);
+      v.hp = v.maxHp;
+      v.leader = true;
+      v.damageBonus = Math.max(v.damageBonus, percent / 100);
+      game.leaders[seat] = { id: v.id, turn: game.turn };
+      world.events.push({ type: 'leaderCrowned', turn: world.turn, time: world.time, seat, villagerId: v.id, maxHp: v.maxHp, bonus: percent / 100, x: v.x, y: v.y });
+      message = `${v.name} is crowned leader: ${v.maxHp} HP and +${percent}% attack until dusk.`;
       break;
     }
     case 'strength': {
@@ -346,6 +396,17 @@ export function castPower(game, seat, id, args = {}) {
       if (direction) shoveFrom(v, v.x - args.dx, v.y - args.dy, POWERS.gust.push);
       else shoveToward(v, destination.x, destination.y, POWERS.gust.push);
       for (const o of world.villagers) if (o.alive && o !== v && dist(o, v.x, v.y) < POWERS.gust.radius) shoveToward(o, destination.x, destination.y, 420);
+      // Gust + a planted bomb: the wind carries the bomb the same way (its fuse keeps ticking).
+      const bx = direction ? args.dx : destination.x - v.x;
+      const by = direction ? args.dy : destination.y - v.y;
+      const bl = Math.hypot(bx, by) || 1;
+      for (const bomb of world.bombs) {
+        if (dist(bomb, v.x, v.y) > POWERS.gust.radius + 20) continue;
+        const from = { x: bomb.x, y: bomb.y };
+        bomb.x = Math.max(WORLD.margin, Math.min(WORLD.width - WORLD.margin, bomb.x + (bx / bl) * IDEAS.combo.bombGust));
+        bomb.y = Math.max(WORLD.margin, Math.min(WORLD.height - WORLD.margin, bomb.y + (by / bl) * IDEAS.combo.bombGust));
+        world.events.push({ type: 'comboBomb', turn: world.turn, time: world.time, seat, x: from.x, y: from.y, tx: bomb.x, ty: bomb.y });
+      }
       message = place ? `${v.name} was blown toward the ${place.name}.` : `${v.name} was swept in your chosen direction.`;
       break;
     }

@@ -71,7 +71,9 @@ export function createWorld(seed = 1, { cosmetics = true } = {}) {
     bombs: [], // time bombs planted by cards: {x, y, r, at, seat}
     blackoutUntil: 0,
     whirlpools: [],
-    weaponDrops: [],
+    weaponDrops: [], // launcher crates and weapons dropped by the dead: {id, x, y, weapon?, ammo?, until?}
+    blanks: {}, // Blank Rounds: {group: {left, seat}} for this turn
+    cakes: [], // Free Cake! invitations: {id, place, x, y, seat, until, ...}
     rockets: [],
     fogs: [], // patches of fog cast by gods: {x, y, r, until}
     festivals: [], // this turn's parties: {place, strength, seat}

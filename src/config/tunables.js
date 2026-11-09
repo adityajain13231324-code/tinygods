@@ -489,3 +489,29 @@ export const EVENTS = {
   startTurn: 3, // no events during the peaceful days
   chance: 0.6, // chance of an event at each later dawn
 };
+
+// ---- Selected-ideas update (all balance numbers live here) ---------------------------
+export const IDEAS = {
+  // Idea: weapons dropped on death. One roll per eligible armed death.
+  drop: { chance: 0.3, seconds: 20, maxActive: 10, pickupRadius: 26 },
+  // Blank Rounds card: the first few gunshots (guns and shotguns, not rockets) of a faction this turn are confetti.
+  blank: { shots: 3, confusedSeconds: 1.4 },
+  // Free Cake! card
+  cake: { seconds: 18, radius: 480, interest: 0.5, maxVisitors: 9, eatSeconds: [5, 9], arriveRadius: 70 },
+  // Leader power: once per faction per match, costs 3.
+  leader: { cost: 3, hpMultiplier: 2 },
+  // Power combos
+  combo: { rainSeconds: 8, chainRadius: 95, chainDamage: 9, chainMax: 4, chainGap: 0.18, bombGust: 330 },
+  // Real cover and destructible props
+  cover: { seekRadius: 170, leaveAfter: 4.5, blockChance: 0.55, rocketDestroysRadius: 90 },
+  // Environmental chain reactions
+  hazard: { grassPatches: 3, fireSeconds: 9, spreadEvery: 1.6, maxFires: 6, fireDamage: 5, fireTick: 0.6, grassRadius: 70, rainPutsOutRadius: 150, goodsPerBlast: 5, maxGoods: 14, telegraphSeconds: 1.6 },
+  // Wandering troublemaker
+  trouble: { stealRadius: 60, stealEvery: 14, rumorEvery: 20, stealMax: 3 },
+  // Personal rivalries
+  memory: { perVillager: 6, reactChance: 0.35, reactCooldown: 9, forgiveFear: 25 },
+  // Conditional orders
+  condition: { outnumberRatio: 1.4, hurtHp: 45, checkEvery: 1 },
+  // Squad formations
+  formation: { spread: 70, together: 55, centre: 60 },
+};

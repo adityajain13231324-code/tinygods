@@ -46,6 +46,7 @@ export function createGame({ seed = 1, seats, cosmetics = true, difficulty = 'no
     simSeconds, // how long the town acts each day
     recapSeconds, // how long the news stays up before the next day starts by itself
     power: new Array(POPULATION.factions).fill(0), // god power points left this turn
+    leaders: new Array(POPULATION.factions).fill(null), // Leader power: {id, turn} once a faction has crowned one (once per match)
     usedPowers: Array.from({ length: POPULATION.factions }, () => []), // which miracles each seat has already cast this turn (one use each)
     hand: Array.from({ length: POPULATION.factions }, () => []), // this turn's three cards per seat
     cardPending: new Array(POPULATION.factions).fill(null), // the card each seat chose to play
@@ -313,6 +314,8 @@ function endSim(game) {
   world.whirlpools = [];
   world.weaponDrops = [];
   world.rockets = [];
+  world.blanks = {};
+  world.cakes = [];
 
   // Stand everyone down so the town is calm while players plan the next turn.
   for (const v of world.villagers) {
@@ -451,7 +454,7 @@ function nextTurnDrift(game) {
     v.mood = world.rng() * 2 - 1; // a fresh good or bad day for everyone
     v.aggression += (v.baseAggression - v.aggression) * TURN.recovery;
     v.courage += (v.baseCourage - v.courage) * TURN.recovery;
-    v.hp = Math.min(100, v.hp + heal);
+    v.hp = Math.min(v.maxHp, v.hp + heal);
   }
   if (game.turn + 1 >= TURN.suddenDeathTurn) applySuddenDeath(world, game.turn + 1);
 }

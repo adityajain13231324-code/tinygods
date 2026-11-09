@@ -1,4 +1,5 @@
-import { POWERS, WEAPONS } from '../config/tunables.js';
+import { IDEAS, POWERS, WEAPONS } from '../config/tunables.js';
+import { effectiveWeapon } from './villager.js';
 import { blast, powerDamage } from './combat.js';
 import { shoveToward } from './shove.js';
 import { shuffle } from './rng.js';
@@ -7,14 +8,24 @@ import { shuffle } from './rng.js';
 export function updatePowerEffects(world, dt) {
   for (let i = world.weaponDrops.length - 1; i >= 0; i--) {
     const drop = world.weaponDrops[i];
-    const candidates = shuffle(world.rng, world.villagers.filter(v => v.alive && v.weapon !== 'rocket' && v.frozenUntil <= world.time && Math.hypot(v.x - drop.x, v.y - drop.y) <= POWERS.launcher.pickupRadius))
-      .sort((a, b) => Math.hypot(a.x - drop.x, a.y - drop.y) - Math.hypot(b.x - drop.x, b.y - drop.y));
-    const first = candidates[0];
+    if (drop.until !== undefined && world.time >= drop.until) {
+      world.weaponDrops.splice(i, 1);
+      world.events.push({ type: 'weaponDespawn', turn: world.turn, time: world.time, x: drop.x, y: drop.y, weapon: drop.weapon });
+      continue;
+    }
+    const crate = !drop.weapon; // a launcher crate: anyone without a rocket launcher takes it
+    const radius = crate ? POWERS.launcher.pickupRadius : IDEAS.drop.pickupRadius;
+    // A dropped weapon goes to the nearest villager who has nothing usable in their hands (ties: lowest id).
+    const pool = world.villagers.filter(v => v.alive && v.frozenUntil <= world.time && !v.carry && Math.hypot(v.x - drop.x, v.y - drop.y) <= radius && (crate ? v.weapon !== 'rocket' : effectiveWeapon(v) === 'none'));
+    const first = crate ? shuffle(world.rng, pool).sort((a, b) => Math.hypot(a.x - drop.x, a.y - drop.y) - Math.hypot(b.x - drop.x, b.y - drop.y))[0]
+      : pool.sort((a, b) => Math.hypot(a.x - drop.x, a.y - drop.y) - Math.hypot(b.x - drop.x, b.y - drop.y) || a.id - b.id)[0];
     if (!first) continue;
-    first.weapon = 'rocket'; first.ammo = WEAPONS.rocket.maxAmmo; first.escalation = 2;
+    first.weapon = crate ? 'rocket' : drop.weapon;
+    first.ammo = crate ? WEAPONS.rocket.maxAmmo : drop.ammo;
+    if (crate) first.escalation = 2;
     first.armDone = true;
     world.weaponDrops.splice(i, 1);
-    world.events.push({ type: 'weaponPickup', turn: world.turn, time: world.time, villagerId: first.id, x: first.x, y: first.y });
+    world.events.push({ type: 'weaponPickup', turn: world.turn, time: world.time, villagerId: first.id, weapon: first.weapon, ammo: first.ammo, fromDeadId: drop.ownerId ?? -1, x: first.x, y: first.y });
   }
   for (let i = world.whirlpools.length - 1; i >= 0; i--) {
     const w = world.whirlpools[i];

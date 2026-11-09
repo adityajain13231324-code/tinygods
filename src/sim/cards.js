@@ -1,5 +1,5 @@
 import { GROUP_NAMES, PLACES } from '../config/content.js';
-import { CARDS, POWERS, TURN } from '../config/tunables.js';
+import { CARDS, IDEAS, POWERS, TURN } from '../config/tunables.js';
 import { formLoveBonds } from './bonds.js';
 import { switchSides } from './loyalty.js';
 import { groupOf } from './villager.js';
@@ -31,6 +31,8 @@ export const CARD_DEFS = {
   alarm: { name: 'False Alarm', needs: 'group', blurb: 'Bells ring: a faction\'s villagers panic, are thrown outward from their crowd, and lose their nerve.' },
   kidnap: { name: 'Kidnap', needs: 'group', blurb: 'Their four most aggressive villagers are whisked away and fall asleep for most of the turn.' },
   bomb: { name: 'Time Bomb', needs: 'place', blurb: 'Plant a bomb at a place. It goes off 12 seconds into the turn and hurts everyone close except your own faction (who are only thrown about).' },
+  blank: { name: 'Blank Rounds', needs: 'group', blurb: 'Sabotage a rival: the first 3 gunshots their faction fires this turn are harmless confetti (guns and shotguns only, rockets are not affected). The shots still use up ammunition.' },
+  cake: { name: 'Free Cake!', needs: 'place', blurb: 'Put up an irresistible invitation at a place. About half of the idle, curious villagers nearby wander over to eat for a few seconds. Danger, orders and duties win over cake, and nobody is forced to go.' },
   // your own side
   rally: { name: 'Rally', needs: null, blurb: 'Your villagers are a touch braver and fiercer, slightly healed, and shielded for the first 2 seconds.' },
   medic: { name: 'Field Hospital', needs: null, blurb: 'Heal all your villagers by 30.' },
@@ -43,7 +45,7 @@ export function cardTargetError(game, seat, id, group) {
   const def = CARD_DEFS[id];
   if (!Number.isInteger(group) || group < 0 || group > 4) return `${def.name} needs a faction`;
   if (id !== 'spy' && group === seat) return `${def.name} cannot target your own faction`;
-  if (['spy', 'raid'].includes(id) && group > 3) return `${def.name} needs a faction with a leader`;
+  if (['spy', 'raid', 'blank'].includes(id) && group > 3) return `${def.name} needs a faction with a leader`;
   if (group < 4 && game.eliminated?.[group]) return `The ${GROUP_NAMES[group]} have been eliminated. Choose a living target.`;
   if (!groupHasMembers(game.world, group)) return `No living ${GROUP_NAMES[group]} remain. Choose another target.`;
   return null;
@@ -90,6 +92,22 @@ const members = (world, g) => world.villagers.filter((v) => v.alive && groupOf(v
 const clamp = (x, lo, hi) => Math.min(hi, Math.max(lo, x));
 
 /** Play a seat's chosen card. Runs at the end of the command phase, after everyone's orders are known. */
+function playBlank(game, seat, card) {
+  const { world } = game;
+  world.blanks[card.group] = { left: IDEAS.blank.shots, seat };
+  game.feedback[seat].push(`Blank Rounds: the first ${IDEAS.blank.shots} gunshots of the ${GROUP_NAMES[card.group]} this turn are confetti.`);
+  world.events.push({ type: 'blankArmed', turn: world.turn, time: world.time, seat, group: card.group, shots: IDEAS.blank.shots });
+}
+
+function playCake(game, seat, card) {
+  const { world } = game;
+  const p = world.places.find((q) => q.id === card.place);
+  if (!p) return;
+  world.cakes.push({ id: `${world.turn}:${seat}:cake`, place: p.id, x: p.x, y: p.y, seat, turn: world.turn, from: world.time, until: world.time + IDEAS.cake.seconds, interested: {}, interestedCount: 0, arrived: [], eatUntil: {} });
+  game.feedback[seat].push(`Free Cake!: the invitation is up at the ${p.name}.`);
+  world.events.push({ type: 'cakeInvite', turn: world.turn, time: world.time, seat, place: p.id, x: p.x, y: p.y });
+}
+
 export function applyCard(game, seat, card) {
   const { world } = game;
   const g = card.group;
@@ -99,6 +117,8 @@ export function applyCard(game, seat, card) {
     if (error) { note(error); return; }
   }
   switch (card.id) {
+    case 'blank': playBlank(game, seat, card); break;
+    case 'cake': playCake(game, seat, card); break;
     case 'forged': {
       let n = 0;
       for (const v of world.villagers) {
@@ -241,13 +261,13 @@ export function applyCard(game, seat, card) {
       for (const v of members(world, seat)) {
         v.courage = Math.min(100, v.courage + 5);
         v.aggression = Math.min(100, v.aggression + 3);
-        v.hp = Math.min(100, v.hp + 4);
+        v.hp = Math.min(v.maxHp, v.hp + 4);
         v.blessUntil = world.time + 2;
       }
       note('your villagers stand a little taller and are briefly shielded.');
       break;
     case 'medic':
-      for (const v of members(world, seat)) v.hp = Math.min(100, v.hp + 30);
+      for (const v of members(world, seat)) v.hp = Math.min(v.maxHp, v.hp + 30);
       note('your villagers are patched up.');
       break;
     case 'truce':

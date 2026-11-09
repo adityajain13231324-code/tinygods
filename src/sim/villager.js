@@ -57,6 +57,9 @@ export function createVillager(rng, { id, name, shape, faction, x, y, count = 60
     id, name, shape, faction,
     alive: true,
     hp: STATS.hp,
+    maxHp: STATS.hp, // the Leader power doubles it
+    leader: false,
+    blankUntil: 0, // a Blank Rounds shot just fizzled: they stare at their weapon until this sim time
     courage, baseCourage: courage,
     aggression, baseAggression: aggression,
     opinion,

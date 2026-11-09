@@ -10,6 +10,7 @@ export function powerUnlockError(game, id) {
 
 export function cardUnlockError(game, id) {
   if (id === 'bomb' && game.turn < TURN.damagingAreaTurn) return `Time Bomb unlocks on day ${TURN.damagingAreaTurn}.`;
+  if (id === 'blank' && game.world.peaceful) return `Blank Rounds unlocks on day ${TURN.peaceTurns + 1}, when guns can fire.`;
   if (id === 'kidnap' && game.world.peaceful) return `Kidnap unlocks on day ${TURN.peaceTurns + 1}.`;
   return null;
 }

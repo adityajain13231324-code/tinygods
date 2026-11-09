@@ -14,6 +14,8 @@ export const CARD_LOOK = {
   alarm: { icon: '🚨', cat: 'pressure' },
   bomb: { icon: '💣', cat: 'pressure' },
   kidnap: { icon: '🧳', cat: 'pressure' },
+  blank: { icon: '🎊', cat: 'pressure' },
+  cake: { icon: '🍰', cat: 'people' },
   warchest: { icon: '🪙', cat: 'people' },
   rally: { icon: '📣', cat: 'support' },
   medic: { icon: '⛑️', cat: 'support' },
@@ -33,7 +35,7 @@ export const POWER_CATS = {
   miracle: '#5fd38d', aegis: '#5fd38d', rain: '#4aa8ff', fog: '#4aa8ff', sleep: '#4aa8ff',
   whisper: '#a77bff', charm: '#ff8fb0', enrage: '#ff8fb0',
   gust: '#ffd36b', tornado: '#ffd36b', earthquake: '#ffd36b',
-  lightning: '#ff6b4a', fireball: '#ff6b4a', disarm: '#ff6b4a', weapon: '#ff6b4a',
+  lightning: '#ff6b4a', fireball: '#ff6b4a', disarm: '#ff6b4a', leader: '#ffd36b', weapon: '#ff6b4a',
   timebomb: '#ff9c6b', blackout: '#a99af0', whirlpool: '#55bee5', launcher: '#a7c279', freeze: '#8adfff', strength: '#ffc978',
 };
 

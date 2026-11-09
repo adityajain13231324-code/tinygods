@@ -1,4 +1,5 @@
-import { BOND, BRAIN, COMBAT, GRIEVANCE, ORDERS, POWERS, TENSION, TRAITS, WEAPONS } from '../config/tunables.js';
+import { BOND, BRAIN, COMBAT, GRIEVANCE, IDEAS, ORDERS, POWERS, TENSION, TRAITS, WEAPONS } from '../config/tunables.js';
+import { maybeDropWeapon } from './drops.js';
 import { breakBond } from './bonds.js';
 import { chainFor, logPair } from './history.js';
 import { groupOf, isFirearm, usableWeapon } from './villager.js';
@@ -132,6 +133,16 @@ function strike(world, attacker, victim, weapon) {
 
   if (isFirearm(weapon)) {
     attacker.ammo--;
+    // Blank Rounds: the shot costs a bullet, makes confetti, and hurts nobody (rockets are not affected).
+    const blank = weapon !== 'rocket' && world.blanks?.[groupOf(attacker)]?.left > 0;
+    if (blank) {
+      const b = world.blanks[groupOf(attacker)];
+      b.left--;
+      attacker.blankUntil = world.time + IDEAS.blank.confusedSeconds;
+      gunshot(world, attacker, weapon, victim, false, false, b.left);
+      attacker.revealed = true;
+      return;
+    }
     gunshot(world, attacker, weapon, victim, hit, critical);
     attacker.revealed = true;
   }
@@ -197,9 +208,10 @@ function dealDamage(world, attacker, victim, weapon, share, critical = false) {
   else if (damage >= COMBAT.screamDamage && rng() < 0.6) scream(world, victim);
 }
 
-function gunshot(world, shooter, weapon, target, hit, critical = false) {
+function gunshot(world, shooter, weapon, target, hit, critical = false, blanksLeft = -1) {
   const radius = WEAPONS[weapon].panicRadius;
-  for (const o of world.villagers) {
+  const blank = blanksLeft >= 0;
+  for (const o of blank ? [] : world.villagers) {
     if (!o.alive || o === shooter) continue;
     if (Math.hypot(o.x - shooter.x, o.y - shooter.y) > radius) continue;
     if (TRAITS.steady.includes(o.trait)) continue; // gunslingers and bodyguards keep their cool
@@ -208,11 +220,12 @@ function gunshot(world, shooter, weapon, target, hit, critical = false) {
     o.panicX = shooter.x;
     o.panicY = shooter.y;
   }
-  world.drama += TENSION.gunshotDrama;
+  if (!blank) world.drama += TENSION.gunshotDrama;
   world.events.push({
     type: 'gunshot', turn: world.turn, time: world.time, weapon,
     shooterId: shooter.id, shooterFaction: shooter.faction, x: shooter.x, y: shooter.y, place: nearestPlace(world, shooter.x, shooter.y).id,
     targetId: target.id, tx: target.x, ty: target.y, hit, critical,
+    ...(blank ? { blank: true, blanksLeft } : {}),
     blocked: hit && world.time < target.aegisUntil, // no blood on the reflected impact
     facing: shooter.facing,
   });
@@ -351,4 +364,5 @@ function kill(world, killer, victim, weapon, source = null) {
     beliefs: killer?.believed.map(r => ({ ...r })) ?? [],
     ...(source ? { source: { ...source } } : {}),
   });
+  maybeDropWeapon(world, victim);
 }
