@@ -51,11 +51,11 @@ export function conditionFallback(world, v, h) {
     world.events.push({ type: 'conditionTriggered', turn: world.turn, time: world.time, seat: v.faction, villagerId: v.id, cond: w.cond, retreat: w.retreat, verb: w.verb, x: v.x, y: v.y });
   }
   if (!v.whenActive) return false;
-  // Released only once the danger is gone for 3 seconds AND the retreat is complete (or 25 s have passed), and
+  // Released only once the danger is gone for 3 seconds AND the retreat is complete (or a minute has passed: orders reset at dusk anyway), and
   // then not triggered again for 10 seconds: otherwise a long siege makes people ping-pong between post and retreat.
   const place = w.retreat ? world.places.find((p) => p.id === w.retreat) : null;
   const arrived = !place || Math.hypot(v.x - place.x, v.y - place.y) <= place.radius * 0.8;
-  if (!holds && world.time >= v.whenUntil && v.whenFalseSince >= 0 && world.time - v.whenFalseSince >= 3 && (arrived || world.time >= v.whenUntil + 21)) {
+  if (!holds && world.time >= v.whenUntil && v.whenFalseSince >= 0 && world.time - v.whenFalseSince >= 3 && (arrived || world.time >= v.whenUntil + 56)) {
     v.whenActive = false;
     v.whenCool = world.time + 10;
     world.events.push({ type: 'conditionCleared', turn: world.turn, time: world.time, seat: v.faction, villagerId: v.id, cond: w.cond, x: v.x, y: v.y });
