@@ -4,6 +4,7 @@
 // Exits with code 1 on any mismatch.
 import { createGame, humanSeats, submitOrders } from '../src/sim/turn.js';
 import { parseCommand } from '../src/sim/parser.js';
+import { CARD_DEFS } from '../src/sim/cards.js';
 import { Lockstep, stateHash, authoritativeState } from '../src/net/lockstep.js';
 import { Replay } from '../src/render/replay.js';
 import { isDeepStrictEqual } from 'node:util';
@@ -11,7 +12,7 @@ import { mulberry32 } from '../src/sim/rng.js';
 
 const MATCHES = Number(process.argv[2] ?? 6);
 const PHRASES = ['spread out', 'stick together', 'guard the armory, retreat to the park if outnumbered', 'hate the tides', 'arm up', 'send three villagers to the armory', 'scare the sparks', 'hunt the tides', 'guard the plaza', 'throw a party at the pond', 'assault the sprouts', 'stand down', 'accuse the sparks'];
-const POWERS = [['lightning', { x: 900, y: 600 }], ['earthquake', {}], ['fog', { x: 700, y: 500 }], ['fireball', { x: 1100, y: 400 }], ['tornado', { x: 800, y: 700 }], ['timebomb', { x: 950, y: 570 }], ['blackout', {}], ['whirlpool', { x: 950, y: 570 }], ['launcher', { x: 950, y: 570 }], ['freeze', { x: 950, y: 570 }], ['strength', {}], ['aegis', {}], ['gust', { tx: 950, ty: 570 }], ['gust', { dx: 140, dy: -70 }]];
+const POWERS = [['leader', {}], ['weapon', {}], ['leader', {}], ['lightning', { x: 900, y: 600 }], ['earthquake', {}], ['fog', { x: 700, y: 500 }], ['fireball', { x: 1100, y: 400 }], ['tornado', { x: 800, y: 700 }], ['timebomb', { x: 950, y: 570 }], ['blackout', {}], ['whirlpool', { x: 950, y: 570 }], ['launcher', { x: 950, y: 570 }], ['freeze', { x: 950, y: 570 }], ['strength', {}], ['aegis', {}], ['gust', { tx: 950, ty: 570 }], ['gust', { dx: 140, dy: -70 }]];
 let failed = 0;
 
 function playMatch(seed, humans, dropSeat = -1) {
@@ -71,19 +72,25 @@ function playMatch(seed, humans, dropSeat = -1) {
       if (g.phase === 'command' && g.pending[s] === null && rnd() < 0.02) {
         const parsed = parseCommand(PHRASES[Math.floor(rnd() * PHRASES.length)], g, s);
         const orders = parsed.ok ? parsed.actions.filter((a) => a.kind === 'order').map((a) => a.order) : [];
-        if (!n.submit(orders.slice(0, 2)).ok) n.submit([]);
+        // most players also play a card from their hand (Free Cake, Blank Rounds, Treaty...)
+        let card = null;
+        if (g.hand[s]?.length && rnd() < 0.8) {
+          const id = g.hand[s][Math.floor(rnd() * g.hand[s].length)];
+          card = { id, group: CARD_DEFS[id].needs === 'group' ? (s + 1 + Math.floor(rnd() * 3)) % 4 : -1, ...(CARD_DEFS[id].needs === 'place' ? { place: ['plaza', 'pond', 'bakery', 'market'][Math.floor(rnd() * 4)] } : {}) };
+        }
+        if (!n.submit(orders.slice(0, 2), card).ok && !n.submit(orders.slice(0, 2)).ok) n.submit([]);
       }
       if (g.phase === 'sim' && !g.world.peaceful && rnd() < 0.01) {
         const [id, args] = POWERS[Math.floor(rnd() * POWERS.length)];
         const target = g.world.villagers.find(v => v.alive && v.faction === s);
-        n.cast(id, { ...args, ...(['strength','aegis','gust'].includes(id) ? { villagerId: target?.id } : {}) });
+        n.cast(id, { ...args, ...(['strength','aegis','gust','leader','weapon'].includes(id) ? { villagerId: target?.id } : {}) });
       }
       if (g.phase === 'recap' && rnd() < 0.03) n.ready();
       n.update(Math.min(0.1, 0.016 * (0.5 + rnd() * 2.2)) * (s === 2 ? 0.7 : 1)); // random frame times; one slow machine
     }
   }
   const alive = [...Array(humans).keys()].filter((s) => !(dropSeat === s && dropped));
-  const finals = alive.map((s) => ({ seat: s, phase: games[s].phase, turn: games[s].turn, winner: games[s].winner, hash: stateHash(games[s]), kills: games[s].world.events.filter((e) => e.type === 'kill').length }));
+  const finals = alive.map((s) => ({ seat: s, phase: games[s].phase, turn: games[s].turn, winner: games[s].winner, hash: stateHash(games[s]), kills: games[s].world.events.filter((e) => e.type === 'kill').length, tricks: games[s].world.events.filter((e) => ['cakeInvite', 'blankArmed', 'leaderCrowned', 'comboZap', 'weaponStolen'].includes(e.type)).length }));
   replays.forEach(r => r.stop());
   const states = alive.map(s => authoritativeState(games[s]));
   const same = finals.every((f) => f.turn === finals[0].turn && f.winner === finals[0].winner && f.kills === finals[0].kills) && states.every(s => isDeepStrictEqual(s, states[0]));
@@ -96,6 +103,6 @@ for (let m = 1; m <= MATCHES; m++) {
   const r = playMatch(m * 13, humans, drop);
   const ok = r.same && r.ended && r.desyncs === 0;
   if (!ok) failed++;
-  console.log(`${ok ? 'PASS' : 'FAIL'}  match ${m}: ${humans} players${drop > 0 ? ' (one drops out at turn 3)' : ''}, turns ${r.finals.map((f) => f.turn).join('/')}, winners ${r.finals.map((f) => f.winner).join('/')}, kills ${r.finals.map((f) => f.kills).join('/')}, desync reports ${r.desyncs}${r.ended ? '' : ', DID NOT FINISH'}`);
+  console.log(`${ok ? 'PASS' : 'FAIL'}  match ${m}: ${humans} players${drop > 0 ? ' (one drops out at turn 3)' : ''}, turns ${r.finals.map((f) => f.turn).join('/')}, winners ${r.finals.map((f) => f.winner).join('/')}, kills ${r.finals.map((f) => f.kills).join('/')}, new-rule events ${r.finals.map((f) => f.tricks).join('/')}, desync reports ${r.desyncs}${r.ended ? '' : ', DID NOT FINISH'}`);
 }
 process.exit(failed ? 1 : 0);
