@@ -26,10 +26,38 @@ const dailySeed = () => {
 
 export const getDifficulty = () => (DIFFICULTY[read('tinygods.difficulty')] ? read('tinygods.difficulty') : 'normal');
 
+export const LAYOUT_CHOICES = [['classic', 'Classic town'], ['canal', 'Canal town (bridges)'], ['market', 'Market street'], ['farms', 'Scattered farms'], ['hill', 'Hill village'], ['random', 'Random (fair draw)']];
+export const MODE_CHOICES = [['standard', 'Standard'], ['armed', 'Everyone Starts Armed'], ['one', 'One Villager per Faction'], ['explosive', 'Explosive Deliveries'], ['random', 'Random Powers Every Turn']];
+const MODE_BLURBS = { standard: 'The normal game.', armed: 'Every villager starts with a weapon.', one: 'Each faction is a single villager.', explosive: 'From day 3, lit crates land every day.', random: 'Only 4 random miracles each day.' };
+
+/** Town layout and challenge pickers, shared by the solo, pass-and-play and settings dialogs. */
+function addTownChoices(card) {
+  const box = el('div', 'setup-settings');
+  const note = el('p', 'sub');
+  const row = (label, key, values, fallback) => {
+    const r = el('label', 'setup-field'), select = el('select');
+    r.append(el('span', '', label));
+    values.forEach(([v, t]) => { const o = el('option', '', t); o.value = v; select.append(o); });
+    select.setAttribute('aria-label', label);
+    select.value = read(key) || fallback;
+    select.onchange = () => { write(key, select.value); paint(); };
+    r.append(select);
+    box.append(r);
+  };
+  const paint = () => {
+    const m = read('tinygods.mode') || 'standard';
+    note.textContent = `${MODE_BLURBS[m] ?? MODE_BLURBS.standard}${m === 'standard' ? '' : ' Challenge matches do not count toward your record or achievements.'}`;
+  };
+  row('Town layout', 'tinygods.layout', LAYOUT_CHOICES, 'classic');
+  row('Challenge', 'tinygods.mode', MODE_CHOICES, 'standard');
+  paint();
+  card.append(box, note);
+}
+
 function launch(options) {
   if (launching) return;
   launching = true;
-  const p = new URLSearchParams({ start: '1', difficulty: getDifficulty(), ...options });
+  const p = new URLSearchParams({ start: '1', difficulty: getDifficulty(), layout: read('tinygods.layout') || 'classic', mode: read('tinygods.mode') || 'standard', ...options });
   const go = () => { location.search = p.toString(); };
   const delay = menuClicks?.tail() ?? 0;
   if (delay > 0) setTimeout(go, delay);
@@ -117,7 +145,7 @@ export function showMenu() {
   const openOnline = (code = '', rematch = null) => import('./onlineLobby.js').then((m) => m.showOnlineLobby(root, modal, code, rematch));
   card('🌐', 'Play online', 'Make a room with a 5-letter code. Friends join from their own devices; bots fill empty seats.', { onClick: () => openOnline() });
   card('🛋️', 'Pass and play', '2 to 4 friends on one device. Orders are hidden by a "pass the device" screen.', { onClick: () => showPassSetup() });
-  card('📅', 'Daily town', 'Everyone gets the same town today. Compare how you did.', { onClick: () => launch({ players: '1', seed: String(dailySeed()) }) });
+  card('📅', 'Daily town', 'Everyone gets the same town today. Compare how you did.', { onClick: () => launch({ players: '1', seed: String(dailySeed()), layout: 'classic', mode: 'standard' }) });
   const invited = new URLSearchParams(location.search).get('room');
   let rematch = null;
   if (new URLSearchParams(location.search).get('rematch') === '1') {
@@ -222,6 +250,7 @@ export function showMenu() {
     }
     dlg.card.append(countRow, fields);
     dlg.card.append(el('p', 'sub', 'Empty seats are filled by bots.'));
+    addTownChoices(dlg.card);
     const go = el('button', 'go', 'Start');
     go.onclick = () => {
       const clean = names.slice(0, count).map((n, i) => (n.trim() || `Player ${i + 1}`).replace(/[|,]/g, ''));
@@ -245,6 +274,7 @@ export function showMenu() {
     choice('Planning time','tinygods.orderSecs',[['30','30 seconds'],['45','45 seconds'],['60','60 seconds'],['90','90 seconds']],'45');
     choice('Day length','tinygods.simSecs',[['32','32 seconds'],['45','45 seconds'],['60','60 seconds']],'45');
     choice('News','tinygods.news',[['1','On'],['0','Off']],'1');
+    addTownChoices(dlg.card);
     const start=el('button','go setup-start','Start match');start.onclick=()=>{write('tinygods.faction',String(faction));launch({players:'1',faction:String(faction),seed:String(Math.floor(Math.random()*1e6)+1)});};dlg.card.append(settings,start);
   }
   function showHow(welcome=false,onDone=()=>{}) {

@@ -16,6 +16,10 @@ import { createCommandPanel } from './render/ui/commandPanel.js';
 import { createPowerBar } from './render/ui/powerBar.js';
 import { PowerWorldView } from './render/powerWorldView.js';
 import { IdeasView } from './render/ideasView.js';
+import { createClipTool } from './render/clip.js';
+import { LAYOUT_IDS } from './sim/layouts.js';
+import { MODE_IDS } from './sim/modes.js';
+import { mulberry32 } from './sim/rng.js';
 import { createRecap } from './render/ui/recap.js';
 import './render/ui/ui.css';
 import { Replay } from './render/replay.js';
@@ -48,6 +52,11 @@ const hotseat = !online && humanSeats.length > 1;
 
 const wanted = online ? online.difficulty : params.get('difficulty');
 const difficulty = DIFFICULTY[wanted] ? wanted : 'normal';
+// Town layout and challenge mode: from the URL, or from the room's host online. 'random' is a seeded draw, so every player gets the same one.
+const wantedLayout = online ? online.layout : params.get('layout');
+const layout = wantedLayout === 'random' ? LAYOUT_IDS[Math.floor(mulberry32((seed ^ 0x51a7) >>> 0)() * LAYOUT_IDS.length)] : LAYOUT_IDS.includes(wantedLayout) ? wantedLayout : 'classic';
+const wantedMode = online ? online.mode : params.get('mode');
+const mode = MODE_IDS.includes(wantedMode) ? wantedMode : 'standard';
 // Timer settings (menu > Settings). Online, the host picks them in the lobby and everyone gets the same ones.
 const savedSecs = (key, allowed, fallback) => { try { const v = Number(localStorage.getItem(key)); return allowed.includes(v) ? v : fallback; } catch { return fallback; } };
 const timers = online ? {} : {
@@ -62,7 +71,7 @@ const saveRematch = (o) => {
   const info = { role: o.role, code: o.room.code, name: name || o.names[o.mySeat] || '', seat: o.mySeat, difficulty: o.difficulty, orderSecs: o.orderSecs, simSecs: o.simSecs };
   try { sessionStorage.setItem('tinygods.rematch', JSON.stringify(info)); } catch { /* storage can be blocked */ }
 };
-const game = createGame({ seed, seats, difficulty, ...(online ? { commandSeconds: online.orderSecs ?? 45, simSeconds: online.simSecs ?? 32 } : timers) });
+const game = createGame({ seed, seats, difficulty, layout, mode, ...(online ? { commandSeconds: online.orderSecs ?? 45, simSeconds: online.simSecs ?? 32 } : timers) });
 const { app, world: stage } = await createApp(document.getElementById('game'));
 // Frame-rate cap (menu > Settings, or the button in the top bar): Auto follows the screen, or 60 / 30.
 const FPS_CYCLE = ['0', '60', '30'];
@@ -244,6 +253,7 @@ const director = new Director({ camera, board, effects, audio, spotlight, clock:
 speech.views = views;
 director.speech = speech;
 director.ideas = ideas;
+ctx.clip = createClipTool({ app, replay, game });
 
 // ---- Main loop ----
 // The sim steps at a fixed 20 Hz inside updateGame; the renderer slides villagers between ticks.
@@ -368,6 +378,7 @@ function frame(frameSeconds) {
   const alpha = replay.active ? replay.alpha : game.phase === 'sim' ? Math.min(1, game.acc / TICK) : 1;
   VillagerView.effectTime = replay.active ? replay.time : game.world.time;
   powerWorld.update(replay.active ? replay.visuals : game.world, VillagerView.effectTime, dt);
+  ideas.hint = ['lightning', 'gust'].includes(powerBar?.selected) ? powerBar.selected : null; // show where a combo would land
   ideas.update(replay.active ? replay.visuals : game.world, VillagerView.effectTime, dt);
   effects.world = replay.active ? { ...replay.visuals, time: replay.time } : game.world;
   for (const view of views) {

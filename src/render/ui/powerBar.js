@@ -182,9 +182,13 @@ export function createPowerBar(root, ctx, game, camera, stage) {
       b.title = def.blurb;
       const used = game.usedPowers[ctx.seat].includes(id);
       const locked = powerUnlockError(game, id);
-      b.disabled = left < def.cost || used || !!locked;
+      const crowned = id === 'leader' && game.leaders?.[ctx.seat];
+      const notToday = game.mode === 'random' && !game.randomPowers?.[ctx.seat]?.includes(id);
+      b.disabled = left < def.cost || used || !!locked || !!crowned || notToday;
       if (locked) { b.title = `${def.name}: ${locked}`; b.setAttribute('aria-label', `${def.name}: ${locked}`); }
       if (used) { b.classList.add('used'); b.title = `${def.name}: already used this turn`; }
+      if (id === 'leader') { b.title = crowned ? `Leader: used (${game.world.villagers[crowned.id]?.name ?? 'your leader'} wears the crown). Once per match.` : 'Leader: once per match, 3 power. Doubles one villager\'s max HP and heals them fully, plus Strength.'; if (crowned) b.classList.add('used'); }
+      if (notToday) { b.classList.add('used'); b.title = `${def.name}: not in today's Random Powers pool`; }
       const cost = el('span', 'pt-cost');
       for (let i = 0; i < def.cost; i++) cost.append(el('i'));
       b.append(el('span', 'pt-icon', def.icon), el('span', 'pt-name', def.name), cost);
@@ -298,7 +302,7 @@ export function createPowerBar(root, ctx, game, camera, stage) {
       if (selected && (game.power[ctx.seat] < POWER_DEFS[selected].cost || game.usedPowers[ctx.seat].includes(selected))) { selected = null; cancelAim(); }
       if (selected && powerUnlockError(game, selected)) { selected = null; cancelAim(); }
       if (group !== null && !groupHasMembers(game.world, group)) group = null;
-      const key = `${game.turn}:${ctx.seat}:${game.power[ctx.seat]}:${game.usedPowers[ctx.seat].join(',')}:${selected}:${group}:${good}:${!!powerUnlockError(game, 'timebomb')}:${livingGroups(game.world).join(',')}`;
+      const key = `${game.turn}:${ctx.seat}:${game.power[ctx.seat]}:${game.leaders?.[ctx.seat]?.id ?? ''}:${game.usedPowers[ctx.seat].join(',')}:${selected}:${group}:${good}:${!!powerUnlockError(game, 'timebomb')}:${livingGroups(game.world).join(',')}`;
       if (key !== shownKey) {
         shownKey = key;
         build();

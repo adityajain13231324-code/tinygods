@@ -22,6 +22,8 @@ export function loadStats() {
 /** Call once when a match ends. Returns the achievements earned for the first time. */
 export function recordMatch(game, humanSeats) {
   const stats = loadStats();
+  // Challenge modes are for fun: they leave your record and achievements alone.
+  if (game.mode && game.mode !== 'standard') return { stats, earned: [], skipped: true };
   const seat = humanSeats[0];
   const won = game.winner === seat;
   stats.matches++;

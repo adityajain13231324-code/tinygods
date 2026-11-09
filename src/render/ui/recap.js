@@ -2,7 +2,8 @@ import { FACTIONS } from '../../config/content.js';
 import { describeOrder } from '../../sim/orders.js';
 import { describeCard } from '../../sim/cards.js';
 import { buildStats, buildStory, shareText } from '../../sim/story.js';
-import { buildAwards } from '../../sim/awards.js';
+import { buildAwards, awardClip } from '../../sim/awards.js';
+import { openClipDialog } from './clipDialog.js';
 import { ACHIEVEMENTS, recordMatch } from '../../stats.js';
 import { clock, css, el } from './dom.js';
 
@@ -72,7 +73,10 @@ export function createRecap(root, ctx) {
         const row = el('div', 'hl');
         const play = el('button', 'opt', '▶ Replay');
         play.onclick = () => ctx.replay(h);
-        row.append(play, el('span', '', h.title));
+        const clip = el('button', 'opt', '🎬 Save clip');
+        clip.title = 'Record this moment as a short clip with a caption and @adityajain1323';
+        clip.onclick = () => openClipDialog(root, ctx, h, 'Save this moment as a clip');
+        row.append(play, clip, el('span', '', h.title));
         dock.append(row);
       }
     }
@@ -123,13 +127,24 @@ export function createRecap(root, ctx) {
     for (const line of buildStory(game)) story.append(el('li', '', line));
     card.append(story);
 
-    const awards = buildAwards(game.world);
+    const awards = buildAwards(game.world, game.recorder, game.turn);
     if (awards.length) {
       card.append(el('h3', '', 'Town awards'));
       const list = el('div', 'town-awards');
       for (const award of awards) {
         const row = el('div', 'town-award');
         row.append(el('b', '', award.title), el('span', '', award.name), el('small', '', award.detail));
+        if (award.replayable) {
+          const play = el('button', 'opt', '▶ Replay');
+          play.setAttribute('aria-label', `Replay the moment: ${award.title}`);
+          play.onclick = () => { dismissed = true; ctx.replay(awardClip(award.moment)); };
+          const clip = el('button', 'opt', '🎬 Clip');
+          clip.onclick = () => openClipDialog(root, ctx, awardClip(award.moment), `Clip: ${award.title}`);
+          row.append(play, clip);
+        } else if (award.moment) {
+          // only the last recorded day can be replayed: say why, and let the event evidence speak
+          row.append(el('small', 'award-note', `From day ${award.moment.turn}: no recording kept, the award comes from the match log.`));
+        }
         list.append(row);
       }
       card.append(list);

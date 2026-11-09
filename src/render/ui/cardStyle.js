@@ -41,6 +41,7 @@ export const POWER_CATS = {
 
 // The order menu: icon and one-line meaning for every verb.
 export const VERB_LOOK = {
+  formation: { icon: '🧩', tip: 'Arrange your villagers: spread out (blasts catch fewer), stick together (allies nearby take less damage) or protect the centre (the weakest stay in the middle).' },
   hate: { icon: '😠', tip: 'Make people despise a faction' },
   love: { icon: '💗', tip: 'Warm people to a faction; some pair up' },
   fear: { icon: '😱', tip: 'Make people afraid of a faction' },
@@ -61,4 +62,4 @@ export const VERB_LOOK = {
   scatter: { icon: '💨', tip: 'Everyone runs away from everyone' },
   ambush: { icon: '🥷', tip: 'Wait at a place and jump anyone who comes near' },
 };
-export const VERB_ORDER = ['hate', 'love', 'fear', 'assault', 'protect', 'avoid', 'follow', 'escort', 'hunt', 'standdown', 'arm', 'accuse', 'praise', 'festival', 'scare', 'shove', 'seize', 'scatter', 'ambush'];
+export const VERB_ORDER = ['formation', 'hate', 'love', 'fear', 'assault', 'protect', 'avoid', 'follow', 'escort', 'hunt', 'standdown', 'arm', 'accuse', 'praise', 'festival', 'scare', 'shove', 'seize', 'scatter', 'ambush'];

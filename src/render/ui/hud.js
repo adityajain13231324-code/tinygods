@@ -206,6 +206,38 @@ export function createHud(root, ctx) {
           logLine(e.turn, '🗣️', 'A rumor starts to spread');
         } else if (e.type === 'power') {
           logLine(e.turn, '✨', `${POWER_DEFS[e.power]?.name ?? 'A miracle'} was cast`);
+        } else if (e.type === 'weaponDropRoll' && e.dropped) {
+          logLine(e.turn, '🎁', `${game.world.villagers[e.villagerId].name}'s ${e.weapon} was dropped`);
+        } else if (e.type === 'weaponPickup' && e.fromDeadId >= 0) {
+          logLine(e.turn, '🤲', `${game.world.villagers[e.villagerId].name} picked up a ${e.weapon}`);
+        } else if (e.type === 'gunshot' && e.blank) {
+          logLine(e.turn, '🎊', `${game.world.villagers[e.shooterId].name} fired a blank (${e.blanksLeft} left)`);
+        } else if (e.type === 'leaderCrowned') {
+          logLine(e.turn, '👑', `${game.world.villagers[e.villagerId].name} became a leader`);
+        } else if (e.type === 'comboZap') {
+          logLine(e.turn, '⚡', `Chain zap through ${e.path.length} wet villager${e.path.length === 1 ? '' : 's'}`);
+        } else if (e.type === 'comboBomb') {
+          logLine(e.turn, '💨', 'A gust pushed a bomb');
+        } else if (e.type === 'propDestroyed') {
+          logLine(e.turn, '🪵', `A ${e.kind} was destroyed`);
+        } else if (e.type === 'grassIgnite') {
+          logLine(e.turn, '🔥', 'Dry grass caught fire');
+        } else if (e.type === 'grassOut') {
+          logLine(e.turn, '💧', 'Water put the fire out');
+        } else if (e.type === 'cakeInvite') {
+          logLine(e.turn, '🍰', `Free cake at the ${placeName(e.place)}`);
+        } else if (e.type === 'weaponStolen') {
+          logLine(e.turn, '🦹', `${game.world.villagers[e.thiefId].name} stole ${game.world.villagers[e.victimId].name}'s ${e.weapon}`);
+        } else if (e.type === 'troubleDash') {
+          logLine(e.turn, '💨', `${game.world.villagers[e.thiefId].name} dashed through a fight`);
+        } else if (e.type === 'troubleRumor') {
+          logLine(e.turn, '🤫', `${game.world.villagers[e.villagerId].name} started a rumor`);
+        } else if (e.type === 'forgave') {
+          logLine(e.turn, '🕊️', `${game.world.villagers[e.villagerId].name} forgave ${game.world.villagers[e.otherId].name}`);
+        } else if (e.type === 'conditionTriggered') {
+          logLine(e.turn, '↩️', 'A conditional order kicked in: falling back');
+        } else if (e.type === 'deliveryArrived') {
+          logLine(e.turn, '📦', `An explosive delivery landed at the ${placeName(e.place)}`);
         } else if (e.type === 'explosion') {
           logLine(e.turn, '💥', 'An explosion');
         }

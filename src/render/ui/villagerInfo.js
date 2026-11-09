@@ -6,6 +6,7 @@ const TRAITS = {
   gunslinger: 'Gunslinger: a shotgun and nerves of steel', peacemaker: 'Peacemaker: breaks up fights',
   medic: 'Medic: heals the hurt, never starts a fight', bodyguard: 'Bodyguard: defends their friend, not rattled by guns',
   wildcard: 'Wildcard: unpredictable temper',
+  troublemaker: 'Troublemaker: steals weapons, spreads rumors, dashes through fights. Not immune: guard, recruit or hunt them',
 };
 const name = v => v ? `${v.name} (${v.faction >= 0 ? FACTIONS[v.faction].name : 'neutral'})` : 'someone';
 
@@ -19,7 +20,7 @@ export function villagerInfo(game, v) {
     wander: v.purpose === 'arm' ? 'Going to the Armory' : v.purpose === 'follow' ? 'Heading to their post' : 'Strolling about',
   };
   const weapon = v.weapon === 'none' ? 'bare fists' : v.weapon === 'gun' ? `pistol (${v.ammo} bullets)` : v.weapon === 'shotgun' ? `shotgun (${v.ammo} shells)` : v.weapon === 'rocket' ? `rocket launcher (${v.ammo} rockets)` : v.weapon;
-  const lines = [`HP ${Math.ceil(v.hp)}/100 · ${weapon}`, v.alive ? action[v.state] ?? ACTIVITY_TEXT[v.activity] ?? 'Relaxing' : 'Dead',
+  const lines = [`HP ${Math.ceil(v.hp)}/${v.maxHp} · ${weapon}${v.leader ? ' · LEADER' : ''}`, v.alive ? action[v.state] ?? ACTIVITY_TEXT[v.activity] ?? 'Relaxing' : 'Dead',
     v.trait && (v.revealed || v.trait === 'gunslinger') ? TRAITS[v.trait] ?? 'Temperament: ordinary' : v.revealed ? 'Temperament: ordinary' : 'Temperament: not seen yet'];
   if (v.alive && v.frozenUntil > game.world.time) lines.push(`Frozen (${Math.ceil(v.frozenUntil - game.world.time)}s)`);
   if (v.alive && v.aegisUntil > game.world.time) lines.push(`Aegis mirror (${Math.ceil(v.aegisUntil - game.world.time)}s): reflects the next bullet hit`);
@@ -27,6 +28,9 @@ export function villagerInfo(game, v) {
   if (v.alive && game.world.blackoutUntil > game.world.time) lines.push('Confused by Blackout: attacks paused');
   if (v.mood < -0.5) lines.push('Having a bad day');
   if (v.mood > 0.5) lines.push('In a good mood');
+  if (v.alive && v.fx.when) lines.push(`Fallback order: ${v.whenActive ? 'ACTIVE, ' : ''}if ${v.fx.when.cond} -> ${v.fx.when.retreat ? 'retreat to the ' + (game.world.places.find((p) => p.id === v.fx.when.retreat)?.name ?? v.fx.when.retreat) : 'stand down'}`);
+  if (v.alive && v.fx.formation) lines.push(`Formation: ${v.fx.formation.style}`);
+  for (const m of (v.memory ?? []).slice(0, 3)) { const o = game.world.villagers[m.id]; if (o) lines.push(`Remembers ${o.name}: ${{ injured: 'hurt me', scared: 'scared me', robbed: 'robbed me', betrayed: 'betrayed me', rescued: 'helped me' }[m.kind] ?? m.kind}`); }
   if (v.partnerId >= 0) lines.push(`Bonded with ${name(game.world.villagers[v.partnerId])}`);
   const feelings = v.opinion.map((score, group) => ({score, group})).filter(r => r.group !== groupOf(v)).sort((a,b) => a.score-b.score);
   if (feelings[0]?.score < -15) lines.push(`Hates ${GROUP_NAMES[feelings[0].group]} (${Math.round(feelings[0].score)})`);

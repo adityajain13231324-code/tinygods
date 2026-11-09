@@ -23,7 +23,7 @@ export class Replay {
 
   play(h) {
     const rec = this.game.recorder;
-    if (!rec || rec.frames.length < 2 || !['recap', 'guess'].includes(this.game.phase)) return;
+    if (!rec || rec.frames.length < 2 || !['recap', 'guess', 'ended'].includes(this.game.phase)) return;
     if (!this.active) this.saved = this.snapshot();
     this.highlight = h;
     this.time = Math.max(h.t0, rec.start);

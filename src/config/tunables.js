@@ -516,5 +516,6 @@ export const IDEAS = {
   // Squad formations
   formation: { spread: 70, together: 55, centre: 60 },
   // Challenge modes
+  clip: { maxSeconds: 8, maxBytes: 6_000_000, bitrate: 2_500_000 },
   modes: { randomCount: 4, deliveries: 2, fuse: [10, 22], radius: 110 },
 };

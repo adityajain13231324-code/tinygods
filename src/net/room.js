@@ -26,11 +26,15 @@ const MAX_PLAYERS = 4;
 
 export const ORDER_SECS = [30, 45, 60, 90];
 export const SIM_SECS = [32, 45, 60];
-export const DEFAULT_SETTINGS = { difficulty: 'normal', orderSecs: 45, simSecs: 32 };
+export const LAYOUT_OPTIONS = ['classic', 'canal', 'market', 'farms', 'hill', 'random'];
+export const MODE_OPTIONS = ['standard', 'armed', 'one', 'explosive', 'random'];
+export const DEFAULT_SETTINGS = { difficulty: 'normal', orderSecs: 45, simSecs: 32, layout: 'classic', mode: 'standard' };
 const cleanSettings = (s = {}) => ({
   difficulty: ['easy', 'normal', 'hard'].includes(s.difficulty) ? s.difficulty : DEFAULT_SETTINGS.difficulty,
   orderSecs: ORDER_SECS.includes(Number(s.orderSecs)) ? Number(s.orderSecs) : DEFAULT_SETTINGS.orderSecs,
   simSecs: SIM_SECS.includes(Number(s.simSecs)) ? Number(s.simSecs) : DEFAULT_SETTINGS.simSecs,
+  layout: LAYOUT_OPTIONS.includes(s.layout) ? s.layout : DEFAULT_SETTINGS.layout,
+  mode: MODE_OPTIONS.includes(s.mode) ? s.mode : DEFAULT_SETTINGS.mode,
 });
 
 const newCode = () => Array.from({ length: 5 }, () => ALPHABET[Math.floor(Math.random() * ALPHABET.length)]).join('');

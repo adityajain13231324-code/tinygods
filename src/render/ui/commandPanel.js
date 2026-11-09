@@ -4,6 +4,8 @@ import { GHOST, INFLUENCE, TURN } from '../../config/tunables.js';
 import { CARD_DEFS, cardTargetGroups, describeCard, validateCard } from '../../sim/cards.js';
 import { livingGroups, groupHasMembers } from '../../sim/targets.js';
 import { describeOrder, plainOrder, validateOrders } from '../../sim/orders.js';
+import { FORMATION_STYLES, STYLE_IDS } from '../../sim/formations.js';
+import { CONDITIONS, CONDITION_IDS, CONDITION_VERBS } from '../../sim/conditions.js';
 import { parseCommand } from '../../sim/parser.js';
 import { isGhost } from '../../sim/turn.js';
 import { el } from './dom.js';
@@ -128,8 +130,8 @@ export function createCommandPanel(root, ctx) {
   }
 
   const WHO = [['Everyone', null], ['2 villagers', 2], ['4 villagers', 4], ['6 villagers', 6]];
-  const noWho = new Set(['accuse', 'praise', 'festival']);
-  const behaviour = new Set(['follow', 'escort', 'hunt', 'standdown', 'protect', 'avoid']);
+  const noWho = new Set(['accuse', 'praise', 'festival', 'formation']);
+  const behaviour = new Set(['follow', 'escort', 'hunt', 'standdown', 'protect', 'avoid', 'formation']);
 
   function draftOrder(game) {
     const d = draft;
@@ -138,6 +140,7 @@ export function createCommandPanel(root, ctx) {
     if (kinds.length && !d.target) return null;
     const order = { verb: d.verb, target: kinds.length ? d.target : null, strength: d.strength };
     if (d.who && !noWho.has(d.verb)) order.subject = { kind: 'count', n: d.who };
+    if (d.when && CONDITION_VERBS.includes(d.verb)) order.when = { cond: d.when.cond, retreat: d.when.retreat ?? null };
     void game;
     return order;
   }
@@ -198,6 +201,16 @@ export function createCommandPanel(root, ctx) {
           row.append(b);
         }
       }
+      if (kinds.includes('style')) {
+        for (const id of STYLE_IDS) {
+          const on = draft.target?.kind === 'style' && draft.target.id === id;
+          const b = el('button', `opt${on ? ' on' : ''}`, FORMATION_STYLES[id].name);
+          b.title = FORMATION_STYLES[id].blurb;
+          b.onclick = () => { draft.target = { kind: 'style', id }; build(game); };
+          row.append(b);
+        }
+        if (draft.target?.kind === 'style') panelBox.append(el('div', 'sub', FORMATION_STYLES[draft.target.id].blurb));
+      }
       if (kinds.includes('villager')) {
         const sel = el('select', 'vsel');
         sel.append(new Option('Choose a villager…', ''));
@@ -230,9 +243,37 @@ export function createCommandPanel(root, ctx) {
       panelBox.append(row);
     }
 
+    if (CONDITION_VERBS.includes(draft.verb) && !ghost) {
+      const row = el('div', 'steprow');
+      row.append(el('span', 'steplabel', 'If'));
+      const none = el('button', `opt${draft.when ? '' : ' on'}`, 'Nothing: just do it');
+      none.onclick = () => { draft.when = null; build(game); };
+      row.append(none);
+      for (const id of CONDITION_IDS) {
+        const b = el('button', `opt${draft.when?.cond === id ? ' on' : ''}`, `Fall back if ${CONDITIONS[id].name}`);
+        b.title = `Condition: ${CONDITIONS[id].text}`;
+        b.onclick = () => { draft.when = { cond: id, retreat: draft.when?.retreat ?? 'houses' }; build(game); };
+        row.append(b);
+      }
+      panelBox.append(row);
+      if (draft.when) {
+        const then = el('div', 'steprow');
+        then.append(el('span', 'steplabel', 'Then'));
+        const stand = el('button', `opt${draft.when.retreat === null ? ' on' : ''}`, 'Stand down');
+        stand.onclick = () => { draft.when.retreat = null; build(game); };
+        then.append(stand);
+        for (const p of PLACES) {
+          const b = el('button', `opt${draft.when.retreat === p.id ? ' on' : ''}`, `Retreat to ${p.name}`);
+          b.onclick = () => { draft.when.retreat = p.id; build(game); };
+          then.append(b);
+        }
+        panelBox.append(then, el('div', 'sub', `While the condition holds (${CONDITIONS[draft.when.cond].text}), those villagers drop their other movement orders and ${draft.when.retreat ? 'walk to the ' + PLACES.find((p) => p.id === draft.when.retreat).name : 'stand down'}. Being attacked still makes them fight or flee first. They return to the plan a few seconds after it is safe.`));
+      }
+    }
+
     const strength = el('div', 'steprow');
     strength.append(el('span', 'steplabel', 'Strength'));
-    for (let sI = 1; sI <= (ghost ? 1 : 3); sI++) {
+    for (let sI = 1; sI <= (ghost || draft.verb === 'formation' ? 1 : 3); sI++) {
       const b = el('button', `opt${draft.strength === sI ? ' on' : ''}`, ['Mild', 'Strong', 'Extreme'][sI - 1] + ` · ${sI}`);
       b.disabled = sI > left;
       b.onclick = () => { draft.strength = sI; build(game); };
@@ -324,6 +365,14 @@ export function createCommandPanel(root, ctx) {
       const hide={label:'🙈 Hide',orders:[{verb:'follow',target:{kind:'place',id:'houses'},strength:Math.max(1,Math.min(3,left))}]};
       const hideCheck=validateOrders([...staged,...hide.orders],game.influence[ctx.seat],game.world,game.verbsLastTurn[ctx.seat],ghost,ctx.seat);
       common.append(makeButton({...hide,ok:hideCheck.ok,error:hideCheck.error}));bar.append(common);
+      const form = el('div', 'quick-faction');
+      form.append(el('b', '', 'Formation'));
+      for (const id of STYLE_IDS) {
+        const orders = [{ verb: 'formation', target: { kind: 'style', id }, strength: 1 }];
+        const check = validateOrders([...staged, ...orders], game.influence[ctx.seat], game.world, game.verbsLastTurn[ctx.seat], ghost, ctx.seat);
+        form.append(makeButton({ label: FORMATION_STYLES[id].name + ' (' + FORMATION_STYLES[id].blurb + ')', orders, ok: check.ok, error: check.error }, id === 'spread' ? 'Spread' : id === 'together' ? 'Together' : 'Centre'));
+      }
+      bar.append(form);
       for(let f=0;f<4;f++) {
         if(f===ctx.seat||!game.world.villagers.some(v=>v.alive&&v.faction===f))continue;
         const row=el('div','quick-faction');row.append(el('b','',FACTIONS[f].name));row.style.setProperty('--faction', '#'+FACTIONS[f].color.toString(16).padStart(6,'0'));

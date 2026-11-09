@@ -1,5 +1,6 @@
 import { FACTIONS } from '../../config/content.js';
-import { DEFAULT_SETTINGS, ORDER_SECS, SIM_SECS, cleanCode, hostRoom, joinRoom } from '../../net/room.js';
+import { DEFAULT_SETTINGS, LAYOUT_OPTIONS, MODE_OPTIONS, ORDER_SECS, SIM_SECS, cleanCode, hostRoom, joinRoom } from '../../net/room.js';
+import { LAYOUT_CHOICES, MODE_CHOICES } from './menu.js';
 import { setOnline } from '../../net/online.js';
 import { DIFFICULTY } from '../../config/tunables.js';
 import { css, el } from './dom.js';
@@ -21,6 +22,8 @@ const savedSettings = () => {
     difficulty: DIFFICULTY[diff] ? diff : DEFAULT_SETTINGS.difficulty,
     orderSecs: ORDER_SECS.includes(order) ? order : DEFAULT_SETTINGS.orderSecs,
     simSecs: SIM_SECS.includes(sim) ? sim : DEFAULT_SETTINGS.simSecs,
+    layout: LAYOUT_OPTIONS.includes(read('tinygods.layout')) ? read('tinygods.layout') : DEFAULT_SETTINGS.layout,
+    mode: MODE_OPTIONS.includes(read('tinygods.mode')) ? read('tinygods.mode') : DEFAULT_SETTINGS.mode,
   };
 };
 const clockLabel = (s) => (s >= 60 ? `${s / 60 === Math.floor(s / 60) ? s / 60 : (s / 60).toFixed(1).replace('.0', '')} min` : `${s} s`);
@@ -50,7 +53,7 @@ export function showOnlineLobby(menuRoot, modal, presetCode = '', rematch = null
 
   function begin(role, mySeat, msg) {
     started = true;
-    setOnline({ role, room, mySeat, seed: msg.seed, names: msg.names, difficulty: msg.difficulty, orderSecs: msg.orderSecs, simSecs: msg.simSecs });
+    setOnline({ role, room, mySeat, seed: msg.seed, names: msg.names, difficulty: msg.difficulty, orderSecs: msg.orderSecs, simSecs: msg.simSecs, layout: msg.layout, mode: msg.mode });
     menuRoot.remove();
     overlay.remove();
     import('../../main.js');
@@ -99,7 +102,7 @@ export function showOnlineLobby(menuRoot, modal, presetCode = '', rematch = null
   }
 
   function settingsSummary(s) {
-    return `Bots: ${DIFFICULTY[s.difficulty].label}  ·  Orders ${clockLabel(s.orderSecs)}  ·  Town acts ${clockLabel(s.simSecs)}`;
+    return `Bots: ${DIFFICULTY[s.difficulty].label}  ·  Orders ${clockLabel(s.orderSecs)}  ·  Town acts ${clockLabel(s.simSecs)}  ·  Town: ${LAYOUT_CHOICES.find(([id]) => id === s.layout)?.[1] ?? 'Classic town'}  ·  ${MODE_CHOICES.find(([id]) => id === s.mode)?.[1] ?? 'Standard'}`;
   }
 
   function seg(label, hint, options, current, onPick) {
@@ -136,6 +139,8 @@ export function showOnlineLobby(menuRoot, modal, presetCode = '', rematch = null
       el('div', 'lobby-label', 'Game settings (you pick, everyone gets the same)'),
       seg('Bots', 'How hard the computer players are.', Object.entries(DIFFICULTY).map(([id, d]) => [id, d.label]), settings.difficulty, (v) => { write(v, 'tinygods.difficulty'); room.setSettings({ difficulty: v }); }),
       seg('Time for orders', 'Each dawn. Typed orders are sent when it runs out.', ORDER_SECS.map((s) => [s, clockLabel(s)]), settings.orderSecs, (v) => { write(String(v), 'tinygods.onlineOrderSecs'); room.setSettings({ orderSecs: v }); }),
+      seg('Town layout', 'Where the fights will happen. Random is one fair seeded draw.', LAYOUT_CHOICES, settings.layout, (v) => { write(v, 'tinygods.layout'); room.setSettings({ layout: v }); }),
+      seg('Challenge', 'Optional rule twist. Challenge matches do not count toward records.', MODE_CHOICES, settings.mode, (v) => { write(v, 'tinygods.mode'); room.setSettings({ mode: v }); }),
       seg('Time the town acts', 'How long each day plays out.', SIM_SECS.map((s) => [s, clockLabel(s)]), settings.simSecs, (v) => { write(String(v), 'tinygods.onlineSimSecs'); room.setSettings({ simSecs: v }); }),
     );
     card.append(status, codeBox, el('div', 'lobby-label', 'Pick your colour'), colours, list, settingsBox, btns, err);
