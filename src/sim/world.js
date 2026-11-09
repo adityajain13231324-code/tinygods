@@ -2,6 +2,9 @@ import { WORLD, WALL, POPULATION, WEAPON_START, MAX_GUNS_PER_FACTION, ARMORY, WE
 import { NAMES, PLACES, SHAPES, NEUTRAL, NEUTRAL_GROUP } from '../config/content.js';
 import { mulberry32, pick, range, shuffle } from './rng.js';
 import { createVillager, groupOf } from './villager.js';
+import { layoutOf, landNear } from './layouts.js';
+import { makeProps } from './props.js';
+import { makeGrass } from './hazards.js';
 
 /** Keep a point inside the current safe area. */
 export const clampIn = (world, x, y) => [Math.min(world.bounds.x1, Math.max(world.bounds.x0, x)), Math.min(world.bounds.y1, Math.max(world.bounds.y0, y))];
@@ -24,9 +27,10 @@ export const clampY = (y) => Math.min(WORLD.height - WORLD.margin, Math.max(WORL
  * Build the town. No rendering code here: this runs in Node as well as the browser.
  * @param {number} seed
  */
-export function createWorld(seed = 1, { cosmetics = true } = {}) {
+export function createWorld(seed = 1, { cosmetics = true, layout = 'classic' } = {}) {
   const rng = mulberry32(seed);
-  const places = PLACES.map((p) => ({ ...p }));
+  const layoutDef = layoutOf(layout);
+  const places = layoutDef.places();
   const names = shuffle(rng, NAMES);
 
   // 12 x faction 0, 12 x faction 1, ..., then 12 neutrals.
@@ -41,13 +45,14 @@ export function createWorld(seed = 1, { cosmetics = true } = {}) {
     const place = pick(rng, places);
     const angle = rng() * Math.PI * 2;
     const dist = Math.sqrt(rng()) * place.radius;
+    const [sx, sy] = landNear(layoutDef.canals, clampX(place.x + Math.cos(angle) * dist), clampY(place.y + Math.sin(angle) * dist));
     return createVillager(rng, {
       id,
       name: names[id % names.length],
       shape: pick(rng, SHAPES),
       faction,
-      x: clampX(place.x + Math.cos(angle) * dist),
-      y: clampY(place.y + Math.sin(angle) * dist),
+      x: sx,
+      y: sy,
       count: owners.length,
     });
   });
@@ -61,6 +66,12 @@ export function createWorld(seed = 1, { cosmetics = true } = {}) {
 
   return {
     seed, rng, places, villagers,
+    layout: layoutDef.id,
+    canals: layoutDef.canals, // impassable water with bridges (canal town)
+    hill: layoutDef.hill, // a slow climb (hill village)
+    props: makeProps(layoutDef.props(places)), // cover: benches, stalls, walls, hay, boulders
+    grass: makeGrass(layoutDef.grass()), // dry patches that can burn
+    goods: [], // market goods scattered by blasts (cosmetic, bounded)
     time: 0,
     turn: 1,
     armoryPool: new Array(5).fill(ARMORY.poolSize), // weapons on the shelf, kept per group so nobody wins the race by villager id

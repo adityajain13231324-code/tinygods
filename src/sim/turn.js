@@ -1,4 +1,5 @@
 import { ARMORY, DIFFICULTY, POWERS, GHOST, COMBAT, FEVER, GRIEVANCE, STORM, WORLD, INFLUENCE, NOTORIETY, POPULATION, REPLAY, SIM, TENSION, TURN } from '../config/tunables.js';
+import { resetHazards } from './hazards.js';
 import { buildHighlights } from './highlights.js';
 import { applyLoyalty } from './loyalty.js';
 import { Recorder } from './recorder.js';
@@ -30,8 +31,8 @@ const TICK = 1 / SIM.tickHz;
  * @param {{seed?: number, seats: {name: string, kind: 'human'|'bot', personality?: string}[]}} opts
  *   seats[i] leads faction i.
  */
-export function createGame({ seed = 1, seats, cosmetics = true, difficulty = 'normal', commandSeconds = TURN.commandSeconds, simSeconds = TURN.simSeconds, recapSeconds = TURN.recapSeconds }) {
-  const world = createWorld(seed, { cosmetics });
+export function createGame({ seed = 1, seats, cosmetics = true, difficulty = 'normal', commandSeconds = TURN.commandSeconds, simSeconds = TURN.simSeconds, recapSeconds = TURN.recapSeconds, layout = 'classic' }) {
+  const world = createWorld(seed, { cosmetics, layout });
   const game = {
     seed,
     world,
@@ -42,6 +43,7 @@ export function createGame({ seed = 1, seats, cosmetics = true, difficulty = 'no
     event: null, // this dawn's town event, if any
     lastEventId: null,
     difficulty,
+    layout,
     commandSeconds,
     simSeconds, // how long the town acts each day
     recapSeconds, // how long the news stays up before the next day starts by itself
@@ -316,6 +318,7 @@ function endSim(game) {
   world.rockets = [];
   world.blanks = {};
   world.cakes = [];
+  resetHazards(world);
 
   // Stand everyone down so the town is calm while players plan the next turn.
   for (const v of world.villagers) {

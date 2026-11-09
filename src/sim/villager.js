@@ -59,6 +59,7 @@ export function createVillager(rng, { id, name, shape, faction, x, y, count = 60
     hp: STATS.hp,
     maxHp: STATS.hp, // the Leader power doubles it
     leader: false,
+    coverSpot: null, // {x, y, propId}: the spot behind a prop they are running to when shot at
     blankUntil: 0, // a Blank Rounds shot just fizzled: they stare at their weapon until this sim time
     courage, baseCourage: courage,
     aggression, baseAggression: aggression,

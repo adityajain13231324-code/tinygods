@@ -503,7 +503,7 @@ export const IDEAS = {
   // Power combos
   combo: { rainSeconds: 8, chainRadius: 95, chainDamage: 9, chainMax: 4, chainGap: 0.18, bombGust: 330 },
   // Real cover and destructible props
-  cover: { seekRadius: 170, leaveAfter: 4.5, blockChance: 0.55, rocketDestroysRadius: 90 },
+  cover: { seekRadius: 170, leaveAfter: 4.5, blockChance: 0.55, blastDamage: 100 },
   // Environmental chain reactions
   hazard: { grassPatches: 3, fireSeconds: 9, spreadEvery: 1.6, maxFires: 6, fireDamage: 5, fireTick: 0.6, grassRadius: 70, rainPutsOutRadius: 150, goodsPerBlast: 5, maxGoods: 14, telegraphSeconds: 1.6 },
   // Wandering troublemaker

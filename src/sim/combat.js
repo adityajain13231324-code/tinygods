@@ -1,5 +1,7 @@
 import { BOND, BRAIN, COMBAT, GRIEVANCE, IDEAS, ORDERS, POWERS, TENSION, TRAITS, WEAPONS } from '../config/tunables.js';
 import { maybeDropWeapon } from './drops.js';
+import { coverBlocks, damageProps } from './props.js';
+import { igniteNear, scatterGoods } from './hazards.js';
 import { breakBond } from './bonds.js';
 import { chainFor, logPair } from './history.js';
 import { groupOf, isFirearm, usableWeapon } from './villager.js';
@@ -128,7 +130,10 @@ function strike(world, attacker, victim, weapon) {
     clamp(COMBAT.hitBase + (attacker.courage - victim.courage) / COMBAT.hitSpread, COMBAT.hitMin, COMBAT.hitMax),
   );
   const hitChance = Math.min(1, baseHitChance + (victim.frozenUntil > world.time ? COMBAT.frozenHitBonus : 0));
-  const hit = rng() < hitChance;
+  let hit = rng() < hitChance;
+  // Cover: a bench, stall, wall or boulder between a gunman and his target can stop the bullet.
+  const cover = hit && (weapon === 'gun' || weapon === 'shotgun') ? coverBlocks(world, attacker, victim) : null;
+  if (cover) hit = false;
   const critical = hit && isFirearm(weapon) && rng() < COMBAT.headshotChance;
 
   if (isFirearm(weapon)) {
@@ -143,7 +148,7 @@ function strike(world, attacker, victim, weapon) {
       attacker.revealed = true;
       return;
     }
-    gunshot(world, attacker, weapon, victim, hit, critical);
+    gunshot(world, attacker, weapon, victim, hit, critical, -1, cover?.id ?? null);
     attacker.revealed = true;
   }
   if (!hit) return;
@@ -208,7 +213,7 @@ function dealDamage(world, attacker, victim, weapon, share, critical = false) {
   else if (damage >= COMBAT.screamDamage && rng() < 0.6) scream(world, victim);
 }
 
-function gunshot(world, shooter, weapon, target, hit, critical = false, blanksLeft = -1) {
+function gunshot(world, shooter, weapon, target, hit, critical = false, blanksLeft = -1, coverId = null) {
   const radius = WEAPONS[weapon].panicRadius;
   const blank = blanksLeft >= 0;
   for (const o of blank ? [] : world.villagers) {
@@ -226,6 +231,7 @@ function gunshot(world, shooter, weapon, target, hit, critical = false, blanksLe
     shooterId: shooter.id, shooterFaction: shooter.faction, x: shooter.x, y: shooter.y, place: nearestPlace(world, shooter.x, shooter.y).id,
     targetId: target.id, tx: target.x, ty: target.y, hit, critical,
     ...(blank ? { blank: true, blanksLeft } : {}),
+    ...(coverId ? { coverId } : {}),
     blocked: hit && world.time < target.aegisUntil, // no blood on the reflected impact
     facing: shooter.facing,
   });
@@ -239,6 +245,10 @@ export function blast(world, seat, x, y, r, { minDamage = 14, maxDamage = 60, mi
   const owners = world.villagers.filter((v) => v.alive && v.faction === seat);
   const planter = world.villagers[source.shooterId] ?? owners.sort((p, q) => Math.hypot(p.x - x, p.y - y) - Math.hypot(q.x - x, q.y - y))[0];
   world.events.push({ type: 'explosion', turn: world.turn, time: world.time, x, y, r, source: { ...source } });
+  damageProps(world, x, y, r, source); // cover can be blown apart
+  if (['rocket', 'fireball', 'bomb', 'timebomb'].includes(source.id)) igniteNear(world, x, y, r, seat, source.id); // and dry grass can catch
+  const market = world.places.find((p) => p.id === 'market');
+  if (market && Math.hypot(market.x - x, market.y - y) < r + market.radius * 0.6) scatterGoods(world, x, y, IDEAS.hazard.goodsPerBlast);
   let hit = 0;
   for (const v of world.villagers) {
     if (!v.alive) continue;

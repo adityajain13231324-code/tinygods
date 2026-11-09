@@ -5,6 +5,7 @@ import { blast, powerDamage } from './combat.js';
 import { groupOf, isFirearm, effectiveWeapon } from './villager.js';
 import { shoveFrom, shoveToward } from './shove.js';
 import { powerUnlockError } from './availability.js';
+import { igniteNear } from './hazards.js';
 import { groupHasMembers } from './targets.js';
 
 // God powers: live miracles used while the town acts. Each costs Power points (three are added
@@ -181,6 +182,7 @@ export function castPower(game, seat, id, args = {}) {
         startIdle(world, o, 'lightning');
       }
       if (wet) chainZap(world, seat, { x: args.x, y: args.y }, wet, struck);
+      else igniteNear(world, args.x, args.y, 25, seat, 'lightning'); // a dry bolt can light dry grass
       message = n ? `Lightning scattered ${n} villager${n > 1 ? 's' : ''}.` : 'Lightning struck an empty spot.';
       break;
     }

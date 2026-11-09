@@ -94,7 +94,7 @@ export class Recorder {
     const a = new Float32Array(this.count * FIELDS);
     world.villagers.forEach((v, i) => encode(v, a, i * FIELDS));
     this.frames.push(a);
-    this.visuals.push({ blackoutUntil: world.blackoutUntil, ...Object.fromEntries(['whirlpools', 'weaponDrops', 'rockets', 'bombs', 'fogs', 'cakes'].map(key => [key, world[key].map(x => ({ ...x }))])) });
+    this.visuals.push({ blackoutUntil: world.blackoutUntil, ...Object.fromEntries(['whirlpools', 'weaponDrops', 'rockets', 'bombs', 'fogs', 'cakes', 'goods'].map(key => [key, world[key].map(x => ({ ...x }))])) });
   }
 
   get lastTime() {

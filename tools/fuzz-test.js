@@ -36,7 +36,7 @@ function checkWorld(g, where) {
     if (![v.frozenUntil,v.frozenSince,v.damageBonus,v.aegisUntil].every(Number.isFinite) || v.damageBonus < 0 || v.damageBonus > 0.5 || !Number.isInteger(v.aegisSeat) || v.aegisSeat < -1 || v.aegisSeat > 3) bad('invalid power status');
     if (v.weapon === 'rocket' && (!Number.isInteger(v.ammo) || v.ammo < 1 || v.ammo > 5)) bad('invalid rocket ammo');
     if (!Number.isFinite(v.x) || !Number.isFinite(v.y) || !Number.isFinite(v.vx) || !Number.isFinite(v.vy)) bad('non-finite position or velocity');
-    if (!Number.isFinite(v.hp) || v.hp <= 0 || v.hp > 100.0001) bad('hp out of range');
+    if (!Number.isFinite(v.hp) || v.hp <= 0 || v.hp > v.maxHp + 0.0001) bad('hp out of range');
     if (v.x < -80 || v.x > WORLD.width + 80 || v.y < -80 || v.y > WORLD.height + 80) bad('villager far outside the map');
     if (!Number.isFinite(v.aggression) || !Number.isFinite(v.courage) || v.aggression < -0.01 || v.aggression > 100.01 || v.courage < -0.01 || v.courage > 100.01) bad('aggression or courage out of range');
     if (v.state === 'attack' && !world.villagers[v.targetId]) bad('attacking nobody');

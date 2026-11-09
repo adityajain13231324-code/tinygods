@@ -1,4 +1,7 @@
 import { WALL, WORLD, BRAIN, VILLAGER, SIM, COMBAT, ORDERS, WEAPONS, ARMORY, GRIEVANCE, TENSION, TRAITS, ACTIVITY, BOND, FESTIVAL, IDEAS } from '../config/tunables.js';
+import { isWater, landNear, onHill, routeVia } from './layouts.js';
+import { findCoverSpot } from './props.js';
+import { updateHazards } from './hazards.js';
 import { breakBond, createBond, isFree } from './bonds.js';
 import { logPair } from './history.js';
 import { exchangeRumors } from './rumors.js';
@@ -51,10 +54,12 @@ export function stepWorld(world, dt = 1 / SIM.tickHz) {
     }
     act(world, v, dt);
     stepKnockback(world, v, dt);
+    if (world.canals.length && isWater(world.canals, v.x, v.y)) [v.x, v.y] = landNear(world.canals, v.x, v.y);
   }
 
   updateCarried(world);
   updatePowerEffects(world, dt);
+  updateHazards(world);
   resolveCombat(world, dt);
   updateBombs(world);
   updateTornadoes(world);
@@ -93,6 +98,8 @@ function decide(world, v) {
   }
 
   if (v.state === 'flee') {
+    // leave cover once nobody with a firearm is near any more
+    if (v.coverSpot && v.timer > 1 && !world.villagers.some((o) => o.alive && o !== v && isFirearm(effectiveWeapon(o)) && Math.hypot(o.x - v.x, o.y - v.y) < 320)) v.timer = Math.min(v.timer, IDEAS.cover.leaveAfter * 0.25);
     if (v.timer <= 0) startIdle(world, v);
     return 'flee recovery';
   }
@@ -1013,6 +1020,7 @@ export function startIdle(world, v, why = '') {
   v.expression = 'calm';
   v.targetId = null;
   v.purpose = null;
+  v.coverSpot = null;
   v.brewId = -1;
   v.timer = range(world.rng, BRAIN.idleSeconds);
 }
@@ -1048,6 +1056,12 @@ function startFlee(world, v, fromX, fromY) {
       v.fleeToX = p.x;
       v.fleeToY = p.y;
     }
+  }
+  // Shot at by a firearm: run for cover if there is a prop close by, otherwise just run.
+  v.coverSpot = null;
+  if (world.villagers.some((o) => o.alive && o !== v && Math.hypot(o.x - fromX, o.y - fromY) < 45 && isFirearm(effectiveWeapon(o)))) {
+    const cover = findCoverSpot(world, v, fromX, fromY);
+    if (cover) { v.coverSpot = cover; v.fleeToX = cover.x; v.fleeToY = cover.y; }
   }
   const scare = v.trait === 'coward' ? TRAITS.coward.panicMul : 1;
   v.timer = range(world.rng, COMBAT.fleeSeconds) * scare;
@@ -1095,6 +1109,7 @@ function act(world, v, dt) {
   let stopAt = 0;
   let speed = v.speed;
   if (v.carrying) speed *= 0.85; // dragging someone is slow work
+  if (world.hill && onHill(world.hill, v.x, v.y)) speed *= world.hill.speed; // the climb is slow
 
   switch (v.state) {
     case 'wander':
@@ -1131,8 +1146,9 @@ function act(world, v, dt) {
       const ax = v.x - v.fleeX;
       const ay = v.y - v.fleeY;
       const ad = Math.hypot(ax, ay) || 1;
-      const sx = v.fleeToX - v.x;
-      const sy = v.fleeToY - v.y;
+      const [fx, fy] = world.canals.length ? routeVia(world.canals, v.x, v.y, v.fleeToX, v.fleeToY) : [v.fleeToX, v.fleeToY];
+      const sx = fx - v.x;
+      const sy = fy - v.y;
       const sd = Math.hypot(sx, sy) || 1;
       const dx = ax / ad + (sx / sd) * 1.1;
       const dy = ay / ad + (sy / sd) * 1.1;
@@ -1142,10 +1158,13 @@ function act(world, v, dt) {
       const run = COMBAT.fleeSpeedMul - (COMBAT.fleeSpeedMul - COMBAT.fleeTiredMul) * spent;
       dvx = (dx / d) * v.speed * run;
       dvy = (dy / d) * v.speed * run;
+      // crouching behind cover: hold still once there (until the prop is gone)
+      if (v.coverSpot && Math.hypot(v.coverSpot.x - v.x, v.coverSpot.y - v.y) < 18 && world.props.some((p) => p.alive && p.id === v.coverSpot.propId)) { dvx = 0; dvy = 0; }
       break;
     }
   }
 
+  if (tx !== null && world.canals.length) [tx, ty] = routeVia(world.canals, v.x, v.y, tx, ty); // cross canals by a bridge
   if (tx !== null) {
     const dx = tx - v.x;
     const dy = ty - v.y;
@@ -1189,7 +1208,17 @@ function act(world, v, dt) {
   v.vx += (dvx - v.vx) * ease;
   v.vy += (dvy - v.vy) * ease;
 
-  [v.x, v.y] = clampIn(world, v.x + v.vx * dt, v.y + v.vy * dt);
+  {
+    let [nx, ny] = clampIn(world, v.x + v.vx * dt, v.y + v.vy * dt);
+    if (world.canals.length && isWater(world.canals, nx, ny)) {
+      // water is a wall: slide along the bank, or stand still
+      if (!isWater(world.canals, nx, v.y)) ny = v.y;
+      else if (!isWater(world.canals, v.x, ny)) nx = v.x;
+      else { nx = v.x; ny = v.y; }
+    }
+    v.x = nx;
+    v.y = ny;
+  }
 
   if (v.state === 'talk' || v.state === 'attack' || v.state === 'mourn' || v.brewId >= 0) {
     const other = world.villagers[v.targetId];
