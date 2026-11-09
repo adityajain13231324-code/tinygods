@@ -445,7 +445,8 @@ function garden(g, x, y, w) {
   }
 }
 
-function bench(g, x, y) {
+function bench() { /* benches are cover props now: drawn and destroyed by ideasView */ }
+function benchArt(g, x, y) {
   shadow(g, x, y + 4, 16, 4);
   g.rect(x - 14, y - 8, 28, 4).fill(0x8a5a35).stroke({ width: 1.2, color: INK });
   g.rect(x - 14, y - 2, 28, 5).fill(0xa8703f).stroke({ width: 1.2, color: INK });
@@ -554,7 +555,7 @@ const PLACE_DRAWERS = {
       [0xff7aa8, 0x6bb8f0, 0xf2c53d, 0x9b6bff], // cloth
       [0xb4635a, 0xd98a5a, 0xb4635a, 0xe8a070], // pots
     ];
-    const stalls = [[-96, -66], [-14, -72], [70, -62], [-62, 6], [6, 16]];
+    const stalls = []; // market stalls are cover props now (they can be destroyed), drawn by ideasView
     stalls.forEach(([dx, dy], i) => {
       const x = p.x + dx;
       const y = p.y + dy;
