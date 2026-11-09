@@ -2,7 +2,7 @@ import { WALL, WORLD, BRAIN, VILLAGER, SIM, COMBAT, ORDERS, WEAPONS, ARMORY, GRI
 import { isWater, landNear, onHill, routeVia } from './layouts.js';
 import { findCoverSpot } from './props.js';
 import { updateHazards } from './hazards.js';
-import { grudgeFactor, memoryReact, remember } from './memory.js';
+import { memoryBias, memoryReact, remember } from './memory.js';
 import { formationSteer, updateFormations } from './formations.js';
 import { conditionFallback } from './conditions.js';
 import { troubleDuties } from './troublemaker.js';
@@ -336,6 +336,7 @@ function updateGrievance(world, v) {
   const mood = 1 + GRIEVANCE.moodSwing * v.mood; // a bad day shortens tempers
   const wild = v.trait === 'wildcard' ? range(world.rng, TRAITS.wildcard.moodRange) : 1;
   const sight = world.sight;
+  const bias = v.memory.length ? memoryBias(v) : null; // how much each remembered person raises my temper
   for (const o of world.villagers) {
     if (o === v || !o.alive || o.id === v.partnerId) continue;
     const dislike = -v.opinion[groupOf(o)] - GRIEVANCE.dislikeFrom;
@@ -343,7 +344,7 @@ function updateGrievance(world, v) {
     const d = dist(v, o.x, o.y);
     if (d > sight) continue;
     const strength = Math.min(1, dislike / (100 - GRIEVANCE.dislikeFrom));
-    gr[o.id] += GRIEVANCE.rate * strength * mood * wild * (1 - (0.5 * d) / sight) * dt * (v.memory.length ? grudgeFactor(v, o.id) : 1);
+    gr[o.id] += GRIEVANCE.rate * strength * mood * wild * (1 - (0.5 * d) / sight) * dt * (bias ? (bias[o.id] ?? 1) : 1);
   }
 }
 

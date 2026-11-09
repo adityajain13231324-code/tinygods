@@ -21,14 +21,11 @@ export function remember(world, v, otherId, kind) {
   }
 }
 
-/** How much more (or less) this villager's temper rises around that one person. */
-export function grudgeFactor(v, otherId) {
-  let f = 1;
-  for (const m of v.memory) {
-    if (m.id !== otherId) continue;
-    f *= m.kind === 'betrayed' ? 1.5 : m.kind === 'rescued' ? 0.7 : 1.3;
-  }
-  return f;
+/** How much more (or less) this villager's temper rises around each remembered person (id -> factor). */
+export function memoryBias(v) {
+  const out = {};
+  for (const m of v.memory) out[m.id] = (out[m.id] ?? 1) * (m.kind === 'betrayed' ? 1.5 : m.kind === 'rescued' ? 0.7 : 1.3);
+  return out;
 }
 
 /** Forgive the harm done by anyone matching `test`. At most a few per call, each one recorded. */

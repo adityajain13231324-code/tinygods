@@ -239,18 +239,24 @@ export class IdeasView {
     this.clock += dt;
     const reduced = this.reduced;
     // props
-    const live = new Map((data?.props ?? []).map((p) => [p.id, p]));
+    const list = data?.props;
+    let pi = 0;
     for (const rec of this.props.values()) {
-      const state = live.get(rec.p.id);
+      const state = list ? list[pi] : null;
+      pi++;
       const alive = state ? state.alive : true;
       if (rec.alive && !alive) { rec.alive = false; rec.sprite.texture = this.rubbleTexture(rec.p); rec.sprite.zIndex = rec.p.y - 5000; rec.sprite.rotation = 0; }
       else if (!rec.alive && alive) { rec.alive = true; rec.sprite.texture = this.propTexture(rec.p); rec.sprite.zIndex = rec.p.y + rec.p.h * 0.5; }
       if (rec.shake > 0.02) { rec.shake *= 0.85; rec.sprite.rotation = reduced ? 0 : Math.sin(this.clock * 60) * rec.shake * 0.06; } else if (rec.sprite.rotation !== 0 && rec.alive) rec.sprite.rotation = 0;
     }
     // grass
-    this.flames.clear();
+    const hadFlames = this.flamesLit;
+    let anyFlame = false;
+    if (hadFlames) this.flames.clear();
+    let gi = 0;
     for (const slot of this.grass) {
-      const p = (data?.grass ?? []).find((q) => q.id === slot.p.id) ?? slot.p;
+      const p = data?.grass?.[gi] ?? slot.p;
+      gi++;
       if (slot.key !== p.state) {
         slot.key = p.state;
         const g = slot.g;
@@ -264,6 +270,7 @@ export class IdeasView {
         if (p.state === 'dry') g.ellipse(p.x, p.y, p.r, p.r * 0.72).stroke({ width: 2, color: 0xe8d77a, alpha: 0.7 });
       }
       if (p.state === 'burning') {
+        anyFlame = true;
         for (let i = 0; i < 9; i++) {
           const a = i * 2.2 + p.x, d = (i * 17) % p.r * 0.8;
           const h = 16 + (reduced ? 6 : Math.abs(Math.sin(this.clock * 9 + i * 1.7)) * 16);
@@ -272,21 +279,28 @@ export class IdeasView {
           this.flames.poly([fx0 - 3.5, fy0, fx0, fy0 - h * 0.6, fx0 + 3.5, fy0]).fill({ color: 0xffd34a, alpha: 0.95 });
         }
       } else if (p.state === 'smolder') {
+        anyFlame = true;
         // the warning: a pulsing ring and thin smoke, long before any damage
         const pulse = reduced ? 0.7 : 0.5 + 0.5 * Math.sin(this.clock * 8);
         this.flames.ellipse(p.x, p.y, p.r * (1 + 0.04 * pulse), p.r * 0.72 * (1 + 0.04 * pulse)).stroke({ width: 3, color: 0xff7a3a, alpha: 0.5 + 0.4 * pulse });
         for (let i = 0; i < 4; i++) this.flames.circle(p.x + Math.cos(i * 1.7 + this.clock) * p.r * 0.4, p.y - 10 - ((this.clock * 24 + i * 11) % 30), 5 + i).fill({ color: 0x777777, alpha: 0.3 });
       }
     }
-    // goods
-    this.goodsG.clear();
-    for (const goods of data?.goods ?? []) {
+    this.flamesLit = anyFlame;
+    // goods (redrawn only while there is something to draw)
+    const goodsList = data?.goods ?? [];
+    if (goodsList.length || this.goodsLit) this.goodsG.clear();
+    this.goodsLit = goodsList.length > 0;
+    for (const goods of goodsList) {
       const fade = Math.min(1, Math.max(0, (goods.until - time) / 2));
       this.goodsG.circle(goods.x, goods.y, 5).fill({ color: [0xe5533d, 0xf2c53d, 0x7acb7f, 0xff7aa8][goods.look % 4], alpha: fade }).stroke({ width: 1.2, color: INK, alpha: fade });
     }
     // dropped weapons (beacon pulses; fades out in its last seconds)
-    this.dropsG.clear();
-    for (const d of data?.weaponDrops ?? []) {
+    const dropList = data?.weaponDrops ?? [];
+    const anyDrop = dropList.some((d) => d.weapon);
+    if (anyDrop || this.dropsLit) this.dropsG.clear();
+    this.dropsLit = anyDrop;
+    for (const d of dropList) {
       if (!d.weapon) continue;
       const fade = Math.min(1, Math.max(0, (d.until - time) / 4));
       const pulse = reduced ? 0.5 : 0.5 + 0.5 * Math.sin(this.clock * 6);
@@ -299,8 +313,10 @@ export class IdeasView {
       else { this.dropsG.rect(d.x - 9, d.y - 3, 16, 5).fill({ color: c, alpha: fade }); this.dropsG.rect(d.x - 3, d.y, 4, 7).fill({ color: c, alpha: fade }); }
     }
     // free cake
-    this.cakesG.clear();
-    for (const c of data?.cakes ?? []) {
+    const cakeList = data?.cakes ?? [];
+    if (cakeList.length || this.cakesLit) this.cakesG.clear();
+    this.cakesLit = cakeList.length > 0;
+    for (const c of cakeList) {
       const fade = Math.min(1, Math.max(0, (c.until - time) / 2));
       const bob = reduced ? 0 : Math.sin(this.clock * 4) * 2;
       this.cakesG.ellipse(c.x, c.y + 12, 20, 6).fill({ color: 0x000000, alpha: 0.2 * fade });
@@ -312,6 +328,11 @@ export class IdeasView {
 
     // overlay: rain zones (the wet area where Lightning chains), bomb crates, combo traces
     const g = this.fx;
+    const rainOn = (data?.fogs ?? []).some((f) => f.rain && time < f.until);
+    const bombsOn = (data?.bombs ?? []).length > 0;
+    const overlayOn = rainOn || bombsOn || this.zaps.length > 0 || this.pushes.length > 0;
+    if (!overlayOn && !this.overlayLit) return;
+    this.overlayLit = overlayOn;
     g.clear();
     let label = 0;
     const put = (text, x, y, color = 0xffffff, size = 1) => {
