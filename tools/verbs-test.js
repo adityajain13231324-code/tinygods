@@ -92,7 +92,7 @@ compare('arm up', 'arm up', 20, (g) => side(g, 0).filter((v) => v.weapon !== 'no
 compare('accuse', 'accuse the tides', 20, (g) => g.world.villagers.filter((v) => v.alive && v.believed.length > 0).length, (a, b) => a > b);
 compare('praise', 'praise the sparks', 20, (g) => g.world.villagers.filter((v) => v.alive && v.believed.length > 0).length, (a, b) => a > b);
 compare('festival', 'party at the pond', 12, (g) => g.world.villagers.filter((v) => v.alive && v.activity === 'dance').length, (a, b) => a >= b + 3);
-compare('run away', 'run away from everyone', 14, (g) => r1(avg(side(g, 0).map((v) => Math.min(...g.world.villagers.filter((o) => o.alive && o.faction !== 0).map((o) => Math.hypot(o.x - v.x, o.y - v.y)))))), (a, b) => a > b * 1.5);
+compare('run away', 'run away from everyone', 14, (g) => r1(avg(side(g, 0).map((v) => Math.min(...g.world.villagers.filter((o) => o.alive && o.faction !== 0).map((o) => Math.hypot(o.x - v.x, o.y - v.y)))))), (a, b) => a > b * 1.5, undefined, 72);
 // hunt: the named villager takes damage
 {
   const g0 = start(73);

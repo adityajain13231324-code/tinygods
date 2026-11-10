@@ -106,3 +106,25 @@ test('competing movement orders do not make a villager flip every half second', 
   for (let s = 0; s < 60; s++) { run(g, 0.5); if (v.state !== last) { flips++; last = v.state; } }
   assert.ok(flips <= 8, `${flips} state changes in 30 seconds`);
 });
+
+test('loot: a launcher crate is sought like any dropped weapon and gives 5 rockets that are actually fired', () => {
+  const g = fresh(); const w = g.world;
+  const v = at(of(g, 0)[0], 880, 520), foe = at(of(g, 1)[0], 1000, 520);
+  w.weaponDrops.push({ id: 'crate', x: 740, y: 500 }); // a launcher crate: no weapon field
+  run(g, 12);
+  assert.equal(v.weapon, 'rocket'); assert.equal(v.ammo, 5);
+  Object.assign(v, { state: 'attack', targetId: foe.id, cd: 0 });
+  for (let i = 0; i < 80; i++) { v.cd = Math.min(v.cd, 0); tick(g); }
+  assert.ok(w.events.some((e) => e.type === 'rocketLaunch' && e.shooterId === v.id), 'the collector really fires the launcher');
+});
+
+test('loot: a villager who cannot make progress gives the errand up and does not retry at once', () => {
+  const g = fresh(); const w = g.world;
+  const v = at(of(g, 0)[0], 900, 500);
+  v.speed = 0; // pinned: cannot move at all
+  w.weaponDrops.push({ id: 'far', x: 700, y: 500, weapon: 'bat', ammo: 0, until: w.time + 60 });
+  run(g, 14);
+  assert.equal(v.weapon, 'none');
+  assert.ok(v.lootCool > w.time, 'cooling off after giving up');
+  assert.notEqual(v.purpose, 'loot');
+});
