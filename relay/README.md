@@ -18,7 +18,7 @@ Why: the free `openrelay.metered.ca` TURN service the game used before no longer
 4. Check: open https://tiny-gods-relay.onrender.com/health -> `{"ok":true,...}`.
 
 The free plan sleeps after ~15 minutes idle; the game pings `/health` first and waits up to a minute for it to wake,
-so the first room of the day is slow, the rest are instant. Without `VITE_RELAY_URL` the game falls back to direct WebRTC.
+so the first room of the day is slow, the rest are instant. The live address is the default in `src/net/transport.js`; `VITE_RELAY_URL` overrides it and `?relay=off` forces direct WebRTC.
 
 ## Limits
 Rooms live until the host leaves (3 h max). 64 KB per message, 80 messages per second per socket, 6 guests per room.
