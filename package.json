@@ -12,6 +12,8 @@
     "test:browser-ideas": "node tools/browser-ideas.mjs",
     "balance": "node tools/ideas-balance.js",
     "bench": "node tools/bench-sim.js && node tools/bench-ticks.js",
+    "test:browser-menu": "node tools/menu-review.mjs",
+    "test:browser-battlefield": "node tools/battlefield-browser.mjs",
     "check": "node tools/verify.js",
     "smoke": "node tools/sim-smoke.js",
     "net-test": "node tools/net-test.js"
@@ -21,6 +23,7 @@
     "pixi.js": "^8.22.0"
   },
   "devDependencies": {
+    "playwright": "^1.65.0",
     "vite": "^8.3.5"
   }
 }

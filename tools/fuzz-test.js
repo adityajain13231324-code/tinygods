@@ -10,6 +10,7 @@ import { mulberry32 } from '../src/sim/rng.js';
 import { WORLD, IDEAS } from '../src/config/tunables.js';
 import { LAYOUT_IDS, isWater } from '../src/sim/layouts.js';
 import { MODE_IDS } from '../src/sim/modes.js';
+import { buildAwards } from '../src/sim/awards.js';
 
 const N = Number(process.argv[2] ?? 12);
 const FIRST = Number(process.argv[3] ?? 1);
@@ -113,6 +114,11 @@ function playMatch(seed) {
   }
   if (g.phase !== 'ended') report('match did not finish', `seed ${seed} turn ${g.turn} phase ${g.phase}`);
   checkWorld(g, 'end');
+  const awards = buildAwards(g.world);
+  const villagerNames = new Set(g.world.villagers.map(v => v.name));
+  if (awards.some(a => !villagerNames.has(a.name)) || new Set(awards.map(a => a.title)).size !== awards.length) {
+    report('invalid end awards', `seed ${seed}: ${JSON.stringify(awards)}`);
+  }
   return { turns: g.turn, winner: g.winner };
 }
 

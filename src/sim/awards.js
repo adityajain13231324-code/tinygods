@@ -1,5 +1,6 @@
 import { HIGHLIGHT } from '../config/tunables.js';
 import { FRAME_SECONDS } from './recorder.js';
+import { FACTIONS } from '../config/content.js';
 
 // End titles use only recorded match events. They never change the simulation.
 // Each award points at one real moment (turn, sim time, place) so the end screen can offer a short
@@ -34,7 +35,7 @@ export function buildAwards(world, recorder = null, currentTurn = world?.turn) {
       s.total++;
       if (!e.hit) { s.misses++; lastMoment.set(`aim:${e.shooterId}`, moment(e)); }
       shots.set(e.shooterId, s);
-      if (!e.hit && villagers[e.targetId]?.alive) { escaped.set(e.targetId, (escaped.get(e.targetId) ?? 0) + 1); lastMoment.set(`escape:${e.targetId}`, moment(e, e.tx, e.ty)); }
+      if (!e.hit && e.targetState === 'flee' && villagers[e.targetId]?.alive) { escaped.set(e.targetId, (escaped.get(e.targetId) ?? 0) + 1); lastMoment.set(`escape:${e.targetId}`, moment(e, e.tx, e.ty)); }
       if (e.coverId) { covered.set(e.targetId, (covered.get(e.targetId) ?? 0) + 1); lastMoment.set(`cover:${e.targetId}`, moment(e, e.tx, e.ty)); }
     }
   }
@@ -46,10 +47,10 @@ export function buildAwards(world, recorder = null, currentTurn = world?.turn) {
   const chaos = best(scores, (_, score) => score >= 3);
   if (chaos) push('Most Chaotic Villager', chaos[0], 'At the centre of the most recorded trouble.', lastMoment.get(`chaos:${chaos[0]}`));
   const escape = best(escaped, (_, count) => count >= 2);
-  if (escape) push('Best Escape', escape[0], `${escape[1]} shots missed them, and they survived.`, lastMoment.get(`escape:${escape[0]}`));
+  if (escape) push('Best Escape', escape[0], `${escape[1]} shots missed them while fleeing. They survived.`, lastMoment.get(`escape:${escape[0]}`));
   const betrayal = events.filter((e) => e.type === 'defect' && villagers[e.villagerId])
     .sort((a, b) => (scores.get(b.villagerId) ?? 0) - (scores.get(a.villagerId) ?? 0))[0];
-  if (betrayal) push('Biggest Betrayal', betrayal.villagerId, 'Changed factions during the match.', moment(betrayal, villagers[betrayal.villagerId].x, villagers[betrayal.villagerId].y));
+  if (betrayal) push('Biggest Betrayal', betrayal.villagerId, `Left the ${FACTIONS[betrayal.from]?.name ?? 'old faction'} for the ${FACTIONS[betrayal.to]?.name ?? 'new faction'}.`, moment(betrayal, villagers[betrayal.villagerId].x, villagers[betrayal.villagerId].y));
   const worst = best(new Map([...shots].map(([id, s]) => [id, s.misses])), (id, misses) => shots.get(id).total >= 3 && misses >= 3);
   if (worst) push('Worst Aim', worst[0], `${worst[1]} recorded shots missed.`, lastMoment.get(`aim:${worst[0]}`));
   const confused = best(blanks);

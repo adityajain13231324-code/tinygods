@@ -233,7 +233,7 @@ function gunshot(world, shooter, weapon, target, hit, critical = false, blanksLe
   world.events.push({
     type: 'gunshot', turn: world.turn, time: world.time, weapon,
     shooterId: shooter.id, shooterFaction: shooter.faction, x: shooter.x, y: shooter.y, place: nearestPlace(world, shooter.x, shooter.y).id,
-    targetId: target.id, tx: target.x, ty: target.y, hit, critical,
+    targetId: target.id, targetState: target.state, tx: target.x, ty: target.y, hit, critical,
     ...(blank ? { blank: true, blanksLeft } : {}),
     ...(coverId ? { coverId } : {}),
     blocked: hit && world.time < target.aegisUntil, // no blood on the reflected impact

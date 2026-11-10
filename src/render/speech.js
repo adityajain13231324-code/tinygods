@@ -115,6 +115,12 @@ export class Speech {
     this.free.push({ root: b.root, bg: b.bg, text: b.text });
   }
 
+  /** Replay borrows live villagers; discard old observations at both boundaries. */
+  reset(views) {
+    for (const bubble of [...this.live]) this.release(bubble);
+    for (const view of views) view.sp = null;
+  }
+
   update(dt) {
     const inv = 1 / Math.max(this.camera.scale || 1, 0.0001);
     const s = Math.min(inv, 1 / MIN_SCREEN_SCALE * 1.4);
@@ -185,9 +191,9 @@ export class Speech {
   }
 
   /** Watch a villager for things worth saying. Called every frame; cheap edge detection. */
-  watch(view) {
+  watch(view, observedTime = this.game.world.time) {
     const v = view.v;
-    const m = (view.sp ??= { state: v.state, speaking: false, hit: 0, hp: v.hp, frozen: v.frozenUntil > this.game.world.time, ammo: v.ammo, believed: v.believed.length, faction: v.faction, partner: v.partnerId, activity: v.activity, hurt: false, weapon: v.weapon, expr: v.expression, brew: -1 });
+    const m = (view.sp ??= { state: v.state, speaking: false, hit: 0, hp: v.hp, frozen: v.frozenUntil > observedTime, ammo: v.ammo, believed: v.believed.length, faction: v.faction, partner: v.partnerId, activity: v.activity, hurt: false, weapon: v.weapon, expr: v.expression, brew: -1 });
     if (!v.alive) return;
     const chance = (p) => Math.random() < p;
 
@@ -222,7 +228,7 @@ export class Speech {
     // These reactions follow observed changes, so they also work in recorded replays.
     // A large HP jump distinguishes a miracle or medic from slow natural recovery.
     if (v.hp - m.hp >= 15 && chance(0.7)) this.say(view, 'healed', 2);
-    const frozen = v.frozenUntil > this.game.world.time;
+    const frozen = v.frozenUntil > observedTime;
     if (frozen && !m.frozen && chance(0.7)) this.say(view, 'frozen', 2);
     if (m.weapon === 'rocket' && m.ammo > 1 && v.weapon === 'rocket' && v.ammo === 1) this.say(view, 'lastRocket', 2);
     if (m.weapon === 'rocket' && m.ammo === 1 && v.weapon !== 'rocket') this.say(view, 'rocketEmpty', 2);
