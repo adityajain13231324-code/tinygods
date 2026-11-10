@@ -5,7 +5,7 @@ const checks=[
   ['regressions',['--test',...fs.readdirSync('tools').filter(n=>n.endsWith('.test.js')).map(n=>'tools/'+n)]],
   ['smoke',['tools/sim-smoke.js']],['parser',['tools/parse-test.js']],['orders',['tools/orders-test.js']],
   ['verbs',['tools/verbs-test.js']],['powers',['tools/powers-test.js']],['effects',['tools/effects-test.js']],
-  ['balance',['tools/ideas-balance.js','8']],['network',['tools/net-test.js','6']],['fuzz',['tools/fuzz-test.js','12']],['build',['node_modules/vite/bin/vite.js','build']],
+  ['balance',['tools/ideas-balance.js','8']],['network',['tools/net-test.js','6']],['relay',['--test','tools/relay.test.js']],['fuzz',['tools/fuzz-test.js','12']],['build',['node_modules/vite/bin/vite.js','build']],
 ];
 const report=process.argv[2];if(report)fs.mkdirSync(report,{recursive:true});
 let failed=0;

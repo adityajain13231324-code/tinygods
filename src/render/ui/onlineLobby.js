@@ -155,7 +155,8 @@ export function showOnlineLobby(menuRoot, modal, presetCode = '', rematch = null
       onChange(players, code) {
         latest = players;
         if (code) {
-          url = `${location.origin}${location.pathname}?room=${code}`;
+          const testRelay = new URLSearchParams(location.search).get('relay'); // only set when testing against a relay by hand
+          url = `${location.origin}${location.pathname}?room=${code}${testRelay ? `&relay=${encodeURIComponent(testRelay)}` : ''}`;
           codeBox.replaceChildren(el('div', 'lobby-code-big', code), el('div', 'sub', 'Tell your friends this code, or send them the link.'));
           status.textContent = players.length < 2 ? 'Waiting for friends to join…' : 'Ready when you are.';
         }

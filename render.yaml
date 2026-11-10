@@ -1,0 +1,12 @@
+# One-click Render blueprint for the Tiny Gods turn relay (free plan: it sleeps when idle and the game wakes it).
+services:
+  - type: web
+    name: tiny-gods-relay
+    runtime: docker
+    plan: free
+    rootDir: relay
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    envVars:
+      - key: PORT
+        value: "8787"

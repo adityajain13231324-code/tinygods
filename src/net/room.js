@@ -1,4 +1,4 @@
-import Peer from 'peerjs';
+import { makePeer, usingRelay } from './transport.js';
 
 // Rooms over WebRTC (PeerJS): the host's browser is the hub. PeerJS's free public broker only
 // introduces the browsers to each other; after that, game messages go straight between them.
@@ -61,6 +61,8 @@ export function hostRoom({ name, code = '', seat = 0, settings, onChange, onErro
   };
   let peer = null;
   let tries = 0;
+  let retry = null;
+  let closed = false;
   let nextId = 1;
   const fixedCode = cleanCode(code).length === 5 ? cleanCode(code) : '';
 
@@ -75,15 +77,16 @@ export function hostRoom({ name, code = '', seat = 0, settings, onChange, onErro
     : [0, 1, 2, 3].find((s) => !room.players.some((p) => p.seat === s)));
 
   function open() {
+    if (closed) return;
     room.code = fixedCode || newCode();
-    peer = new Peer(idFor(room.code), { config: ICE, debug: 1 });
+    peer = makePeer(idFor(room.code), ICE);
     peer.on('error', (e) => {
       if (e.type === 'unavailable-id') {
-        if (fixedCode && tries++ < 20) { try { peer.destroy(); } catch { /* already gone */ } setTimeout(open, 1500); return; } // the old room is still being released
+        if (fixedCode && tries++ < 20) { try { peer.destroy(); } catch { /* already gone */ } retry = setTimeout(open, 1500); return; } // the old room is still being released
         if (!fixedCode && tries++ < 6) { peer.destroy(); open(); return; }
       }
       onError?.(networkTrouble(e)
-        ? 'Could not reach the matchmaking server. Check your internet connection and try again.'
+        ? (usingRelay() ? 'Could not reach the game relay. Check your internet connection and try again (a sleeping relay can take a minute to wake).' : 'Could not reach the matchmaking server. Check your internet connection and try again.')
         : `Connection problem (${e.type}).`);
     });
     peer.on('open', () => onChange?.(list(), room.code, room.settings));
@@ -149,21 +152,21 @@ export function hostRoom({ name, code = '', seat = 0, settings, onChange, onErro
   /** Wire the running Lockstep to this room (host side). */
   room.attach = (lockstep) => { room.lockstep = lockstep; };
   room.broadcast = broadcast;
-  room.close = () => { try { peer?.destroy(); } catch { /* already gone */ } };
+  room.close = () => { closed = true; clearTimeout(retry); try { peer?.destroy(); } catch { /* already gone */ } };
   return room;
 }
 
 /** Join a room. Callbacks: onLobby(players[], settings), onStart({seed,names,seat,...}), onError(text, code), onClose(started). */
 export function joinRoom({ code, name, seat, onLobby, onStart, onError, onClose }) {
   const room = { code, seat: -1, id: -1, lockstep: null, started: false, closed: false, onRematch: null };
-  const peer = new Peer({ config: ICE, debug: 1 });
+  const peer = makePeer(null, ICE);
   let conn = null;
   const fail = (text, kind) => { clearTimeout(timer); room.close(); onError?.(text, kind); };
-  const timer = setTimeout(() => fail('Could not find that room. Check the code, and that the host still has the lobby open (different networks can take ~30s).', 'timeout'), 35000);
+  const timer = setTimeout(() => fail('Could not find that room. Check the code, and that the host still has the lobby open (different networks can take ~30s).', 'timeout'), usingRelay() ? 75000 : 35000);
 
   peer.on('error', (e) => fail(e.type === 'peer-unavailable'
     ? 'No room with that code. Check it and try again.'
-    : networkTrouble(e) ? 'Could not reach the matchmaking server. Check your internet connection.' : `Connection problem (${e.type}).`, e.type));
+    : e.type === 'room-full' ? 'That room is full.' : networkTrouble(e) ? (usingRelay() ? 'Could not reach the game relay. Check your internet connection and try again.' : 'Could not reach the matchmaking server. Check your internet connection.') : `Connection problem (${e.type}).`, e.type));
   peer.on('open', () => {
     conn = peer.connect(idFor(code), { reliable: true, serialization: 'json' });
     conn.on('open', () => {
